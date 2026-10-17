@@ -9,7 +9,7 @@ This is the material for a VLSI design course, held at JKU under course number 3
 
 The course makes heavy use of digital simulation, using **SystemVerilog**, [**cocotb**](https://github.com/cocotb/cocotb), [**GTKWave**](https://github.com/gtkwave/gtkwave) and [**Surfer**](https://gitlab.com/surfer-project/surfer).
 Moreover, [**LibreLane**](https://github.com/librelane/librelane) is used for digital macro hardening, padframe generation and top-level assembly.
-The 130nm CMOS technology [**SG13G2**](https://github.com/IHP-GmbH/IHP-Open-PDK) from [IHP Microelectronics](https://www.ihp-microelectronics.com) is used.
+The 130nm CMOS technology [**SG13CMOS5L**](https://github.com/IHP-GmbH/IHP-Open-PDK) from [IHP Microelectronics](https://www.ihp-microelectronics.com) is used.
 
 Tools and PDK are integrated in the [**IIC-OSIC-TOOLS**](https://github.com/iic-jku/IIC-OSIC-TOOLS) Docker image, which will be used during the coursework.
 
