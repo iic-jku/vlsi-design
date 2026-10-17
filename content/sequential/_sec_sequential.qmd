@@ -1,0 +1,10 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+# Sequential Elements and Static Timing Analysis {#sec-sequential}
+
+::: {.callout-note}
+This chapter will be released later in the semester.
+:::

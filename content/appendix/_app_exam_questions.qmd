@@ -1,0 +1,10 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+# Appendix: Sample Exam Questions {#sec-app-exam}
+
+::: {.callout-note}
+This appendix will be released later in the semester.
+:::
