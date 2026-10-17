@@ -1,9 +1,0 @@
-cff-version: 1.2.0
-message: "If you base your work on it, please cite it as below."
-authors:
-- family-names: Dorrer
-  given-names: Simon
-  orcid: https://orcid.org/0009-0001-5994-5477
-title: "VLSI Design"
-date-released: 2026
-url: https://github.com/iic-jku/vlsi-design

@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Simon Dorrer">
+<meta name="dcterms.date" content="2026-10-17">
+
+<title>VLSI Design</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./favicon.png" rel="icon" type="image/png">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-b626d73c4c936ccc3cb08be7d45d1df6.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-e7b4535bb9f81c5a0a19056beabb1668.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-a3b81a2a417e140af123b784fcc878c5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="site_libs/bootstrap/bootstrap-e7b4535bb9f81c5a0a19056beabb1668.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script src="site_libs/quarto-contrib/glightbox/glightbox.min.js"></script>
+<link href="site_libs/quarto-contrib/glightbox/glightbox.min.css" rel="stylesheet">
+<link href="site_libs/quarto-contrib/glightbox/lightbox.css" rel="stylesheet">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">VLSI Design</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="./index.html"> <i class="bi bi-house" role="img">
+</i> 
+<span class="menu-text">About</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link active" href="./vlsi.html" aria-current="page"> 
+<span class="menu-text">Course Material</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./vlsi.pdf"> <i class="bi bi-filetype-pdf" role="img">
+</i> 
+<span class="menu-text">PDF</span></a>
+  </li>  
+</ul>
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/iic-jku/vlsi-design" target="_blank"> <i class="bi bi-github" role="img">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active" data-toc-expanded="2">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#sec-intro" id="toc-sec-intro" class="nav-link active" data-scroll-target="#sec-intro"><span class="header-section-number">1</span> Introduction</a>
+  <ul class="collapse">
+  <li><a href="#sec-intro-ai" id="toc-sec-intro-ai" class="nav-link" data-scroll-target="#sec-intro-ai"><span class="header-section-number">1.1</span> Preamble on the Use of AI</a></li>
+  <li><a href="#sec-intro-objectives" id="toc-sec-intro-objectives" class="nav-link" data-scroll-target="#sec-intro-objectives"><span class="header-section-number">1.2</span> Learning Objectives</a></li>
+  <li><a href="#sec-intro-prerequisites" id="toc-sec-intro-prerequisites" class="nav-link" data-scroll-target="#sec-intro-prerequisites"><span class="header-section-number">1.3</span> Prerequisites</a></li>
+  <li><a href="#sec-intro-content" id="toc-sec-intro-content" class="nav-link" data-scroll-target="#sec-intro-content"><span class="header-section-number">1.4</span> Course Content</a></li>
+  <li><a href="#sec-intro-grading" id="toc-sec-intro-grading" class="nav-link" data-scroll-target="#sec-intro-grading"><span class="header-section-number">1.5</span> Grading</a></li>
+  <li><a href="#sec-intro-why-asic" id="toc-sec-intro-why-asic" class="nav-link" data-scroll-target="#sec-intro-why-asic"><span class="header-section-number">1.6</span> Why ASICs?</a></li>
+  <li><a href="#sec-intro-taxonomy" id="toc-sec-intro-taxonomy" class="nav-link" data-scroll-target="#sec-intro-taxonomy"><span class="header-section-number">1.7</span> A Taxonomy of ASICs</a></li>
+  <li><a href="#sec-intro-flow" id="toc-sec-intro-flow" class="nav-link" data-scroll-target="#sec-intro-flow"><span class="header-section-number">1.8</span> The Digital Design Flow</a></li>
+  <li><a href="#sec-intro-tools" id="toc-sec-intro-tools" class="nav-link" data-scroll-target="#sec-intro-tools"><span class="header-section-number">1.9</span> The IIC-OSIC-TOOLS Container</a></li>
+  <li><a href="#sec-intro-template" id="toc-sec-intro-template" class="nav-link" data-scroll-target="#sec-intro-template"><span class="header-section-number">1.10</span> The AMS Chip Template</a>
+  <ul class="collapse">
+  <li><a href="#sec-intro-template-flow" id="toc-sec-intro-template-flow" class="nav-link" data-scroll-target="#sec-intro-template-flow"><span class="header-section-number">1.10.1</span> Flow Overview</a></li>
+  <li><a href="#sec-intro-template-structure" id="toc-sec-intro-template-structure" class="nav-link" data-scroll-target="#sec-intro-template-structure"><span class="header-section-number">1.10.2</span> Folder Structure and Makefiles</a></li>
+  </ul></li>
+  <li><a href="#sec-intro-agentic" id="toc-sec-intro-agentic" class="nav-link" data-scroll-target="#sec-intro-agentic"><span class="header-section-number">1.11</span> Agentic AI Chip Design</a></li>
+  <li><a href="#sec-intro-tinywhisper" id="toc-sec-intro-tinywhisper" class="nav-link" data-scroll-target="#sec-intro-tinywhisper"><span class="header-section-number">1.12</span> Example: The TinyWhisper SoC</a>
+  <ul class="collapse">
+  <li><a href="#weak-signal-propagation-reporter" id="toc-weak-signal-propagation-reporter" class="nav-link" data-scroll-target="#weak-signal-propagation-reporter"><span class="header-section-number">1.12.1</span> Weak Signal Propagation Reporter</a></li>
+  <li><a href="#chip-overview" id="toc-chip-overview" class="nav-link" data-scroll-target="#chip-overview"><span class="header-section-number">1.12.2</span> Chip Overview</a></li>
+  </ul></li>
+  <li><a href="#sec-intro-installation" id="toc-sec-intro-installation" class="nav-link" data-scroll-target="#sec-intro-installation"><span class="header-section-number">1.13</span> Tools Installation</a>
+  <ul class="collapse">
+  <li><a href="#sec-intro-install-local" id="toc-sec-intro-install-local" class="nav-link" data-scroll-target="#sec-intro-install-local"><span class="header-section-number">1.13.1</span> Local Installation</a></li>
+  <li><a href="#sec-intro-install-cows" id="toc-sec-intro-install-cows" class="nav-link" data-scroll-target="#sec-intro-install-cows"><span class="header-section-number">1.13.2</span> Containerized On-Demand Workspace System (COWS)</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#sec-sv-crashcourse" id="toc-sec-sv-crashcourse" class="nav-link" data-scroll-target="#sec-sv-crashcourse"><span class="header-section-number">2</span> From VHDL to SystemVerilog</a></li>
+  <li><a href="#sec-modeling" id="toc-sec-modeling" class="nav-link" data-scroll-target="#sec-modeling"><span class="header-section-number">3</span> Modeling Guidelines for Synthesizable RTL</a></li>
+  <li><a href="#sec-verification" id="toc-sec-verification" class="nav-link" data-scroll-target="#sec-verification"><span class="header-section-number">4</span> Functional Verification with cocotb</a></li>
+  <li><a href="#sec-sequential" id="toc-sec-sequential" class="nav-link" data-scroll-target="#sec-sequential"><span class="header-section-number">5</span> Sequential Elements and Static Timing Analysis</a></li>
+  <li><a href="#sec-synthesis-lib" id="toc-sec-synthesis-lib" class="nav-link" data-scroll-target="#sec-synthesis-lib"><span class="header-section-number">6</span> The Synthesis Library</a></li>
+  <li><a href="#sec-synth-opt" id="toc-sec-synth-opt" class="nav-link" data-scroll-target="#sec-synth-opt"><span class="header-section-number">7</span> Synthesis Optimizations</a></li>
+  <li><a href="#sec-dft" id="toc-sec-dft" class="nav-link" data-scroll-target="#sec-dft"><span class="header-section-number">8</span> Design for Test (DFT)</a></li>
+  <li><a href="#sec-cdc" id="toc-sec-cdc" class="nav-link" data-scroll-target="#sec-cdc"><span class="header-section-number">9</span> Clock Domains and Metastability</a></li>
+  <li><a href="#sec-digital-flow" id="toc-sec-digital-flow" class="nav-link" data-scroll-target="#sec-digital-flow"><span class="header-section-number">10</span> The RTL-to-GDSII Flow with LibreLane</a></li>
+  <li><a href="#sec-project" id="toc-sec-project" class="nav-link" data-scroll-target="#sec-project"><span class="header-section-number">11</span> Capstone Project: A Small RISC-V SoC</a></li>
+  <li><a href="#sec-app-sv-cheatsheet" id="toc-sec-app-sv-cheatsheet" class="nav-link" data-scroll-target="#sec-app-sv-cheatsheet"><span class="header-section-number">12</span> Appendix: SystemVerilog Cheat-Sheet</a></li>
+  <li><a href="#sec-app-tooling" id="toc-sec-app-tooling" class="nav-link" data-scroll-target="#sec-app-tooling"><span class="header-section-number">13</span> Appendix: Tooling Cheat-Sheet</a></li>
+  <li><a href="#sec-app-exam" id="toc-sec-app-exam" class="nav-link" data-scroll-target="#sec-app-exam"><span class="header-section-number">14</span> Appendix: Sample Exam Questions</a></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="vlsi.pdf"><i class="bi bi-file-pdf"></i>Typst</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">VLSI Design</h1>
+</div>
+
+
+<div class="quarto-title-meta-author">
+  <div class="quarto-title-meta-heading">Author</div>
+  <div class="quarto-title-meta-heading">Affiliation</div>
+  
+    <div class="quarto-title-meta-contents">
+    <p class="author">Simon Dorrer <a href="mailto:simon.dorrer@jku.at" class="quarto-title-author-email"><i class="bi bi-envelope"></i></a> <a href="https://orcid.org/0009-0001-5994-5477" class="quarto-title-author-orcid" aria-label="ORCID profile for Simon Dorrer"> <img alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAA2ZpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMC1jMDYwIDYxLjEzNDc3NywgMjAxMC8wMi8xMi0xNzozMjowMCAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0UmVmPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VSZWYjIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDo1N0NEMjA4MDI1MjA2ODExOTk0QzkzNTEzRjZEQTg1NyIgeG1wTU06RG9jdW1lbnRJRD0ieG1wLmRpZDozM0NDOEJGNEZGNTcxMUUxODdBOEVCODg2RjdCQ0QwOSIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDozM0NDOEJGM0ZGNTcxMUUxODdBOEVCODg2RjdCQ0QwOSIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ1M1IE1hY2ludG9zaCI+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOkZDN0YxMTc0MDcyMDY4MTE5NUZFRDc5MUM2MUUwNEREIiBzdFJlZjpkb2N1bWVudElEPSJ4bXAuZGlkOjU3Q0QyMDgwMjUyMDY4MTE5OTRDOTM1MTNGNkRBODU3Ii8+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiA8P3hwYWNrZXQgZW5kPSJyIj8+84NovQAAAR1JREFUeNpiZEADy85ZJgCpeCB2QJM6AMQLo4yOL0AWZETSqACk1gOxAQN+cAGIA4EGPQBxmJA0nwdpjjQ8xqArmczw5tMHXAaALDgP1QMxAGqzAAPxQACqh4ER6uf5MBlkm0X4EGayMfMw/Pr7Bd2gRBZogMFBrv01hisv5jLsv9nLAPIOMnjy8RDDyYctyAbFM2EJbRQw+aAWw/LzVgx7b+cwCHKqMhjJFCBLOzAR6+lXX84xnHjYyqAo5IUizkRCwIENQQckGSDGY4TVgAPEaraQr2a4/24bSuoExcJCfAEJihXkWDj3ZAKy9EJGaEo8T0QSxkjSwORsCAuDQCD+QILmD1A9kECEZgxDaEZhICIzGcIyEyOl2RkgwAAhkmC+eAm0TAAAAABJRU5ErkJggg=="></a></p>
+  </div>
+  <div class="quarto-title-meta-contents">
+        <p class="affiliation">
+            <a href="https://www.jku.at/en/institute-for-integrated-circuits-and-quantum-computing">
+            Johannes Kepler University
+            </a>
+          </p>
+      </div>
+  </div>
+
+<div class="quarto-title-meta">
+
+      
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">October 17, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="hidden">
+
+</div>
+<section id="sec-intro" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Introduction</h1>
+<p>This is the material for an introductory-level course on digital <strong>very-large-scale integration (VLSI)</strong> design, held at JKU under course number 336.051 (“KV VLSI Design”).</p>
+<p>The course teaches the design of <strong>digital application-specific integrated circuits (ASICs)</strong> with a modern, fully <strong>open-source</strong> RTL-to-GDSII flow. We model hardware in <strong>SystemVerilog</strong>, verify it with <strong>cocotb</strong> (Python), inspect waveforms in <strong>GTKWave</strong>/<strong>Surfer</strong>, and harden, assemble and tape out a complete chip — including the padframe — with <strong>LibreLane</strong> on the <strong>IHP SG13G2</strong> 130 nm open PDK. In the course project, you take your own <strong>RISC-V SoC</strong> all the way to a tapeout-ready chip.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Important
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>All course material (the source of this document, the SystemVerilog code, the cocotb testbenches, the LibreLane configurations, and the Python sources for all figures) is made publicly available on GitHub (<a href="https://github.com/iic-jku/vlsi-design">follow this link</a>) and shared under the Apache-2.0 license.</p>
+<p>Please feel free to submit pull requests on GitHub to fix errors and omissions!</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Important
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Please use the IIC-OSIC-TOOLS image with tag <code>2026.09</code> or later. It contains all tools and the PDK used in this course.</p>
+</div>
+</div>
+<section id="sec-intro-ai" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="sec-intro-ai"><span class="header-section-number">1.1</span> Preamble on the Use of AI</h2>
+<p>Artificial intelligence offers impressive possibilities today: it can explain how things are connected, provide examples, help with debugging, or point out different ways to solve a problem. Precisely for this reason, however, there is a risk of relying too heavily on such tools while learning, and thereby not practicing enough of exactly those skills that this course is meant to build.</p>
+<p>In the written exam, you will have to solve problems without any technical aids. There, the only thing that counts is which concepts, methods, and skills you have mastered yourself. Likewise, in the oral presentation of your project, you have to be able to explain what you did and why you did it.</p>
+<p>If you want to complete a long-distance run in a few months, you have to build up your own endurance. You could, of course, cover your weekly training route faster on an e-scooter, but that does not train your ability to run the distance yourself. The same holds for your studies: if AI regularly does the actual thinking for you, you will not sufficiently build up the skills you need.</p>
+<p>So feel free to use AI as a learning partner, but not as a substitute for your own thinking. Always try to understand and solve a problem on your own first. Afterwards, use AI, for example, to check your solution, to learn about an alternative approach, or to have a difficult topic explained to you. The goal of this course is not to arrive at a correct answer as quickly as possible, but to develop the competence to get there on your own.</p>
+<p>In the end, you are here to learn something, so do not cheat yourself! This matters beyond the course, too: as AI agents take over more and more routine design work (see <a href="#sec-intro-agentic" class="quarto-xref">Section&nbsp;1.11</a>), engineers who know how to prompt these tools and, above all, how to critically review their results will always be needed. And you can only review what you understand yourself.</p>
+</section>
+<section id="sec-intro-objectives" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="sec-intro-objectives"><span class="header-section-number">1.2</span> Learning Objectives</h2>
+<p>After completing this course, you will be able to:</p>
+<ul>
+<li>work with the <strong>IIC-OSIC-TOOLS</strong> container and manage your designs with <strong>Git</strong> and <strong>GitHub</strong>;</li>
+<li>read and write synthesizable <strong>SystemVerilog</strong> RTL for synchronous digital designs, and translate idiomatic VHDL into idiomatic SystemVerilog;</li>
+<li>apply <strong>modeling guidelines</strong> that lead to clean, fast, and testable synthesis results (avoiding latches, inferring proper registers, structuring arithmetic);</li>
+<li>verify RTL with <strong>self-checking cocotb testbenches</strong> and reason about coverage and corner cases;</li>
+<li>understand and explain the <strong>RTL-to-GDSII flow</strong> (synthesis, floorplanning, placement, clock tree synthesis, routing, signoff) and drive it with <strong>LibreLane</strong>;</li>
+<li>analyze timing using the concepts of <strong>setup/hold, propagation delay, clock skew, and static timing analysis (STA)</strong>;</li>
+<li>explain <strong>design for test (DFT)</strong>, the stuck-at fault model, scan chains, and test coverage;</li>
+<li>handle <strong>multiple clock domains</strong> safely with synchronizers and reason about metastability;</li>
+<li>integrate a digital macro into a <strong>padframe</strong> and assemble a complete, <strong>tapeout-ready ASIC</strong> with open-source tools;</li>
+<li>design, verify, harden, and document a <strong>RISC-V SoC with your own extension</strong> as a capstone project;</li>
+<li>optionally, use <strong>LLM agents</strong> efficiently, and critically, in a chip design workflow.</li>
+</ul>
+</section>
+<section id="sec-intro-prerequisites" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="sec-intro-prerequisites"><span class="header-section-number">1.3</span> Prerequisites</h2>
+<p>The course is an elective for students of the Bachelor’s program in Computer Science and of the Master’s program in Electronics and Information Technology (ELIT). To follow it, you should bring:</p>
+<ul>
+<li>a basic understanding of CMOS transistors;</li>
+<li>a good understanding of digital logic (gates, flip-flops, etc.);</li>
+<li>basic experience with a hardware description language (e.g., VHDL);</li>
+<li>your own laptop with at least 20 GB of free disk space for VS Code, Git, and the IIC-OSIC-TOOLS (see <a href="#sec-intro-installation" class="quarto-xref">Section&nbsp;1.13</a>).</li>
+</ul>
+<p>The following JKU courses, whose material is also openly available, complement this course well but are not required:</p>
+<ul>
+<li><strong>KV Analog Circuit Design</strong>: <a href="https://github.com/iic-jku/analog-circuit-design" class="uri">https://github.com/iic-jku/analog-circuit-design</a></li>
+<li><strong>KV Design of Complex Integrated Circuits</strong>: <a href="https://github.com/iic-jku/design-complex-ic" class="uri">https://github.com/iic-jku/design-complex-ic</a></li>
+</ul>
+</section>
+<section id="sec-intro-content" class="level2" data-number="1.4">
+<h2 data-number="1.4" class="anchored" data-anchor-id="sec-intro-content"><span class="header-section-number">1.4</span> Course Content</h2>
+<p>After this introduction, the course covers the following topics:</p>
+<ol type="1">
+<li>from VHDL to SystemVerilog, and modeling guidelines for synthesizable RTL (<a href="#sec-sv-crashcourse" class="quarto-xref">Section&nbsp;2</a>, <a href="#sec-modeling" class="quarto-xref">Section&nbsp;3</a>);</li>
+<li>functional verification with cocotb (<a href="#sec-verification" class="quarto-xref">Section&nbsp;4</a>);</li>
+<li>sequential elements and static timing analysis (<a href="#sec-sequential" class="quarto-xref">Section&nbsp;5</a>);</li>
+<li>the synthesis library and synthesis optimizations (<a href="#sec-synthesis-lib" class="quarto-xref">Section&nbsp;6</a>, <a href="#sec-synth-opt" class="quarto-xref">Section&nbsp;7</a>);</li>
+<li>design for test and clock domain crossing (<a href="#sec-dft" class="quarto-xref">Section&nbsp;8</a>, <a href="#sec-cdc" class="quarto-xref">Section&nbsp;9</a>);</li>
+<li>the RTL-to-GDSII flow with LibreLane, chip assembly, and padframe (<a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a>);</li>
+<li>the project: a tapeout-ready RISC-V SoC (<a href="#sec-project" class="quarto-xref">Section&nbsp;11</a>).</li>
+</ol>
+<p>The appendices provide a SystemVerilog cheat-sheet (<a href="#sec-app-sv-cheatsheet" class="quarto-xref">Section&nbsp;12</a>), a tooling cheat-sheet (<a href="#sec-app-tooling" class="quarto-xref">Section&nbsp;13</a>), and sample exam questions (<a href="#sec-app-exam" class="quarto-xref">Section&nbsp;14</a>).</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Further Reading">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Further Reading
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>These notes are self-contained but kept concise. For depth we recommend:</p>
+<ul>
+<li><span class="citation" data-cites="Harris_Harris_2021">(<a href="#ref-Harris_Harris_2021" role="doc-biblioref">Harris and Harris 2021</a>)</span> for digital design and RISC-V computer architecture.</li>
+<li><span class="citation" data-cites="Weste_Harris_2010">(<a href="#ref-Weste_Harris_2010" role="doc-biblioref">Weste and Harris 2010</a>)</span> for CMOS VLSI design from circuits to systems.</li>
+<li><span class="citation" data-cites="Cummings_CDC">(<a href="#ref-Cummings_CDC" role="doc-biblioref">Cummings 2008</a>)</span> for clock-domain-crossing techniques in SystemVerilog.</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="sec-intro-grading" class="level2" data-number="1.5">
+<h2 data-number="1.5" class="anchored" data-anchor-id="sec-intro-grading"><span class="header-section-number">1.5</span> Grading</h2>
+<p>The grade consists of two equally weighted parts:</p>
+<ul>
+<li><strong>Part 1 — Theory (50%)</strong>: The theoretical lectures are mixed with small examples. This part is assessed by a <strong>written exam before Christmas</strong>; the exact date is announced in the lecture.</li>
+<li><strong>Part 2 — Project (50%)</strong>: You implement a complete, <strong>tapeout-ready RISC-V CPU</strong> plus your <strong>own extension</strong> (analog or digital) and present your work in an <strong>oral presentation</strong> (<a href="#sec-project" class="quarto-xref">Section&nbsp;11</a>).</li>
+</ul>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Tip
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The best project might actually be taped out! Moreover, the project can be extended into a seminar work (+3 ECTS) or a thesis.</p>
+</div>
+</div>
+</section>
+<section id="sec-intro-why-asic" class="level2" data-number="1.6">
+<h2 data-number="1.6" class="anchored" data-anchor-id="sec-intro-why-asic"><span class="header-section-number">1.6</span> Why ASICs?</h2>
+<p>Application-specific integrated circuits are designed when standard, off-the-shelf components cannot meet the requirements. Typical motivations are:</p>
+<ul>
+<li><strong>Specification</strong>: performance, power, or size targets unreachable with standard parts.</li>
+<li><strong>Integration</strong>: combining digital logic, analog circuits, and on-chip memory into a single mixed-signal chip.</li>
+<li><strong>Economics</strong>: at high volume the per-unit cost drops dramatically, and integrating more functionality into one chip reduces system cost.</li>
+</ul>
+<p>Historically, the cost <em>per transistor</em> has fallen by orders of magnitude as integration density doubled roughly every 18–24 months (<strong>Moore’s law</strong>). What was once only affordable to large companies is, with open-source PDKs and tools, now accessible to students and researchers.</p>
+</section>
+<section id="sec-intro-taxonomy" class="level2" data-number="1.7">
+<h2 data-number="1.7" class="anchored" data-anchor-id="sec-intro-taxonomy"><span class="header-section-number">1.7</span> A Taxonomy of ASICs</h2>
+<p>ASIC implementation styles trade off non-recurring engineering (NRE) cost, unit cost, performance, and design effort:</p>
+<div id="tbl-asic-styles" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-asic-styles-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;1: ASIC implementation styles
+</figcaption>
+<div aria-describedby="tbl-asic-styles-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 30%">
+<col style="width: 30%">
+<col style="width: 13%">
+<col style="width: 26%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Style</th>
+<th>Masks</th>
+<th>Effort</th>
+<th>Typical use</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>PLD / FPGA</strong></td>
+<td>none (field-programmable)</td>
+<td>low</td>
+<td>prototypes, low volume</td>
+</tr>
+<tr class="even">
+<td><strong>Gate array / sea-of-gates</strong></td>
+<td>only wiring layers</td>
+<td>medium</td>
+<td>medium volume</td>
+</tr>
+<tr class="odd">
+<td><strong>Standard-cell IC (CBIC)</strong></td>
+<td>all layers</td>
+<td>medium–high</td>
+<td>the workhorse of digital design</td>
+</tr>
+<tr class="even">
+<td><strong>Full-custom IC</strong></td>
+<td>all layers, hand-crafted</td>
+<td>very high</td>
+<td>highest performance / lowest unit cost</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>This course focuses on the <strong>standard-cell</strong> style: we describe behavior in SystemVerilog and let the synthesis tool map it onto a library of pre-characterized standard cells from the SG13G2 PDK.</p>
+</section>
+<section id="sec-intro-flow" class="level2" data-number="1.8">
+<h2 data-number="1.8" class="anchored" data-anchor-id="sec-intro-flow"><span class="header-section-number">1.8</span> The Digital Design Flow</h2>
+<p>The core of this course is the digital design flow that turns a hardware description into a manufacturable layout. Since this layout is traditionally handed over to the foundry in the GDSII file format, it is called the <strong>RTL-to-GDSII</strong> (or simply RTL-to-GDS) flow. <a href="#fig-design-flow" class="quarto-xref">Figure&nbsp;1</a> shows its main steps.</p>
+<div id="cell-fig-design-flow" class="cell" data-execution_count="1">
+<div class="cell-output cell-output-display">
+<div id="fig-design-flow" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-design-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="vlsi_files/figure-html/fig-design-flow-output-1.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;1: The RTL-to-GDSII design flow. The synthesized gate-level netlist is checked by pre-layout simulation. After routing, parasitic extraction, static timing analysis, and post-layout simulation feed back to floorplanning and placement or, if necessary, to the RTL (design iteration). Only a design that passes physical verification is taped out."><img src="vlsi_files/figure-html/fig-design-flow-output-1.svg" class="img-fluid figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-design-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: The RTL-to-GDSII design flow. The synthesized gate-level netlist is checked by pre-layout simulation. After routing, parasitic extraction, static timing analysis, and post-layout simulation feed back to floorplanning and placement or, if necessary, to the RTL (design iteration). Only a design that passes physical verification is taped out.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>The flow starts with the <strong>RTL design</strong>, described in a hardware description language (HDL) such as SystemVerilog. <strong>Logic synthesis</strong> translates the RTL into a gate-level netlist of standard cells of the target technology, guided by constraints such as the clock frequency. Long before any layout exists, the design is simulated extensively: first at RTL, and then as a synthesized netlist (<strong>pre-layout simulation</strong>). Every bug found here leads back to the HDL.</p>
+<p>The physical implementation then turns the netlist into a layout. <strong>Floorplanning</strong> defines the size of the die and the core, the placement of I/Os and macros, and the power grid. <strong>Placement</strong> positions the standard cells, <strong>clock tree synthesis (CTS)</strong> builds a balanced clock distribution network, and <strong>routing</strong> connects all cells with metal wires.</p>
+<p>Only after routing are the resistances and capacitances of the wires known. <strong>Parasitic extraction</strong> annotates them to the netlist, on which <strong>static timing analysis (STA)</strong> and <strong>post-layout simulation</strong> check whether the design still meets its timing and functional specification. Violations are fixed by revisiting floorplanning and placement or, if this is not enough, by changing the RTL itself (<strong>design iteration</strong>), e.g., by pipelining a critical path. Finally, <strong>physical verification</strong> checks the layout against the design rules of the foundry (design rule check, DRC) and against the netlist (layout versus schematic, LVS). Only a design that passes all checks goes to <strong>tape-out</strong>, i.e., is sent to the foundry for fabrication.</p>
+<p>Besides these steps, <strong>design for test</strong> inserts scan chains so that every fabricated chip can be tested (<a href="#sec-dft" class="quarto-xref">Section&nbsp;8</a>), and designs with several clocks need safe <strong>clock domain crossings</strong> (<a href="#sec-cdc" class="quarto-xref">Section&nbsp;9</a>). For a complete chip, the hardened digital macro is finally integrated into a <strong>padframe</strong> and assembled into the chip top level (<a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a>). <a href="#tbl-flow-tools" class="quarto-xref">Table&nbsp;2</a> lists the open-source tools used in this course for each step and where the step is covered.</p>
+<div id="tbl-flow-tools" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-flow-tools-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;2: Steps of the RTL-to-GDSII flow, the open-source tools used for them in this course, and where they are covered. LibreLane orchestrates all steps from synthesis to GDSII; the PDK is IHP SG13G2 (130 nm).
+</figcaption>
+<div aria-describedby="tbl-flow-tools-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 30%">
+<col style="width: 44%">
+<col style="width: 26%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Flow step</th>
+<th>Open-source tool</th>
+<th>Covered in</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>HDL</td>
+<td>SystemVerilog</td>
+<td><a href="#sec-sv-crashcourse" class="quarto-xref">Section&nbsp;2</a>, <a href="#sec-modeling" class="quarto-xref">Section&nbsp;3</a></td>
+</tr>
+<tr class="even">
+<td>RTL, pre- and post-layout simulation</td>
+<td>cocotb with Icarus Verilog or Verilator; GTKWave, Surfer</td>
+<td><a href="#sec-verification" class="quarto-xref">Section&nbsp;4</a></td>
+</tr>
+<tr class="odd">
+<td>Logic synthesis</td>
+<td>Yosys</td>
+<td><a href="#sec-synthesis-lib" class="quarto-xref">Section&nbsp;6</a>, <a href="#sec-synth-opt" class="quarto-xref">Section&nbsp;7</a></td>
+</tr>
+<tr class="even">
+<td>Floorplanning, placement, CTS, routing</td>
+<td>OpenROAD</td>
+<td><a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a></td>
+</tr>
+<tr class="odd">
+<td>Parasitic extraction</td>
+<td>OpenRCX</td>
+<td><a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a></td>
+</tr>
+<tr class="even">
+<td>Static timing analysis</td>
+<td>OpenSTA</td>
+<td><a href="#sec-sequential" class="quarto-xref">Section&nbsp;5</a>, <a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a></td>
+</tr>
+<tr class="odd">
+<td>Physical verification</td>
+<td>Magic, KLayout (DRC); Netgen, KLayout (LVS)</td>
+<td><a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a></td>
+</tr>
+<tr class="even">
+<td>Chip assembly and padframe</td>
+<td>LibreLane with the AMS chip template</td>
+<td><a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a>, <a href="#sec-project" class="quarto-xref">Section&nbsp;11</a></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+<section id="sec-intro-tools" class="level2" data-number="1.9">
+<h2 data-number="1.9" class="anchored" data-anchor-id="sec-intro-tools"><span class="header-section-number">1.9</span> The IIC-OSIC-TOOLS Container</h2>
+<p>The legacy version of this course relied on commercial tools (Vivado, ModelSim, Synopsys Design Compiler, Cadence Innovus, TetraMAX, PrimeTime). This edition is built entirely on open-source tools, all pre-installed in the <strong><a href="https://github.com/iic-jku/IIC-OSIC-TOOLS">IIC-OSIC-TOOLS</a></strong> container <span class="citation" data-cites="IIC_OSIC_TOOLS">(<a href="#ref-IIC_OSIC_TOOLS" role="doc-biblioref">Institute for Integrated Circuits, JKU, n.d.</a>)</span>. This all-in-one Docker/Podman image for analog and digital IC design is curated at JKU and runs natively on <code>x86_64</code> and <code>arm64</code> machines (e.g., Apple Silicon). Since everyone uses the identical container, results are reproducible, and “works on my machine” problems disappear.</p>
+<p>As <a href="#tbl-iic-osic-tools" class="quarto-xref">Table&nbsp;3</a> shows, the container covers much more than this course needs: full-custom (analog) design with schematic entry, analog simulation, layout, and electromagnetic (EM) simulation, semi-custom (digital) design with simulation, synthesis, and complete RTL-to-GDSII flows, as well as several open-source PDKs. In this course, we mainly use the digital tools (<a href="#tbl-flow-tools" class="quarto-xref">Table&nbsp;2</a>) with the IHP SG13G2 PDK; the analog tools appear in the AMS chip template (<a href="#sec-intro-template" class="quarto-xref">Section&nbsp;1.10</a>).</p>
+<div id="tbl-iic-osic-tools" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-iic-osic-tools-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;3: A selection of the tools and PDKs in the IIC-OSIC-TOOLS container
+</figcaption>
+<div aria-describedby="tbl-iic-osic-tools-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 36%">
+<col style="width: 64%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Category</th>
+<th>Tools and PDKs</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Schematic entry</td>
+<td>Xschem, Qucs-S</td>
+</tr>
+<tr class="even">
+<td>Analog simulation</td>
+<td>ngspice, Xyce, VACASK, CACE</td>
+</tr>
+<tr class="odd">
+<td>Layout editing</td>
+<td>Magic, KLayout, GDSFactory</td>
+</tr>
+<tr class="even">
+<td>Digital simulation and waveforms</td>
+<td>Icarus Verilog, Verilator, cocotb, GTKWave, Surfer</td>
+</tr>
+<tr class="odd">
+<td>Logic synthesis</td>
+<td>Yosys (with the slang and GHDL front ends), ABC</td>
+</tr>
+<tr class="even">
+<td>RTL-to-GDSII flows</td>
+<td>LibreLane, OpenROAD Flow Scripts, SiliconCompiler, QFlow</td>
+</tr>
+<tr class="odd">
+<td>Place and route, STA, extraction</td>
+<td>OpenROAD, OpenSTA, OpenRCX</td>
+</tr>
+<tr class="even">
+<td>DRC, LVS, and PEX</td>
+<td>Magic, KLayout, Netgen, KLayout-PEX</td>
+</tr>
+<tr class="odd">
+<td>EM simulation</td>
+<td>Palace, openEMS</td>
+</tr>
+<tr class="even">
+<td>PDKs</td>
+<td>sky130A, gf180mcuD, ihp-sg13g2, ihp-sg13cmos5l</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+<section id="sec-intro-template" class="level2" data-number="1.10">
+<h2 data-number="1.10" class="anchored" data-anchor-id="sec-intro-template"><span class="header-section-number">1.10</span> The AMS Chip Template</h2>
+<p>Hardening a single digital block is only part of the way to a chip. A tapeout-ready chip additionally needs a padframe and a seal ring, the placement and wiring of all macros on the top level, logo and metal-fill insertion, full-chip verification, and finally a bonding diagram for packaging. To get there without fighting the tools, this course builds on the <strong><a href="https://github.com/iic-jku/ihp-sg13g2-ams-chip-template">ihp-sg13g2-ams-chip-template</a></strong> <span class="citation" data-cites="AMS_Chip_Template">(<a href="#ref-AMS_Chip_Template" role="doc-biblioref">Dorrer and Pretl 2026</a>)</span>, an open-source GitHub template repository for analog mixed-signal (AMS) chips developed at JKU:</p>
+<ul>
+<li>It is released under the permissive <strong>Solderpad Hardware License v2.1</strong>.</li>
+<li>Create your own repository with GitHub’s <em>Use this template</em> button (or simply <code>git clone</code> it), enter the IIC-OSIC-TOOLS container, and run <code>make all</code>. The result is a <strong>tapeout-ready AMS chip</strong>.</li>
+<li>A step-by-step <strong><a href="https://iic-jku.github.io/ihp-sg13g2-ams-chip-template/index.html">tutorial</a></strong>, written in Quarto, walks through all IC design steps on IHP’s 130 nm process, with simple exercises to learn by doing. You start your project with this tutorial (<a href="#sec-project" class="quarto-xref">Section&nbsp;11</a>).</li>
+<li><strong>Regression tests</strong> via GitHub Actions ensure that the flow keeps working with every new release of the tools.</li>
+</ul>
+<p>The template is also available for the ihp-sg13cmos5l, sky130A, and gf180mcuD open PDKs, and several chips have already been taped out with it, including TinyWhisper (<a href="#sec-intro-tinywhisper" class="quarto-xref">Section&nbsp;1.12</a>).</p>
+<section id="sec-intro-template-flow" class="level3" data-number="1.10.1">
+<h3 data-number="1.10.1" class="anchored" data-anchor-id="sec-intro-template-flow"><span class="header-section-number">1.10.1</span> Flow Overview</h3>
+<p>The Makefile-driven flow of the template covers:</p>
+<ul>
+<li>simulation, linting, and hardening of the RTL;</li>
+<li>layout checks and reports of the hardened digital macro;</li>
+<li>simulation of all analog testbenches, including process, voltage, and temperature (PVT) corners and Monte Carlo (MC) analysis;</li>
+<li>layout checks of the analog and digital blocks (DRC, LVS, and parasitic extraction, PEX);</li>
+<li>digital-on-top assembly of the chip top level and its layout check (DRC), including
+<ul>
+<li>seal ring and padframe generation,</li>
+<li>macro placement and wiring, also with non-default rules (NDRs), and</li>
+<li>logo and fill insertion;</li>
+</ul></li>
+<li>full top-level LVS and simulation without black-boxing;</li>
+<li>generation of the bonding diagram.</li>
+</ul>
+</section>
+<section id="sec-intro-template-structure" class="level3" data-number="1.10.2">
+<h3 data-number="1.10.2" class="anchored" data-anchor-id="sec-intro-template-structure"><span class="header-section-number">1.10.2</span> Folder Structure and Makefiles</h3>
+<p>The folder structure of the template was discussed with the FOSSi community. Every macro in <code>macros/</code> (e.g., the digital <code>counter</code> and the analog <code>inverter</code> examples) follows the same scheme as the chip top level, with its own <code>Makefile</code> and folders such as <code>rtl/</code>, <code>testbenches/</code>, <code>schematic/</code>, <code>layout/</code>, <code>netlist/</code>, <code>verification/</code>, and <code>final/</code>. Since a macro can itself contain macros, the structure is recursive. This makes it easy to share macros between projects and to reproduce the results of others.</p>
+<p>At the top level, <code>make all</code> runs four steps:</p>
+<ol type="1">
+<li><code>make build-all</code> builds the bondpad, the logos, all enabled macros, and finally the chip top level (LibreLane assembly, reports, GDS, netlists, logo and fill insertion, and renders);</li>
+<li><code>make magic-drc</code> (or <code>make klayout-drc</code>) checks the final layout of the chip;</li>
+<li><code>make sim-all</code> simulates the chip (RTL and gate-level simulation with cocotb, gate-level simulation with Xschem);</li>
+<li><code>make bondplan</code> generates the bonding diagram for packaging.</li>
+</ol>
+<p>Targets that build an IP block or a macro recursively call the <code>Makefile</code> of that block.</p>
+</section>
+</section>
+<section id="sec-intro-agentic" class="level2" data-number="1.11">
+<h2 data-number="1.11" class="anchored" data-anchor-id="sec-intro-agentic"><span class="header-section-number">1.11</span> Agentic AI Chip Design</h2>
+<p>Large language model (LLM) agents are increasingly able to operate a complete chip design environment: they do not only answer questions, but also edit design files, run tools, interpret the results, and iterate. <a href="#fig-llm-agent-flow" class="quarto-xref">Figure&nbsp;2</a> shows such an agentic workflow.</p>
+<div id="fig-llm-agent-flow" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-llm-agent-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="./figures/llm_agent_flow/llm_agent_flow.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure&nbsp;2: Agentic AI chip design workflow: the designer prompts and reviews an LLM agent, which edits the chip project, runs the tools via make targets, and tracks all changes in version control (shown here for the SG13CMOS5L version of the AMS chip template)."><img src="./figures/llm_agent_flow/llm_agent_flow.svg" class="img-fluid figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-llm-agent-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: Agentic AI chip design workflow: the designer prompts and reviews an LLM agent, which edits the chip project, runs the tools via make targets, and tracks all changes in version control (shown here for the SG13CMOS5L version of the AMS chip template).
+</figcaption>
+</figure>
+</div>
+<p>The designer interacts with the LLM agent through prompts and reviews. The agent edits the RTL, schematics, and layout of a chip project based on the AMS chip template (<a href="#sec-intro-template" class="quarto-xref">Section&nbsp;1.10</a>) and runs its make targets, which call the tools of the IIC-OSIC-TOOLS. The results of simulation, DRC, LVS, and PEX flow back to the agent and to the designer. A knowledge base (an index plus notes) lets the agent retrieve relevant information and distill new insights for later sessions. All changes are tracked in version control (e.g., Git and GitHub): the agent creates branches, commits and pushes changes, sets up CI workflows, and opens pull requests, while the designer reviews the diffs and decides whether changes are pushed or discarded. Of course, the designer can still edit the project manually at any time.</p>
+<p>Such a workflow is only possible because every step of the flow is scripted, every tool runs in a reproducible container, and every result is machine-readable. Note the role of the designer: they remain responsible for the design and have to judge whether the results of the agent are correct, which brings us back to <a href="#sec-intro-ai" class="quarto-xref">Section&nbsp;1.1</a>. Using LLM agents efficiently is an optional learning objective of this course.</p>
+</section>
+<section id="sec-intro-tinywhisper" class="level2" data-number="1.12">
+<h2 data-number="1.12" class="anchored" data-anchor-id="sec-intro-tinywhisper"><span class="header-section-number">1.12</span> Example: The TinyWhisper SoC</h2>
+<p>What is possible with open-source tools and the AMS chip template is demonstrated by <strong><a href="https://github.com/iic-jku/TinyWhisper">TinyWhisper</a></strong>, an open-source, fully integrated, multi-mode short-wave transmitter for amateur radio, developed in a cooperation between JMU Würzburg and JKU Linz. TinyWhisper combines a RISC-V CPU with peripherals, custom digital signal generation, and an analog front-end on one chip, so it is a good preview of what you will build in the course project. The block diagram and all design files can be found in the <a href="https://github.com/iic-jku/TinyWhisper">repository</a>, and the full documentation is available <a href="https://iic-jku.github.io/TinyWhisper/index.html">online</a>.</p>
+<section id="weak-signal-propagation-reporter" class="level3" data-number="1.12.1">
+<h3 data-number="1.12.1" class="anchored" data-anchor-id="weak-signal-propagation-reporter"><span class="header-section-number">1.12.1</span> Weak Signal Propagation Reporter</h3>
+<p>TinyWhisper targets the <strong>Weak Signal Propagation Reporter (WSPR)</strong> protocol, a popular digital mode in amateur (ham) radio for propagation studies in the 80 m to 10 m bands. A WSPR transmitter sends a short message (callsign, location, and transmit power) using 4-FSK modulation with a tone spacing of <span class="math inline">\(\Delta f = 1.46\,\mathrm{Hz}\)</span> and a symbol duration of <span class="math inline">\(T = 0.683\,\mathrm{s}\)</span>. Receivers can decode signals down to <span class="math inline">\(-31\,\mathrm{dB}\)</span> below the noise floor in a 2500 Hz bandwidth and report everything they receive to a central database via the Internet (<a href="https://www.wsprnet.org/drupal/wsprnet/map">WSPRnet map</a>). On TinyWhisper, the modem part (coding, framing, and symbol mapping) is implemented in firmware written in C, which runs on the on-chip RISC-V CPU.</p>
+</section>
+<section id="chip-overview" class="level3" data-number="1.12.2">
+<h3 data-number="1.12.2" class="anchored" data-anchor-id="chip-overview"><span class="header-section-number">1.12.2</span> Chip Overview</h3>
+<p><a href="#tbl-tinywhisper" class="quarto-xref">Table&nbsp;4</a> summarizes the key parameters of the chip, and <a href="#fig-tinywhisper" class="quarto-xref">Figure&nbsp;3</a> shows renders of its layout. The custom logo on the topmost metal layer (<a href="#fig-tinywhisper-tm2" class="quarto-xref">Figure&nbsp;3 (b)</a>) was generated with the tool <a href="https://arxiv.org/abs/2502.02626">ArtistIC</a> of the PULP platform. TinyWhisper was taped out in the IHP open MPW run in March 2026 and, at the time of writing (October 2026), is still in fabrication.</p>
+<div id="fig-tinywhisper" class="quarto-layout-panel">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-tinywhisper-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-tinywhisper" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div id="fig-tinywhisper-top" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-tinywhisper-top-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="./figures/tinywhisper/tinywhisper_top_white.png" class="lightbox" data-gallery="fig-tinywhisper" title="Figure&nbsp;3&nbsp;(a): Final layout with the RISC-V CPU on the left and the IQ modulator on the right."><img src="./figures/tinywhisper/tinywhisper_top_white.png" class="img-fluid figure-img" data-ref-parent="fig-tinywhisper"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-tinywhisper-top-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(a) Final layout with the RISC-V CPU on the left and the IQ modulator on the right.
+</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-tinywhisper" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div id="fig-tinywhisper-tm2" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-tinywhisper-tm2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="./figures/tinywhisper/tinywhisper_top_black_TM2.png" class="lightbox" data-gallery="fig-tinywhisper" title="Figure&nbsp;3&nbsp;(b): TopMetal2 layer with the logo and metal fill."><img src="./figures/tinywhisper/tinywhisper_top_black_TM2.png" class="img-fluid figure-img" data-ref-parent="fig-tinywhisper"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-tinywhisper-tm2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(b) TopMetal2 layer with the logo and metal fill.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-tinywhisper-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3: Renders of the taped-out TinyWhisper chip (2000 µm × 2000 µm), taken from the <a href="https://github.com/iic-jku/TinyWhisper">TinyWhisper repository</a>.
+</figcaption>
+</figure>
+</div>
+<div id="tbl-tinywhisper" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-tinywhisper-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;4: Key parameters of the TinyWhisper chip
+</figcaption>
+<div aria-describedby="tbl-tinywhisper-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Technology</td>
+<td>IHP SG13CMOS (130 nm CMOS), open PDK</td>
+</tr>
+<tr class="even">
+<td>Die area</td>
+<td>2000 µm × 2000 µm (4 mm²)</td>
+</tr>
+<tr class="odd">
+<td>Core area</td>
+<td>1270 µm × 1270 µm (1.61 mm²)</td>
+</tr>
+<tr class="even">
+<td>Clock frequency</td>
+<td>56 MHz</td>
+</tr>
+<tr class="odd">
+<td>Core / I/O supply voltage</td>
+<td>1.5 V / 3.3 V</td>
+</tr>
+<tr class="even">
+<td>Pads</td>
+<td>56</td>
+</tr>
+<tr class="odd">
+<td>Package</td>
+<td>QFN-48 (8 pads bonded directly to package ground)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>The <strong>digital core</strong> is built around an embedded RISC-V CPU implementing <code>rv32e_zicsr</code>, i.e., the 32-bit embedded base integer instruction set with 16 registers plus the extension for control and status registers. The CPU is a multi-cycle design without pipelining, running at 56 MHz, and accesses its SPI, I²C, UART, and GPIO peripherals as memory-mapped I/O. The I/Q baseband signals are generated in hardware: a 30-bit iterative CORDIC computes sine and cosine with a frequency resolution of <span class="math inline">\(\Delta f = f_\mathrm{clk}/2^{30} \approx 0.05\,\mathrm{Hz}\)</span>, and a single-bit second-order delta-sigma modulator (oversampling ratio up to 256) converts its output into a bitstream for the analog front-end. Both are configurable via software. Furthermore, the digital core divides the clock down to the 25% duty-cycle local oscillator (LO) signals of the mixers, which cover the 80 m, 40 m, 20 m, and 10 m bands.</p>
+<p>The RISC-V CPU has already been proven in silicon: it was part of a multi-project student chip (with digital filters, mini games, and more) fabricated in the GlobalFoundries GF180MCU technology in the first <a href="https://wafer.space">wafer.space</a> run (<a href="https://github.com/iic-jku/gf180mcu-jku-projects">GitHub</a>). On a breadboard, with the firmware supplied by an external microcontroller board and a discrete third-order multiple-feedback low-pass filter, the chip generates a clean baseband signal.</p>
+<p>The <strong>analog front-end</strong> is an IQ modulator. Each of its two channels consists of a third-order multiple-feedback (MFB) Butterworth low-pass filter with a cutoff frequency of 400 kHz, built around a Barthélemy/Manfredini inverter-based operational transconductance amplifier (OTA), followed by a passive CMOS voltage-mode mixer with simple transmission-gate (TG) switches and a single-to-differential conversion circuit. Remarkably, the front-end consists only of inverter- and TG-based circuits. As an IQ transmitter, it supports not only WSPR but also other modes such as FT8, SSB, and CW.</p>
+<p>Finally, even the <strong>bonding diagram</strong> for packaging is generated automatically: a Python script reads a configuration file with the pinout and placement, extracts the relevant layers (top metal and pads) from the layout, places the chip in the package, determines the pad centers, draws the bond wires, and renders the result as GDS. This is exactly what <code>make bondplan</code> of the AMS chip template does (<a href="#sec-intro-template-structure" class="quarto-xref">Section&nbsp;1.10.2</a>).</p>
+<blockquote class="blockquote">
+<p>“The aha moment of seeing your circuit come to life will stay long after the equations are forgotten.” — Peter Kinget</p>
+</blockquote>
+</section>
+</section>
+<section id="sec-intro-installation" class="level2" data-number="1.13">
+<h2 data-number="1.13" class="anchored" data-anchor-id="sec-intro-installation"><span class="header-section-number">1.13</span> Tools Installation</h2>
+<p>You can either install the IIC-OSIC-TOOLS locally on your own laptop or use a workspace on a JKU server via your browser.</p>
+<section id="sec-intro-install-local" class="level3" data-number="1.13.1">
+<h3 data-number="1.13.1" class="anchored" data-anchor-id="sec-intro-install-local"><span class="header-section-number">1.13.1</span> Local Installation</h3>
+<ol type="1">
+<li><p>Install <strong>Visual Studio Code</strong> from <a href="https://code.visualstudio.com" class="uri">https://code.visualstudio.com</a>.</p></li>
+<li><p>Run the interactive <strong>installer</strong>. It sets up Git, Docker (or Podman), WSL2 on Windows or XQuartz on macOS, and clones the IIC-OSIC-TOOLS repository (by default to <code>~/iic-osic-tools</code>). Every action asks for your confirmation first.</p>
+<p>On Windows, open PowerShell <strong>as Administrator</strong> and run:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode powershell code-with-copy"><code class="sourceCode powershell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">irm</span> https<span class="op">://</span>osic<span class="op">.</span><span class="fu">tools</span><span class="op">/</span>install<span class="op">.</span><span class="fu">ps1</span> <span class="op">|</span> <span class="fu">iex</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>On macOS and Linux, run:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-fsSL</span> https://osic.tools/install.sh <span class="kw">|</span> <span class="fu">bash</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<li><p>Reboot your computer. On Windows and macOS, start Docker Desktop once afterwards.</p></li>
+<li><p>Start the container from within the <code>iic-osic-tools</code> folder with <code>.\start_vnc.bat</code> (Windows) or <code>./start_vnc.sh</code> (macOS and Linux), and open <a href="http://localhost/?password=abc123" class="uri">http://localhost/?password=abc123</a> in your browser. The first start downloads the image (about 4 GB), so be patient. With Podman, the default port is 8080 instead of 80; the start script always prints the correct URL. On macOS and Linux, <code>./start_x.sh</code> alternatively shows the tools directly on your desktop via X11.</p></li>
+<li><p>Store your designs in <code>~/eda/designs</code> on your laptop (<code>%USERPROFILE%\eda\designs</code> on Windows), which appears as <code>/foss/designs</code> inside the container. Only this folder persists when the container is removed or updated.</p></li>
+</ol>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Tip
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Piping a script from the Internet directly into a shell runs it without review. If you prefer to inspect the installer first, download it, read it, and run it locally, e.g., <code>curl -fsSLO https://osic.tools/install.sh &amp;&amp; less install.sh &amp;&amp; bash install.sh</code>.</p>
+</div>
+</div>
+</section>
+<section id="sec-intro-install-cows" class="level3" data-number="1.13.2">
+<h3 data-number="1.13.2" class="anchored" data-anchor-id="sec-intro-install-cows"><span class="header-section-number">1.13.2</span> Containerized On-Demand Workspace System (COWS)</h3>
+<p>If you cannot or do not want to install the tools locally, you can use the <strong>Containerized On-Demand Workspace System (COWS)</strong> instead, which provides a ready-to-use design environment in your browser:</p>
+<ol type="1">
+<li>Open COWS at <a href="https://jku128011.riic.uni-linz.ac.at/" class="uri">https://jku128011.riic.uni-linz.ac.at/</a>.</li>
+<li>Log in with the credentials provided to you and change your password.</li>
+<li>Create a workspace: go to <em>Workspaces</em>, click <em>Create workspace</em>, enter a <em>Workspace name</em>, and select the <em>KV VLSI Design 26/27</em> template.</li>
+<li>Start the workspace; its <em>Status</em> should change to <em>Running</em>.</li>
+<li>Open the workspace by clicking its name.</li>
+</ol>
+<p>Enjoy your workspace, and happy designing!</p>
+</section>
+</section>
+</section>
+<section id="sec-sv-crashcourse" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> From VHDL to SystemVerilog</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This chapter will be released later in the semester.</p>
+</div>
+</div>
+</section>
+<section id="sec-modeling" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Modeling Guidelines for Synthesizable RTL</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This chapter will be released later in the semester.</p>
+</div>
+</div>
+</section>
+<section id="sec-verification" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Functional Verification with cocotb</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This chapter will be released later in the semester.</p>
+</div>
+</div>
+</section>
+<section id="sec-sequential" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Sequential Elements and Static Timing Analysis</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This chapter will be released later in the semester.</p>
+</div>
+</div>
+</section>
+<section id="sec-synthesis-lib" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> The Synthesis Library</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This chapter will be released later in the semester.</p>
+</div>
+</div>
+</section>
+<section id="sec-synth-opt" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> Synthesis Optimizations</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This chapter will be released later in the semester.</p>
+</div>
+</div>
+</section>
+<section id="sec-dft" class="level1" data-number="8">
+<h1 data-number="8"><span class="header-section-number">8</span> Design for Test (DFT)</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This chapter will be released later in the semester.</p>
+</div>
+</div>
+</section>
+<section id="sec-cdc" class="level1" data-number="9">
+<h1 data-number="9"><span class="header-section-number">9</span> Clock Domains and Metastability</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This chapter will be released later in the semester.</p>
+</div>
+</div>
+</section>
+<section id="sec-digital-flow" class="level1" data-number="10">
+<h1 data-number="10"><span class="header-section-number">10</span> The RTL-to-GDSII Flow with LibreLane</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This chapter will be released later in the semester.</p>
+</div>
+</div>
+</section>
+<section id="sec-project" class="level1" data-number="11">
+<h1 data-number="11"><span class="header-section-number">11</span> Capstone Project: A Small RISC-V SoC</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This chapter will be released later in the semester.</p>
+</div>
+</div>
+</section>
+<section id="sec-app-sv-cheatsheet" class="level1" data-number="12">
+<h1 data-number="12"><span class="header-section-number">12</span> Appendix: SystemVerilog Cheat-Sheet</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This appendix will be released later in the semester.</p>
+</div>
+</div>
+</section>
+<section id="sec-app-tooling" class="level1" data-number="13">
+<h1 data-number="13"><span class="header-section-number">13</span> Appendix: Tooling Cheat-Sheet</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This appendix will be released later in the semester.</p>
+</div>
+</div>
+</section>
+<section id="sec-app-exam" class="level1" data-number="14">
+<h1 data-number="14"><span class="header-section-number">14</span> Appendix: Sample Exam Questions</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This appendix will be released later in the semester.</p>
+</div>
+</div>
+
+
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Cummings_CDC" class="csl-entry" role="listitem">
+Cummings, Clifford E. 2008. <em>Clock Domain Crossing (CDC) Design &amp; Verification Techniques Using SystemVerilog</em>. Sunburst Design.
+</div>
+<div id="ref-AMS_Chip_Template" class="csl-entry" role="listitem">
+Dorrer, Simon, and Harald Pretl. 2026. <em>An Open-Source Analog Mixed-Signal Chip Design Template &amp; Tutorial for the Ihp-Sg13g2 Open-PDK</em>. <a href="https://github.com/iic-jku/ihp-sg13g2-ams-chip-template" class="uri">Https://github.com/iic-jku/ihp-sg13g2-ams-chip-template</a>.
+</div>
+<div id="ref-Harris_Harris_2021" class="csl-entry" role="listitem">
+Harris, Sarah L., and David Money Harris. 2021. <em>Digital Design and Computer Architecture, RISC-v Edition</em>. Morgan Kaufmann.
+</div>
+<div id="ref-IIC_OSIC_TOOLS" class="csl-entry" role="listitem">
+Institute for Integrated Circuits, JKU. n.d. <em>IIC-OSIC-TOOLS: A Container with Open-Source IC Design Tools</em>. <a href="https://github.com/iic-jku/IIC-OSIC-TOOLS" class="uri">Https://github.com/iic-jku/IIC-OSIC-TOOLS</a>.
+</div>
+<div id="ref-Weste_Harris_2010" class="csl-entry" role="listitem">
+Weste, Neil H. E., and David Money Harris. 2010. <em>CMOS VLSI Design: A Circuits and Systems Perspective</em>. 4th ed. Addison-Wesley.
+</div>
+</div></section><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div>Apache-2.0 license</div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{dorrer2026,
+  author = {Dorrer, Simon},
+  title = {VLSI {Design}},
+  date = {2026-10-17},
+  url = {https://iic-jku.github.io/vlsi-design},
+  langid = {en-US}
+}
+</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-dorrer2026" class="csl-entry quarto-appendix-citeas" role="listitem">
+Dorrer, Simon. 2026. <span>“VLSI Design.”</span> October 17. <a href="https://iic-jku.github.io/vlsi-design">https://iic-jku.github.io/vlsi-design</a>.
+</div></div></section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/iic-jku\.github\.io\/vlsi-design\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p><a href="https://github.com/iic-jku/vlsi-design" class="external" target="_blank">Source code</a></p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+<p>Website built with <a href="https://quarto.org/" class="external" target="_blank">Quarto</a></p>
+</div>
+  </div>
+</footer>
+<script>var lightboxQuarto = GLightbox({"closeEffect":"zoom","descPosition":"bottom","loop":false,"openEffect":"zoom","selector":".lightbox"});
+(function() {
+  let previousOnload = window.onload;
+  window.onload = () => {
+    if (previousOnload) {
+      previousOnload();
+    }
+    lightboxQuarto.on('slide_before_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      const href = trigger.getAttribute('href');
+      if (href !== null) {
+        const imgEl = window.document.querySelector(`a[href="${href}"] img`);
+        if (imgEl !== null) {
+          const srcAttr = imgEl.getAttribute("src");
+          if (srcAttr && srcAttr.startsWith("data:")) {
+            slideConfig.href = srcAttr;
+          }
+        }
+      } 
+    });
+  
+    lightboxQuarto.on('slide_after_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(slideNode);
+      }
+    });
+  
+  };
+  
+})();
+          </script>
+
+
+
+
+</body></html>

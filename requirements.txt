@@ -1,6 +1,0 @@
-jupyter
-schemdraw[svgmath]
-ziamath
-numpy
-pandas
-matplotlib
