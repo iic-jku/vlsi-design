@@ -1,0 +1,97 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-sv-sync-design
+#| echo: false
+#| fig-cap: "Synchronous sequential design. A register of edge-triggered flip-flops stores the state. The combinational next-state logic computes the next state from the state and the inputs, and the register takes it over at every rising clock edge. In the two-process style, the next-state logic is the combinational process (`next_state_logic` in VHDL, `always_comb` in SystemVerilog), and the register is the register process (`reg_proc` in VHDL, `always_ff` in SystemVerilog)."
+#| fig-alt: "Block diagram: the inputs and the fed-back state enter a cloud labeled next-state logic. Its output, the next state, enters the D input of a register with clock and reset inputs. The Q output of the register is the state, which is fed back to the next-state logic."
+import math
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+from schemdraw.elements import Element
+from schemdraw.segments import SegmentPoly
+sd.svgconfig.svg2 = False
+
+
+def cloud_outline(a, b, n=13, steps=16):
+    ''' Closed cloud outline: n outward bumps on an ellipse with the half axes a and b '''
+    jitter = [0.0, 0.1, -0.08, 0.12, -0.1, 0.05, -0.06, 0.1, -0.12, 0.08, -0.05, 0.1, -0.07]
+    ang = [2*math.pi*(k + jitter[k])/n for k in range(n)]
+    base = [(a*math.cos(t), b*math.sin(t)) for t in ang]
+    pts = []
+    for k in range(n):
+        (x1, y1), (x2, y2) = base[k], base[(k + 1) % n]
+        half = math.hypot(x2 - x1, y2 - y1)/2
+        nx, ny = (y2 - y1)/(2*half), -(x2 - x1)/(2*half)   # outward normal of the chord
+        # arc center slightly inside the chord, so every bump is a bit smaller than a semicircle
+        cx, cy = (x1 + x2)/2 - 0.3*half*nx, (y1 + y2)/2 - 0.3*half*ny
+        r = math.hypot(x1 - cx, y1 - cy)
+        a1 = math.atan2(y1 - cy, x1 - cx)
+        span = (math.atan2(y2 - cy, x2 - cx) - a1) % (2*math.pi)
+        if span > math.pi:
+            span -= 2*math.pi
+        pts += [(cx + r*math.cos(a1 + span*i/steps), cy + r*math.sin(a1 + span*i/steps)) for i in range(steps)]
+    return pts
+
+
+def edge_x(pts, y, side):
+    ''' x coordinate where the horizontal line at y crosses the outline on the left (W) or right (E) side '''
+    xs = [x1 + (y - y1)*(x2 - x1)/(y2 - y1)
+          for (x1, y1), (x2, y2) in zip(pts, pts[1:] + pts[:1])
+          if (y1 - y)*(y2 - y) <= 0 and y1 != y2]
+    return min(xs) if side == 'W' else max(xs)
+
+
+class Cloud(Element):
+    ''' Cloud, the usual symbol for a block of combinational logic '''
+    def __init__(self, a: float = 1.75, b: float = 1.0, **kwargs):
+        super().__init__(**kwargs)
+        pts = cloud_outline(a, b)
+        self.segments.append(SegmentPoly(pts))
+        self.anchors['center'] = (0, 0)
+        self.anchors['in1'] = (edge_x(pts, 0.4, 'W'), 0.4)
+        self.anchors['in2'] = (edge_x(pts, -0.4, 'W'), -0.4)
+        self.anchors['out'] = (edge_x(pts, 0, 'E'), 0)
+        self.params['theta'] = 0
+        self.params['lblloc'] = 'center'
+        self.params['lblofst'] = 0
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+
+    # next-state logic and register
+    nsl = Cloud().at((0, 0)).fill('#d5e8d4').color('#82b366').label('Next-State Logic\n(combinational)', color='black')
+    rx0, rx1, ry0, ry1 = 4.0, 5.6, -1.5, 1.5
+    flow.Box(w=rx1 - rx0, h=ry1 - ry0).at(((rx0 + rx1)/2, 0)).anchor('center').fill('#dae8fc').color('#6c8ebf') \
+        .label('Register\n(memory)', loc='center', ofst=(0, 0.85), color='black')
+    yc = -0.95   # clock input with the triangle of an edge-triggered flip-flop
+    flow.Line().at((rx0, yc + 0.2)).to((rx0 + 0.3, yc)).color('black')
+    flow.Line().at((rx0 + 0.3, yc)).to((rx0, yc - 0.2)).color('black')
+
+    # next state into D, state out of Q
+    flow.Arrow().at(nsl.out).to((rx0, 0)).label('next state', 'top', color='black')
+    elm.Label().at((rx0 + 0.25, 0)).label('D', color='black')
+    elm.Label().at((rx1 - 0.25, 0)).label('Q', color='black')
+
+    # the state is fed back to the next-state logic
+    xf, yt, xl = 6.6, 2.1, -2.7
+    flow.Line().at((rx1, 0)).to((xf, 0)).label('state', 'top', color='black')
+    flow.Line().at((xf, 0)).to((xf, yt))
+    flow.Line().at((xf, yt)).to((xl, yt))
+    flow.Line().at((xl, yt)).to((xl, nsl.in1[1]))
+    flow.Arrow().at((xl, nsl.in1[1])).to(nsl.in1)
+
+    # inputs, clock, and reset
+    flow.Arrow().at((-3.7, nsl.in2[1])).to(nsl.in2).label('inputs', 'top', color='black')
+    xclk, xrst, ybot = 3.2, (rx0 + rx1)/2, -2.3
+    flow.Line().at((xclk, ybot)).to((xclk, yc))
+    flow.Line().at((xclk, yc)).to((rx0, yc))
+    flow.Arrow().at((xrst, ybot)).to((xrst, ry0))
+    elm.Label().at((xclk, ybot - 0.25)).label('clk', color='black')
+    elm.Label().at((xrst, ybot - 0.25)).label('rst', color='black')
+```

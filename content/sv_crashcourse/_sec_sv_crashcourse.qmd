@@ -16,6 +16,7 @@ All code of this chapter (RTL, VHDL references, testbenches, and the solutions o
 After this chapter, you will be able to:
 
 - explain how a hardware description differs from software for a microcontroller
+- describe a synchronous sequential circuit as a register plus next-state logic, and explain why the combinational logic has one clock period to compute
 - name the main families of HDLs and judge their strengths and weaknesses
 - translate VHDL designs written in the two-process style into idiomatic SystemVerilog
 - write synthesizable combinational and sequential logic with `always_comb` and `always_ff`, and avoid latches, races, and width errors
@@ -41,9 +42,11 @@ A C program for a microcontroller (MCU) and a SystemVerilog module may look alik
 
 : Software for a microcontroller versus a hardware description {#tbl-sv-mcu-vs-hdl}
 
-The most important consequence is a change in thinking: **think hardware first, then write the code.** Before you write a module, sketch its block diagram with the registers and the combinational logic between them. The code then only describes this diagram. Keep in mind that a simulator executes your HDL as an event-driven program on your computer. This is why HDLs also contain constructs such as delays, `$display`, or file access, which only make sense in simulation and cannot be synthesized (@sec-sv-synthesizable).
+The most important consequence is a change in thinking: **think hardware first, then write the code.** Before you write a module, sketch its block diagram with the registers and the combinational logic between them (@sec-sv-sync-design). The code then only describes this diagram. Keep in mind that a simulator executes your HDL as an event-driven program on your computer. This is why HDLs also contain constructs such as delays, `$display`, or file access, which only make sense in simulation and cannot be synthesized (@sec-sv-synthesizable).
 
-The difference becomes obvious with a loop. The following C function counts the ones in a byte (population count):
+### Computing in Time and in Space {#sec-sv-time-space}
+
+The difference between software and hardware becomes obvious with a loop. The following C function counts the ones in a byte (population count):
 
 ```c
 uint8_t popcount(uint8_t x)
@@ -76,6 +79,48 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 3. The MCU needs eight times as many iterations, so the time grows. The hardware needs about eight times as many adders, so the area grows, while the result is still available within one cycle. This is the basic trade-off between computing in time and computing in space. Processors often add dedicated hardware for such functions, e.g., the `cpop` instruction of the RISC-V bit-manipulation extension Zbb.
 4. Yosys 0.70 reports 26 generic logic cells (`$_XOR_`, `$_NAND_`, `$_ANDNOT_`, and others) and no flip-flops, confirming that the module is purely combinational.
 :::
+
+### Synchronous Sequential Design {#sec-sv-sync-design}
+
+The popcount module is purely combinational: its output depends only on its current inputs. Most circuits also need memory, e.g., for the state of an FSM or the value of a counter. Almost all of them are built as **synchronous sequential circuits** with the structure of @fig-sv-sync-design, which you know from your VHDL course. A **register** of edge-triggered flip-flops stores the current state. The **next-state logic**, a purely combinational circuit, computes the next state from the current state and the inputs. At every rising clock edge, the register takes over the next state at its D input, and the new state appears at its Q output. The outputs of the circuit are derived from the state (Moore FSM) or from the state and the inputs (Mealy FSM).
+
+{{< include /content/sv_crashcourse/_fig_sync_design.qmd >}}
+
+Edge-triggered flip-flops are the key to this structure. Their outputs change only at the rising clock edge and stay stable for the rest of the clock period. The next-state logic therefore sees stable inputs for one full clock period, and this is exactly the time it has to compute the next state. The result must have settled before the next rising edge (more precisely, a setup time before it), when the register takes it over. The same holds for every path from a register through combinational logic to the next register, so the clock period only has to be longer than the slowest of these paths. Static timing analysis checks exactly this for every path in the design (@sec-sequential). The rule assumes that the inputs also change only after a clock edge, i.e., that they come from registers driven by the same clock. An asynchronous input needs a synchronizer first (@sec-cdc).
+
+In your VHDL designs, you describe this structure with two processes, a register process `reg_proc` and a combinational process such as `next_state_logic`. As a minimal example, consider a toggle flip-flop, whose state inverts at every rising clock edge at which `toggle_i` is high:
+
+```vhdl
+-- Register process: only reset and clock in the sensitivity list
+reg_proc: process(rst_i, clk_i) is
+begin
+  if rst_i = '1' then
+    state <= '0';
+  elsif rising_edge(clk_i) then
+    state <= next_state;
+  end if;
+end process reg_proc;
+
+-- Combinational process: all signals that are read in the sensitivity list
+next_state_logic: process(state, toggle_i) is
+begin
+  -- default assignment
+  next_state <= state;
+
+  -- calculate next_state out of state and the inputs
+  if toggle_i = '1' then
+    next_state <= not state;
+  end if;
+end process next_state_logic;
+```
+
+Three rules make this style work:
+
+- The **register process** has only the reset and the clock in its sensitivity list, because the register reacts to nothing else. Its body is always the same: the reset values and, at the rising clock edge, the copies of the `next_` signals. No logic belongs here.
+- The sensitivity list of the **combinational process** contains **all signals that are read** in the process. The simulator executes the process only when a signal in this list changes, while the synthesis tool ignores the list (at best with a warning) and builds combinational logic anyway. A missing signal therefore makes the simulation differ from the synthesized hardware. VHDL-2008 avoids this problem with `process(all)`.
+- The combinational process starts with a **default assignment**, here `next_state <= state`, followed by all decisions. Every signal is thus assigned on every path, and no latch can arise. Keeping the state is not a latch: the register is the memory, and the next-state logic only feeds the current state back to its D input.
+
+@sec-sv-two-process shows the same style and the same three rules in SystemVerilog.
 
 ## The HDL Landscape {#sec-sv-hdl-landscape}
 
@@ -372,20 +417,7 @@ With blocking assignments, `b_q` would read the *new* value of `a_q`, and both r
 
 ### Registers and Resets {#sec-sv-registers}
 
-In your VHDL style, every register process has an active-high asynchronous reset:
-
-```vhdl
-reg_proc: process(rst_i, clk_i) is
-begin
-  if rst_i = '1' then
-    q <= (others => '0');
-  elsif rising_edge(clk_i) then
-    q <= d;
-  end if;
-end process reg_proc;
-```
-
-In SystemVerilog, the three register variants you need look as follows:
+In your VHDL style, every register process has an active-high asynchronous reset (@sec-sv-sync-design). In SystemVerilog, the three register variants you need look as follows:
 
 ```systemverilog
 // Asynchronous active-low reset (the default in this course)
@@ -421,9 +453,39 @@ In this course, the default is an **asynchronous active-low reset** named `rst_n
 
 ### The Two-Process Style {#sec-sv-two-process}
 
-In your VHDL designs, you split each block into a register process (`reg_proc`), which only holds the reset values and copies the `next_` signals into the registers, and one or more combinational processes, which start with complete default assignments and contain all decisions. This style maps one to one onto SystemVerilog, and we keep it: `always_ff` is the register process, `always_comb` the combinational process, and the `next_` prefix becomes the suffix pair `_d` (the next value at the D input of the flip-flop) and `_q` (the current value at its Q output), as in the lowRISC style guide.
+In your VHDL designs, you split each block into a register process (`reg_proc`), which only holds the reset values and copies the `next_` signals into the registers, and one or more combinational processes, which start with complete default assignments and contain all decisions (@sec-sv-sync-design). This style maps one to one onto SystemVerilog, and we keep it: `always_ff` is the register process, `always_comb` the combinational process, and the `next_` prefix becomes the suffix pair `_d` (the next value at the D input of the register in @fig-sv-sync-design) and `_q` (the current value at its Q output), as in the lowRISC style guide. Here is the toggle flip-flop of @sec-sv-sync-design in SystemVerilog:
 
-As an example, consider a tick generator: while `en_i` is high, `tick_o` is high for one clock cycle every `DIV` clock cycles. Here is the VHDL version in the style you know:
+```systemverilog
+// Register process: only clock and reset in the event list
+always_ff @(posedge clk_i or negedge rst_ni) begin
+  if (!rst_ni) begin
+    state_q <= 1'b0;
+  end else begin
+    state_q <= state_d;
+  end
+end
+
+// Combinational process: the sensitivity list is inferred
+always_comb begin
+  // default assignment
+  state_d = state_q;
+
+  // calculate state_d out of state_q and the inputs
+  if (toggle_i) begin
+    state_d = ~state_q;
+  end
+end
+```
+
+The three rules of the VHDL style carry over, and SystemVerilog enforces two of them for you:
+
+- The event list of `always_ff` contains only the clock edge and the reset edge, just like the sensitivity list of `reg_proc`. If you add a data signal to it, Yosys stops with an error, even though Verilator accepts it.
+- `always_comb` infers the complete sensitivity list by itself, so a forgotten signal is no longer possible.
+- The default assignment `state_d = state_q;` comes first, as in VHDL. If you forget it, the tools report the latch: Verilator warns, and Yosys stops with an error (@sec-sv-case).
+
+The register process uses non-blocking assignments `<=` and the combinational process blocking assignments `=`, as the Golden Rules of @sec-sv-processes demand. The order of the two blocks in the file does not matter, since both are concurrent. The listings of this chapter put `always_comb` first, following the data flow from the logic into the register. Yosys 0.70 synthesizes the toggle flip-flop into exactly two cells, an inverter and a flip-flop with enable (`$_DFFE_PN0P_`) whose enable input is `toggle_i`. The default assignment that keeps the state has become the enable of the flip-flop, not a latch.
+
+As a larger example, consider a tick generator: while `en_i` is high, `tick_o` is high for one clock cycle every `DIV` clock cycles. Such a one-cycle pulse is a *strobe*, which typically triggers other blocks, e.g., to restart a counter or to signal that a result is valid. Here is the VHDL version in the style you know:
 
 ```{.vhdl filename="tick_gen/vhdl/tick_gen_ea.vhd"}
 {{< include /content/sv_crashcourse/code/tick_gen/vhdl/tick_gen_ea.vhd >}}
@@ -1054,6 +1116,7 @@ From the lowRISC style guide [@lowRISC_Style_Guide], we additionally adopt the s
 ## Summary {#sec-sv-summary}
 
 - An HDL describes hardware that works concurrently, not instructions that run one after another. Think hardware first, then write the code.
+- Almost every digital circuit is a register plus combinational next-state logic. The register takes over the next state at every rising clock edge, so the logic has one clock period to compute it.
 - Many HDLs exist, but all of them end up as (System)Verilog. SystemVerilog is the industry standard and the language of our open-source flow.
 - Your VHDL two-process style maps directly onto SystemVerilog: `always_ff` holds the reset values and copies `_d` into `_q`, `always_comb` starts with defaults and contains all decisions.
 - Use `logic`, `always_comb` with `=`, `always_ff` with `<=`, sized literals, and an asynchronous active-low reset `rst_ni`. Lint every file and check it with a quick Yosys synthesis.
