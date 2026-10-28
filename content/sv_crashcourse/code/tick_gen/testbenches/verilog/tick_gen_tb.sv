@@ -27,8 +27,8 @@ module tick_gen_tb;
   // Clock generation
   always #(CLK_PERIOD_NS / 2) clk = ~clk;
 
-  // Stimulus and checks. Inputs change and outputs are sampled on the falling
-  // edge, so they never race with the rising edge on which the DUT acts.
+  // Stimulus and checks: inputs change and outputs are sampled on the
+  // falling edge, so they never race with the DUT at the rising edge.
   initial begin
     $dumpfile("tick_gen_tb.vcd");
     $dumpvars(0, tick_gen_tb);

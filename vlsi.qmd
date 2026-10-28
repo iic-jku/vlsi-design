@@ -36,22 +36,23 @@ format:
     include-in-header:
       - text: |
           // Quarto's callouts cannot break across pages, so the long listings in
-          // the exercise solutions would run over the page end. Same layout, breakable.
+          // the exercise solutions would run over the page end. Same look, breakable.
+          // The body flows directly after the sticky title, so a page break never
+          // leaves the title alone at the bottom of a page.
           #let callout(body: [], title: "Callout", background_color: rgb("#dddddd"), icon: none, icon_color: black, body_background_color: white, ..rest) = {
             block(
               breakable: true,
-              fill: background_color,
+              fill: body_background_color,
               stroke: (paint: icon_color, thickness: 0.5pt, cap: "round"),
               width: 100%,
               radius: 2pt,
-              block(
-                inset: 1pt,
-                width: 100%,
-                below: 0pt,
-                block(fill: background_color, width: 100%, inset: 8pt)[#text(icon_color, weight: 900)[#icon] #title]) +
+              clip: true,
+              {
+                block(fill: background_color, width: 100%, inset: 9pt, below: 0pt, sticky: true)[#text(icon_color, weight: 900)[#icon] #title]
                 if (body != []) {
-                  block(inset: 1pt, width: 100%, block(fill: body_background_color, width: 100%, inset: 8pt, body))
+                  pad(9pt, body)
                 }
+              }
             )
           }
 ---

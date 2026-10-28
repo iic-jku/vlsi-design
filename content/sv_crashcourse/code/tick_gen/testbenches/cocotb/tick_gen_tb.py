@@ -14,7 +14,7 @@ DIV = 5  # passed to the DUT as parameter in the runner below
 
 
 async def start_up(dut):
-    """Start a 50 MHz clock and apply the active-low reset for two cycles."""
+    """Start a 50 MHz clock and reset the DUT for two cycles."""
     cocotb.start_soon(Clock(dut.clk_i, 20, "ns").start())
     dut.rst_ni.value = 0
     dut.en_i.value = 0
@@ -63,10 +63,11 @@ def tick_gen_runner():
         waves=True,
     )
 
-    # A failing test does not change the exit status, so check the results
+    # A failing test leaves the exit status at 0, so check the results
     num_tests, num_failed = get_results(results_xml)
     if num_failed:
-        raise SystemExit(f"FAIL: {num_failed} of {num_tests} tests failed")
+        raise SystemExit(
+            f"FAIL: {num_failed} of {num_tests} tests failed")
 
 
 if __name__ == "__main__":

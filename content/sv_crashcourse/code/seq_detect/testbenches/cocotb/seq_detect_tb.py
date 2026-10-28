@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Simon Dorrer
 # SPDX-License-Identifier: Apache-2.0
-# Description: Self-checking cocotb testbench for seq_detect with a Python
-# reference model.
+# Description: Self-checking cocotb testbench for seq_detect with a
+# Python reference model.
 
 import os
 import random
@@ -16,7 +16,7 @@ PATTERN = [1, 0, 1, 1]
 
 
 async def start_up(dut):
-    """Start a 50 MHz clock and apply the active-low reset for two cycles."""
+    """Start a 50 MHz clock and reset the DUT for two cycles."""
     cocotb.start_soon(Clock(dut.clk_i, 20, "ns").start())
     dut.rst_ni.value = 0
     dut.bit_i.value = 0
@@ -26,23 +26,25 @@ async def start_up(dut):
 
 
 async def send_and_check(dut, bits):
-    """Send one bit per clock cycle, compare detect_o with the model."""
+    """Send one bit per cycle, compare detect_o with the model."""
     history = []
     detections = 0
     for bit in bits:
         dut.bit_i.value = bit
-        await FallingEdge(dut.clk_i)  # the rising edge in between samples bit
+        # The DUT samples the bit at the rising edge in between
+        await FallingEdge(dut.clk_i)
         history.append(bit)
         expected = 1 if history[-len(PATTERN):] == PATTERN else 0
         assert dut.detect_o.value == expected, \
-            f"after bits ...{history[-8:]}: expected {expected}, got {dut.detect_o.value}"
+            f"after bits ...{history[-8:]}: " \
+            f"expected {expected}, got {dut.detect_o.value}"
         detections += expected
     return detections
 
 
 @cocotb.test()
 async def test_overlapping(dut):
-    """1011011 contains the pattern twice, the second one overlapping."""
+    """1011011 contains the pattern twice, the second overlapping."""
     await start_up(dut)
     detections = await send_and_check(dut, [1, 0, 1, 1, 0, 1, 1, 0, 0])
     assert detections == 2, f"expected 2 detections, got {detections}"
@@ -55,8 +57,8 @@ async def test_random_bits(dut):
     rng = random.Random(1234)  # fixed seed: every run is reproducible
     bits = [rng.randint(0, 1) for _ in range(500)]
     detections = await send_and_check(dut, bits)
-    # Guard against a test that passes because it never sees the pattern
-    assert detections > 0, "the random stream never contained the pattern"
+    # Guard against a test that passes without ever seeing the pattern
+    assert detections > 0, "no pattern in the random stream"
     dut._log.info(f"{detections} detections in {len(bits)} bits")
 
 
@@ -78,10 +80,11 @@ def seq_detect_runner():
         waves=True,
     )
 
-    # A failing test does not change the exit status, so check the results
+    # A failing test leaves the exit status at 0, so check the results
     num_tests, num_failed = get_results(results_xml)
     if num_failed:
-        raise SystemExit(f"FAIL: {num_failed} of {num_tests} tests failed")
+        raise SystemExit(
+            f"FAIL: {num_failed} of {num_tests} tests failed")
 
 
 if __name__ == "__main__":

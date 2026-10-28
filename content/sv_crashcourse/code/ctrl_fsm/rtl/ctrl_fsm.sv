@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Simon Dorrer
 // SPDX-License-Identifier: Apache-2.0
-// Description: Moore FSM of a simple controller. A start_i pulse moves it
-// from idle to run (busy_o high) until last_i, then done_o is high for one
-// clock cycle before the FSM returns to idle.
+// Description: Moore FSM of a simple controller. A start_i pulse
+// moves it from idle to run (busy_o high) until last_i, then done_o
+// is high for one clock cycle before the FSM returns to idle.
 
 `default_nettype none
 

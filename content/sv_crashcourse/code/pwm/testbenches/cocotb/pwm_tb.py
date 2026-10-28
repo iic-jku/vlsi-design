@@ -16,7 +16,7 @@ PERIOD = 2**WIDTH
 
 
 async def start_up(dut):
-    """Start a 50 MHz clock and apply the active-low reset for two cycles."""
+    """Start a 50 MHz clock and reset the DUT for two cycles."""
     cocotb.start_soon(Clock(dut.clk_i, 20, "ns").start())
     dut.rst_ni.value = 0
     dut.duty_i.value = 0
@@ -27,37 +27,39 @@ async def start_up(dut):
 
 @cocotb.test()
 async def test_all_duty_values(dut):
-    """For every duty value d, pwm_o is high for d cycles per period."""
+    """For every duty d, pwm_o is high for d cycles per period."""
     await start_up(dut)
     for duty in range(PERIOD):
         dut.duty_i.value = duty
-        for _ in range(2):  # the new duty value reaches the output
+        for _ in range(2):  # the new duty reaches pwm_o
             await FallingEdge(dut.clk_i)
         high_cycles = 0
         for _ in range(PERIOD):
             await FallingEdge(dut.clk_i)
             assert dut.pwm_o.value.is_resolvable, "pwm_o is X or Z"
             high_cycles += int(dut.pwm_o.value)
-        assert high_cycles == duty, f"duty {duty} gives {high_cycles} high cycles"
+        assert high_cycles == duty, \
+            f"duty {duty} gives {high_cycles} high cycles"
 
 
 @cocotb.test()
 async def test_against_model(dut):
-    """Random duty changes, compared cycle by cycle with a Python model."""
+    """Random duty changes, checked cycle by cycle against a model."""
     await start_up(dut)
     rng = random.Random(42)  # fixed seed: every run is reproducible
     count, pwm, duty = 0, 0, 0  # model state after reset
     for _ in range(20 * PERIOD):
         if rng.random() < 0.05:
-            # Keep the value in Python: a write becomes visible in the DUT
-            # only at the end of the current time step
+            # Keep the value in Python: a write becomes visible in
+            # the DUT only at the end of the current time step
             duty = rng.randrange(PERIOD)
             dut.duty_i.value = duty
         await FallingEdge(dut.clk_i)
-        # Model of the rising edge in between: both registers update at once
+        # Model of the rising edge: both registers update at once
         pwm = 1 if count < duty else 0
         count = (count + 1) % PERIOD
-        assert dut.pwm_o.value == pwm, f"expected {pwm}, got {dut.pwm_o.value}"
+        assert dut.pwm_o.value == pwm, \
+            f"expected {pwm}, got {dut.pwm_o.value}"
 
 
 def pwm_runner():
@@ -79,10 +81,11 @@ def pwm_runner():
         waves=True,
     )
 
-    # A failing test does not change the exit status, so check the results
+    # A failing test leaves the exit status at 0, so check the results
     num_tests, num_failed = get_results(results_xml)
     if num_failed:
-        raise SystemExit(f"FAIL: {num_failed} of {num_tests} tests failed")
+        raise SystemExit(
+            f"FAIL: {num_failed} of {num_tests} tests failed")
 
 
 if __name__ == "__main__":

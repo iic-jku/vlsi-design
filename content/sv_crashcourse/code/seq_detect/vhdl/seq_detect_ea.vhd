@@ -1,8 +1,9 @@
 -- SPDX-FileCopyrightText: 2026 Simon Dorrer
 -- SPDX-License-Identifier: Apache-2.0
--- Description: Moore FSM that detects the bit pattern 1011 in the serial
--- input bit_i (one bit per rising clock edge, overlapping occurrences count).
--- detect_o is high for one cycle after the edge that sampled the last 1.
+-- Description: Moore FSM that detects the bit pattern 1011 in the
+-- serial input bit_i (one bit per rising clock edge, overlapping
+-- occurrences count). detect_o is high for one cycle after the edge
+-- that sampled the last 1.
 
 library ieee;
 use ieee.std_logic_1164.all;

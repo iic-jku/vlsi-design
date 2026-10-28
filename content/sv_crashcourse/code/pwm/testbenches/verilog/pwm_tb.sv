@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Simon Dorrer
 // SPDX-License-Identifier: Apache-2.0
-// Description: Self-checking SystemVerilog testbench for pwm, testing all
-// duty values of a 4-bit PWM.
+// Description: Self-checking SystemVerilog testbench for pwm,
+// testing all duty values of a 4-bit PWM.
 
 `timescale 1ns / 1ps
 
@@ -37,7 +37,7 @@ module pwm_tb;
 
     for (int d = 0; d < PERIOD; d++) begin
       duty = WIDTH'(d);
-      repeat (2) @(negedge clk);  // the new duty value reaches the output
+      repeat (2) @(negedge clk);  // the new duty reaches pwm_o
 
       // Any PERIOD consecutive cycles contain exactly d high cycles
       high_cycles = 0;
@@ -47,7 +47,8 @@ module pwm_tb;
         if (pwm_out) high_cycles++;
       end
       if (high_cycles != d) begin
-        $fatal(1, "FAIL: duty %0d gives %0d high cycles", d, high_cycles);
+        $fatal(1, "FAIL: duty %0d gives %0d high cycles", d,
+               high_cycles);
       end
     end
 

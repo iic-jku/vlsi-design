@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Simon Dorrer
 // SPDX-License-Identifier: Apache-2.0
-// Description: PWM generator. In every period of 2**WIDTH clock cycles,
-// pwm_o is high for exactly duty_i cycles (duty_i = 0 keeps it low).
+// Description: PWM generator. In every period of 2**WIDTH clock
+// cycles, pwm_o is high for exactly duty_i cycles (duty_i = 0 keeps
+// it low).
 
 `default_nettype none
 

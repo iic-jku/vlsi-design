@@ -1,7 +1,8 @@
 -- SPDX-FileCopyrightText: 2026 Simon Dorrer
 -- SPDX-License-Identifier: Apache-2.0
--- Description: Tick generator in the two-process style. While en_i is high,
--- tick_o is high for one clock cycle every DIV clock cycles (DIV >= 2).
+-- Description: Tick generator in the two-process style. While
+-- en_i is high, tick_o is high for one clock cycle every DIV clock
+-- cycles (DIV >= 2).
 
 library ieee;
 use ieee.std_logic_1164.all;

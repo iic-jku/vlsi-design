@@ -19,5 +19,6 @@ end entity adder;
 
 architecture rtl of adder is
 begin
-  sum_o <= std_logic_vector(resize(unsigned(a_i), WIDTH + 1) + unsigned(b_i));
+  sum_o <= std_logic_vector(resize(unsigned(a_i), WIDTH + 1)
+                            + unsigned(b_i));
 end architecture rtl;

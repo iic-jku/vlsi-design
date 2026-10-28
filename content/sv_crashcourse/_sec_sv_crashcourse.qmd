@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 Most of you already design digital circuits in VHDL. This chapter is a crash course that maps what you know from VHDL onto synthesizable **SystemVerilog**, the hardware description language (HDL) we use throughout this course. It is not an introduction to digital design: the synchronous, latch-free design style you learned with VHDL carries over unchanged, and only the syntax and a few semantic rules are new. Along the way, you write testbenches in SystemVerilog and in Python with **cocotb**, and you lint, simulate, and synthesize your designs in the IIC-OSIC-TOOLS container.
 
 ::: {.callout-note}
-All code of this chapter (RTL, VHDL references, testbenches, and the solutions of the exercises) is available in the folder [`content/sv_crashcourse/code`]({{< meta var.url-repo >}}/tree/main/content/sv_crashcourse/code) of the course repository, in the same folder structure as the macros of the AMS chip template. All files in this folder were linted, simulated, and synthesized with the tools of the IIC-OSIC-TOOLS image `2026.10`: Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, GHDL (for the VHDL files), and Yosys 0.70.
+All code of this chapter (RTL, VHDL references, testbenches, and the solutions of the exercises) is available in the folder [`content/sv_crashcourse/code`]({{< meta var.url-repo >}}/tree/main/content/sv_crashcourse/code) of the course repository, in the same folder structure as the macros of the AMS chip template. All files in this folder were linted, simulated, and synthesized with the tools of the IIC-OSIC-TOOLS image `2026.10`: Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, GHDL 7.0.0-dev (for the VHDL files), and Yosys 0.70. With another image, the cell counts in the solutions can differ slightly.
 :::
 
 ## Learning Objectives {#sec-sv-objectives}
@@ -19,7 +19,7 @@ After this chapter, you will be able to:
 - describe a synchronous sequential circuit as a register plus next-state logic, and explain why the combinational logic has one clock period to compute
 - name the main families of HDLs and judge their strengths and weaknesses
 - translate VHDL designs written in the two-process style into idiomatic SystemVerilog
-- read plain Verilog, e.g., netlists and older IP, and translate older Verilog RTL into SystemVerilog
+- read plain Verilog, e.g., netlists and older IP, and translate Verilog RTL into SystemVerilog
 - write synthesizable combinational and sequential logic with `always_comb` and `always_ff`, and avoid latches, races, and width errors
 - write self-checking testbenches in SystemVerilog and in Python with cocotb
 - lint, simulate, and synthesize a design in the IIC-OSIC-TOOLS container by typing the commands yourself, and explain what the corresponding make targets of the AMS chip template do
@@ -39,7 +39,7 @@ A C program for a microcontroller (MCU) and a SystemVerilog module may look alik
 | Compilation result | machine code in the flash memory | a netlist of gates and flip-flops, then a layout (GDSII) |
 | Cost | memory and clock cycles | area, power, and maximum clock frequency |
 | Debugging | debugger, `printf`, single steps on the target | simulation and waveforms before the tapeout, little visibility in silicon |
-| Fixing a bug | a firmware update | for an ASIC, a new mask set (months and a lot of money) |
+| Fixing a bug | a firmware update | for an ASIC, a new mask set and fabrication run, which takes months |
 
 : Software for a microcontroller versus a hardware description {#tbl-sv-mcu-vs-hdl}
 
@@ -69,7 +69,7 @@ The same function written in SystemVerilog looks almost identical, but the hardw
 1. Roughly how many clock cycles does an MCU need for the C function? How long does the hardware need?
 2. What does the synthesis tool build from the `for` loop in `popcount.sv`? Is there a loop counter `i` in the hardware?
 3. What changes in both cases when `x` has 64 bits instead of 8?
-4. Optional, if you already have the container running: save the listing as `popcount.sv`, synthesize it with `yosys -p "read_verilog -sv popcount.sv; synth -top popcount; stat"`, and look at the cell statistics at the end of the log (@sec-sv-tools explains the command).
+4. Optional, if you already have the container running: save the listing as `popcount.sv`, synthesize it with `yosys -p "read_verilog -sv popcount.sv; synth -top popcount; stat"`, and look at the cell statistics at the end of the log (@sec-sv-tools-yosys explains the command).
 :::
 
 Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
@@ -77,13 +77,13 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 ::: {.callout-tip title="Solution: Loops in Software and in Hardware" collapse="true"}
 1. Per iteration, the MCU executes a shift, an AND, an addition, the increment of `i`, and a compare-and-branch, so about 40 instructions plus the function call. Depending on the core and the compiler, this takes several tens of clock cycles. The hardware needs no clock cycle at all: the module is purely combinational, and the result is valid after the propagation delay of the logic, usually well within one clock period of the surrounding registers.
 2. The loop is unrolled at elaboration: the synthesis tool creates a chain of eight adders (and may restructure them into a tree, as long as the function stays the same). The loop variable `i` exists only at compile time, so there is no counter in the hardware. This is why loop bounds in synthesizable code must be constants.
-3. The MCU needs eight times as many iterations, so the time grows. The hardware needs about eight times as many adders, so the area grows, while the result is still available within one cycle. This is the basic trade-off between computing in time and computing in space. Processors often add dedicated hardware for such functions, e.g., the `cpop` instruction of the RISC-V bit-manipulation extension Zbb.
+3. The MCU needs eight times as many iterations, so the time grows. The hardware needs eight times as many adders, and wider ones, so the area grows by more than a factor of eight. The result still needs no clock cycle, but the propagation delay grows as well, although an adder tree grows more slowly than a chain. This is the basic trade-off between computing in time and computing in space. Processors often add dedicated hardware for such functions, e.g., the `cpop` instruction of the RISC-V bit-manipulation extension Zbb.
 4. Yosys 0.70 reports 26 generic logic cells (`$_XOR_`, `$_NAND_`, `$_ANDNOT_`, and others) and no flip-flops, confirming that the module is purely combinational.
 :::
 
 ### Synchronous Sequential Design {#sec-sv-sync-design}
 
-The popcount module is purely combinational: its output depends only on its current inputs. Most circuits also need memory, e.g., for the state of an FSM or the value of a counter. Almost all of them are built as **synchronous sequential circuits** with the structure of @fig-sv-sync-design, which you know from your VHDL course. A **register** of edge-triggered flip-flops stores the current state. The **next-state logic**, a purely combinational circuit, computes the next state from the current state and the inputs. At every rising clock edge, the register loads the next state from its D input, and the new state appears at its Q output. The outputs of the circuit are derived from the state (Moore FSM) or from the state and the inputs (Mealy FSM).
+The popcount module is purely combinational: its output depends only on its current inputs. Most circuits also need memory, e.g., for the state of a finite state machine (FSM) or the value of a counter. Almost all of them are built as **synchronous sequential circuits** with the structure of @fig-sv-sync-design, which you know from your VHDL courses. A **register** of edge-triggered flip-flops stores the current state. The **next-state logic**, a purely combinational circuit, computes the next state from the current state and the inputs. At every rising clock edge, the register loads the next state from its D input, and the new state appears at its Q output. The outputs of the circuit are derived from the state (Moore FSM) or from the state and the inputs (Mealy FSM).
 
 {{< include /content/sv_crashcourse/_fig_sync_design.qmd >}}
 
@@ -102,13 +102,13 @@ begin
   end if;
 end process reg_proc;
 
--- Combinational process: all signals that are read in the sensitivity list
+-- Combinational process: all signals it reads in the sensitivity list
 next_state_logic: process(state, toggle_i) is
 begin
   -- default assignment
   next_state <= state;
 
-  -- calculate next_state out of state and the inputs
+  -- calculate next_state from state and the inputs
   if toggle_i = '1' then
     next_state <= not state;
   end if;
@@ -127,8 +127,8 @@ Three rules make this style work:
 
 VHDL and Verilog appeared in the 1980s, and for decades they were practically the only choice. In the last fifteen years, a large number of alternatives has appeared, most of them open source. They fall into four families:
 
-1. **Standardized HDLs.** VHDL (IEEE 1076), Verilog (IEEE 1364), and SystemVerilog (IEEE 1800, which absorbed Verilog in 2009) are read directly by every simulator, synthesis, and verification tool, commercial or open source.
-2. **Embedded domain-specific languages (eDSLs)**, also called *hardware construction languages*. The hardware is described with a library of a general-purpose language such as Scala, Python, or Haskell. Running the program *generates* the hardware as Verilog, so the full power of the host language (classes, functions, loops, type systems) is available to build parameterizable generators.
+1. **Standardized HDLs.** VHDL (IEEE 1076), Verilog (IEEE 1364), and SystemVerilog (IEEE 1800, which absorbed Verilog in 2009) are read directly by the commercial simulation, synthesis, and verification tools. Among the open-source tools, (System)Verilog has much broader support than VHDL (@tbl-sv-vhdl-vs-sv).
+2. **Embedded domain-specific languages (eDSLs)**, also called *hardware construction languages*. The hardware is described with a library of a general-purpose language such as Scala, Python, or Haskell. Running the program *generates* the hardware as Verilog, so the classes, functions, loops, and type system of the host language are available to build parameterizable generators.
 3. **New standalone HDLs** with their own syntax and compiler, designed to avoid the pitfalls of Verilog. They also emit (System)Verilog.
 4. **High-level synthesis (HLS) and compiler intermediate representations.** An algorithm written in C/C++ or a dataflow language is scheduled into clock cycles by the tool, or a compiler uses an intermediate language as its hardware back end.
 
@@ -136,7 +136,7 @@ VHDL and Verilog appeared in the 1980s, and for decades they were practically th
 
 | Language | Family (host language) | Key idea | Origin | Output |
 |-----------|---------------|------------------|--------------|----------|
-| VHDL | standard, IEEE 1076-2019 | strongly typed, deterministic signal semantics | US Department of Defense, IEEE standard since 1987 | read by all tools |
+| VHDL | standard, IEEE 1076-2019 | strongly typed, deterministic signal semantics | US Department of Defense, IEEE standard since 1987 | read by commercial tools and GHDL |
 | Verilog | standard, IEEE 1364-2005 | weakly typed, compact syntax | Gateway Design Automation, 1984 | read by all tools |
 | SystemVerilog | standard, IEEE 1800-2023 | Verilog plus design and verification extensions | Accellera (2002), IEEE since 2005 | read by all tools |
 | Chisel | eDSL (Scala) | generators, compiled through FIRRTL and CIRCT | UC Berkeley, 2012 | Verilog, SystemVerilog |
@@ -144,7 +144,7 @@ VHDL and Verilog appeared in the 1980s, and for decades they were practically th
 | DFiant (DFHDL) | eDSL (Scala 3) | dataflow, timing-agnostic description | Technion, 2017 | Verilog, VHDL |
 | Amaranth | eDSL (Python) | generators, successor of Migen (first called nMigen) | 2019, renamed in 2021 | Verilog via Yosys |
 | Migen | eDSL (Python) | generators, still the base of the LiteX SoC builder | M-Labs, 2011 | Verilog |
-| PyMTL3 | eDSL (Python) | modeling at functional, cycle, and RTL level | Cornell University, 2014 | Verilog |
+| PyMTL3 | eDSL (Python) | modeling at functional, cycle, and RTL level | Cornell University, 2014 (as PyMTL) | Verilog |
 | PyRTL | eDSL (Python) | minimal RTL for teaching and research | UC Santa Barbara, 2014 | Verilog |
 | Magma | eDSL (Python) | strongly typed circuits | Stanford University, 2017 (inactive since 2024) | Verilog via CoreIR |
 | Kratos | eDSL (Python) | generators with source-level debugging | Stanford University, 2019 (inactive since 2023) | SystemVerilog |
@@ -163,7 +163,7 @@ VHDL and Verilog appeared in the 1980s, and for decades they were practically th
 
 : An overview of hardware description languages. Origins and years are those of the first public release. {#tbl-sv-hdl-list}
 
-Note what all non-standard languages have in common: their output is Verilog or SystemVerilog (sometimes VHDL), which then goes through the same simulators and synthesis tools as hand-written RTL. (System)Verilog is the common exchange format of the whole industry. @tbl-sv-hdl-compare compares the four families.
+All non-standard languages have one thing in common: their output is Verilog or SystemVerilog (sometimes VHDL), which then goes through the same simulators and synthesis tools as hand-written RTL. (System)Verilog is the common exchange format of the whole industry. @tbl-sv-hdl-compare compares the four families.
 
 | Criterion | Standardized HDLs | Embedded DSLs | New standalone HDLs | HLS |
 |-----------|--------------|--------------|--------------|--------------|
@@ -171,7 +171,7 @@ Note what all non-standard languages have in common: their output is Verilog or 
 | Tool support | all simulators, synthesis, lint, formal, and timing tools | host-language toolchain plus the generated Verilog | one compiler, few other tools | mostly commercial, open-source tools less mature |
 | Abstraction and productivity | RTL, limited metaprogramming (parameters, generate) | high, the full host language builds generators | medium to high, modern syntax and type inference | highest, algorithmic description |
 | Learning curve | moderate, Verilog has many pitfalls | host language plus hardware thinking | new syntax, small community and documentation | low for software developers, but good results need hardware knowledge and tool directives |
-| Robustness | VHDL strongly typed, (System)Verilog weakly typed and dependent on lint | type systems of the host languages catch many errors | strong type systems, some prevent whole classes of bugs (e.g., races in Bluespec) | depends on the C model, timing is implicit |
+| Error checking | VHDL strongly typed, (System)Verilog weakly typed and dependent on lint | type systems of the host languages catch many errors | strong type systems, some prevent whole classes of bugs (e.g., races in Bluespec) | depends on the C model, timing is implicit |
 | Debugging | source, waveform, and netlist correspond directly | generated Verilog with machine-made names | similar to eDSLs | the RTL is hard to relate to the source, latency depends on scheduling |
 | Long-term risk | decades of stability | depends on small projects, several are dormant | early stage | lock-in to a vendor tool |
 
@@ -180,12 +180,14 @@ Note what all non-standard languages have in common: their output is Verilog or 
 ### Why SystemVerilog in This Course {#sec-sv-why}
 
 - **Industry standard.** SystemVerilog (IEEE 1800-2023 [@IEEE_1800_2023]) is the dominant language for ASIC design and verification. Every EDA tool, IP vendor, and foundry flow supports it.
-- **Open-source tool support.** All tools of our flow read it: Verilator, Icarus Verilog, Yosys and LibreLane, slang, Verible, and cocotb. The AMS chip template (@sec-intro-template) is written in SystemVerilog.
+- **Open-source tool support.** All tools of our flow read it: the simulators Verilator and Icarus Verilog (also under cocotb), Yosys and LibreLane, slang, and Verible. The AMS chip template (@sec-intro-template) is written in SystemVerilog.
 - **You have to read it anyway.** Netlists, gate-level simulations, and the output of every alternative HDL are (System)Verilog. Debugging always ends there. @sec-sv-verilog shows how plain Verilog maps onto SystemVerilog.
-- **cocotb for verification.** The verification part of SystemVerilog (classes, constrained randomization, UVM) is a large language of its own. With cocotb (@sec-verification), we write testbenches in Python and use SystemVerilog mainly for the synthesizable RTL.
-- **A good foundation.** With solid RTL skills in SystemVerilog, an embedded DSL such as Chisel or Amaranth is easy to pick up later, since it describes the same registers and logic.
+- **cocotb for verification.** The verification part of SystemVerilog (classes and constrained randomization) and the UVM library built on it form a large field of their own. With cocotb (@sec-verification), we write testbenches in Python and use SystemVerilog mainly for the synthesizable RTL.
+- **A good foundation.** With solid RTL skills in SystemVerilog, you can learn an embedded DSL such as Chisel or Amaranth later with little extra effort, since it describes the same registers and logic.
 
 ### VHDL versus SystemVerilog {#sec-sv-vhdl-vs-sv}
+
+@tbl-sv-vhdl-vs-sv compares the two languages.
 
 | Aspect | VHDL | SystemVerilog |
 |----------|--------------------|--------------------|
@@ -194,7 +196,7 @@ Note what all non-standard languages have in common: their output is Verilog or 
 | Verbosity | verbose (entity and architecture, type conversions) | compact |
 | Case sensitivity | case-insensitive | case-sensitive (`clk` and `Clk` are different) |
 | Simulation semantics | signals update after a delta cycle, the order of processes never matters | blocking and non-blocking assignments, races are possible if the coding rules are broken |
-| Verification features | libraries (OSVVM, UVVM) | built in: classes, randomization, assertions (SVA), coverage, UVM |
+| Verification features | libraries (OSVVM, UVVM) | built in: classes, randomization, assertions (SVA), coverage, plus the UVM class library (IEEE 1800.2) |
 | Typical use | FPGA, aerospace and defense, Europe, academia | ASIC design and verification worldwide |
 | Open-source tools | GHDL (simulation), experimental synthesis via a Yosys plugin | Verilator, Icarus Verilog, Yosys, slang, Verible |
 
@@ -202,29 +204,29 @@ Note what all non-standard languages have in common: their output is Verilog or 
 
 In short, VHDL protects you with strong typing, while SystemVerilog relies on coding discipline and on the linter. The rest of this chapter is about that discipline.
 
-## Cheatsheets, Guidelines, and Further Reading {#sec-sv-references}
+## Cheat-Sheets, Guidelines, and Further Reading {#sec-sv-references}
 
-Two cheatsheets are provided with the AMS chip template:
+Besides the SystemVerilog cheat-sheet in the appendix of this book (@sec-app-sv-cheatsheet), two cheat-sheets are provided with the AMS chip template:
 
-- [SystemVerilog Cheatsheet](https://github.com/iic-jku/ihp-sg13cmos5l-ams-chip-template/blob/main/doc/verilog/SystemVerilog_cheatsheet.pdf) (S. H. Shawon, Algo Science Lab)
-- [Verilog Cheatsheet](https://github.com/iic-jku/ihp-sg13cmos5l-ams-chip-template/blob/main/doc/verilog/Verilog_cheatsheet.pdf) (S. Winberg and J. Taylor)
+- [SystemVerilog Cheat-Sheet](https://github.com/iic-jku/ihp-sg13cmos5l-ams-chip-template/blob/main/doc/verilog/SystemVerilog_cheatsheet.pdf) (S. H. Shawon, Algo Science Lab)
+- [Verilog Cheat-Sheet](https://github.com/iic-jku/ihp-sg13cmos5l-ams-chip-template/blob/main/doc/verilog/Verilog_cheatsheet.pdf) (S. Winberg and J. Taylor)
 
-::: {.callout-warning title="Using the Cheatsheets"}
-Both cheatsheets are syntax references, not style guides. The SystemVerilog cheatsheet also covers the verification part of the language (classes, randomization, interfaces, assertions), and not all of its examples are synthesizable or accepted by the open-source tools of our flow. The Verilog cheatsheet describes plain Verilog-2001 with `reg`, `wire`, and `always @(...)`, for which we use the SystemVerilog constructs of this chapter instead (@sec-sv-verilog). Whatever you copy, lint it with Verilator and check it with a quick Yosys synthesis (@sec-sv-tools).
+::: {.callout-warning title="Using the Cheat-Sheets"}
+Both cheat-sheets are syntax references, not style guides. The SystemVerilog cheat-sheet also covers the verification part of the language (classes, randomization, interfaces, assertions), and not all of its examples are synthesizable or accepted by the open-source tools of our flow. The Verilog cheat-sheet describes plain Verilog-2001 with `reg`, `wire`, and `always @(...)`, for which we use the SystemVerilog constructs of this chapter instead (@sec-sv-verilog). Whatever you copy, lint it with Verilator and check it with a quick Yosys synthesis (@sec-sv-tools).
 :::
 
-For HDL coding guidelines, read the [Circuit Designer's Etiquette](https://iic-jku.github.io/analog-circuit-design/aicd.html#prolog) of the Analog Circuit Design course, in particular its section [VHDL/Verilog Coding Guide](https://iic-jku.github.io/analog-circuit-design/aicd.html#vhdlverilog-coding-guide). @sec-sv-guidelines summarizes its rules for SystemVerilog. The etiquette recommends the comprehensive [lowRISC Verilog Coding Style Guide](https://github.com/lowRISC/style-guides/blob/master/VerilogCodingStyle.md) [@lowRISC_Style_Guide], whose naming conventions we follow in this course.
+For HDL coding guidelines, read the [Circuit Designer's Etiquette](https://iic-jku.github.io/analog-circuit-design/aicd.html#prolog) of the Analog Circuit Design course, in particular its section [VHDL/Verilog Coding Guide](https://iic-jku.github.io/analog-circuit-design/aicd.html#vhdlverilog-coding-guide). @sec-sv-guidelines summarizes its rules for SystemVerilog. The etiquette recommends the detailed [lowRISC Verilog Coding Style Guide](https://github.com/lowRISC/style-guides/blob/master/VerilogCodingStyle.md) [@lowRISC_Style_Guide], from which this course takes most of its naming conventions.
 
 ::: {.callout-note title="Further Reading"}
 - The SystemVerilog standard IEEE 1800-2023 [@IEEE_1800_2023] is the final reference. It is available free of charge through the IEEE GET Program ([announcement by Accellera](https://accellera.org/news/press-releases/394-accellera-announces-ieee-1800-2023-standard-available-through-ieee-get-program)).
-- [@Harris_Harris_2021] shows SystemVerilog and VHDL side by side for all basic building blocks, which is ideal for the transition.
+- [@Harris_Harris_2021] shows SystemVerilog and VHDL side by side for all basic building blocks, which helps with the transition.
 - [@Sutherland_2017] covers RTL modeling with SystemVerilog for simulation and synthesis in depth.
 - [@Sutherland_Mills_2007] collects 101 common coding errors in Verilog and SystemVerilog and how to avoid them.
 :::
 
 ## SystemVerilog for VHDL Designers {#sec-sv-basics}
 
-@tbl-sv-rosetta maps the most important VHDL constructs onto SystemVerilog. The following sections go through them one by one, always with the VHDL version first, written in the two-process style you know from your VHDL courses.
+@tbl-sv-rosetta maps the most important VHDL constructs onto SystemVerilog. The following sections go through them one by one. Where a VHDL version helps, it comes first, and the sequential designs use the two-process style you know from your VHDL courses.
 
 | Concept | VHDL | SystemVerilog |
 |------------|--------------------|--------------------|
@@ -239,8 +241,8 @@ For HDL coding guidelines, read the [Circuit Designer's Etiquette](https://iic-j
 | Concurrent assignment | `y <= a and b;` | `assign y = a & b;` |
 | Conditional assignment | `y <= a when s = '1' else b;` | `assign y = s ? a : b;` |
 | Combinational process | `process(a, b)` (VHDL-2008: `process(all)`) | `always_comb` |
-| Clocked process | `process(rst_i, clk_i)` with `rising_edge(clk_i)` | `always_ff @(posedge clk_i or negedge rst_ni)` |
-| Signal assignment in a clocked process | `q <= d;` | `q <= d;` (non-blocking) |
+| Register process | `process(rst_i, clk_i)` with `rising_edge(clk_i)` | `always_ff @(posedge clk_i or negedge rst_ni)` |
+| Signal assignment in the register process | `q <= d;` | `q <= d;` (non-blocking) |
 | Variable assignment | `v := a;` | `v = a;` (blocking) |
 | Enumeration | `type t_state is (IDLE, RUN, DONE);` | `typedef enum logic [1:0] {StIdle, StRun, StDone} state_e;` |
 | Record | `type t_x is record ... end record;` | `typedef struct packed { ... } x_t;` |
@@ -254,7 +256,7 @@ For HDL coding guidelines, read the [Circuit Designer's Etiquette](https://iic-j
 
 ### Modules, Ports, and Parameters {#sec-sv-modules}
 
-An unsigned adder with a generic width and a carry bit is a good first example. In VHDL, it needs an entity, an architecture, and two type conversions:
+An unsigned adder with a generic width and a carry bit is a good first example. In VHDL, it needs an entity, an architecture, three type conversions, and a `resize`:
 
 ```{.vhdl filename="adder/vhdl/adder_ea.vhd"}
 {{< include /content/sv_crashcourse/code/adder/vhdl/adder_ea.vhd >}}
@@ -268,16 +270,16 @@ In SystemVerilog, a single `module` replaces entity and architecture:
 
 - **Parameters** are declared in the `#( ... )` list before the ports, like generics. The type `int unsigned` makes the parameter a non-negative 32-bit integer. Constants that must not be changed from outside are `localparam`s.
 - **Ports** are declared in the module header (ANSI style) with direction, type, width, and name. We use the suffixes `_i`, `_o`, and `_io` for inputs, outputs, and bidirectional ports.
-- **No type conversions.** SystemVerilog has no separate types for bit vectors and numbers, so `+` works directly on `logic` vectors. The concatenation `{1'b0, a_i}` extends the operands to `WIDTH+1` bits, so the carry is kept (@sec-sv-operators).
+- **No type conversions.** SystemVerilog has no separate types for bit vectors and numbers, so `+` works directly on `logic` vectors. The concatenations `{1'b0, a_i}` and `{1'b0, b_i}` make the extension to `WIDTH+1` bits explicit. The carry would be kept without them as well, since the target is `WIDTH+1` bits wide (@sec-sv-operators), but the explicit version states the intent.
 - **Case sensitivity.** Unlike VHDL, SystemVerilog is case-sensitive: `Clk` and `clk` are two different signals. Write signals in lowercase snake_case and parameters in UPPERCASE.
-- **`` `default_nettype none``** at the top of the file makes an undeclared name an error. Without it, Verilog silently creates a 1-bit wire for every misspelled name. The `` `default_nettype wire`` at the end restores the default for files compiled afterwards.
-- **One module per file**, and the file name equals the module name (`adder.sv`). Pass all files to the tools as a list instead of using `` `include ``, so that the directives of one file cannot leak into another.
+- **`` `default_nettype none``** at the top of the file makes an undeclared name an error. Without it, Verilog silently creates a 1-bit wire for a misspelled name on the left side of an `assign` or in a port connection. The `` `default_nettype wire`` at the end restores the default for files compiled afterwards.
+- **One module per file**, and the file name equals the module name (`adder.sv`). Pass all files to the tools as a list instead of pulling modules in with `` `include ``, so that the list shows every file of the design and no module is read twice. Even in a list, a `` `define`` stays active for all files that follow, in every tool. Icarus Verilog also keeps `` `default_nettype``, while Verilator and Yosys reset it for each file. Ending every file with `` `default_nettype wire`` gives the same result in all tools.
 
 ### Data Types and Literals {#sec-sv-types}
 
-The everyday type of SystemVerilog is `logic`. It has four values: `0`, `1`, `x` (unknown), and `z` (high impedance). VHDL's `std_logic` has nine values, but the four that matter in RTL map directly. As in VHDL, where an uninitialized `std_logic` is `'U'`, a `logic` that is never assigned or reset is `x` in a four-state simulator such as Icarus Verilog, so a missing reset stays visible in the waveform. Verilator is a two-state simulator for speed and replaces `x` by `0` or a random value, which is one reason to simulate with both.
+The everyday type of SystemVerilog is `logic`. It has four values: `0`, `1`, `x` (unknown), and `z` (high impedance). VHDL's `std_logic` has nine values, but the four that matter in RTL map directly. As in VHDL, where an uninitialized `std_logic` is `'U'`, a `logic` that is never assigned or reset is `x` in a four-state simulator such as Icarus Verilog, so a missing reset stays visible in the waveform. Verilator is a two-state simulator for speed and replaces `x` with `0` or a random value, which is one reason to simulate with both.
 
-- **Use `logic` for every signal in RTL.** A `logic` variable assigned in an `always_comb` block, an `always_ff` block, or by an `assign` must not be assigned anywhere else. Icarus Verilog reports a second driver as an error and Verilator as a `MULTIDRIVEN` warning, similar to the unresolved `std_ulogic` in VHDL. Nets with several drivers (tri-state buses) need the type `wire` and only appear at the pads of an ASIC.
+- **Use `logic` for every signal in RTL.** A `logic` variable assigned in an `always_comb` block, an `always_ff` block, or by an `assign` must not be assigned anywhere else. Verilator reports a second driver as a `MULTIDRIVEN` warning. Icarus Verilog reports an error only if one of the drivers is an `assign`, and it accepts two `always_comb` or two `always_ff` blocks without a message. The single-driver rule corresponds to the unresolved `std_ulogic` in VHDL, not to the resolved `std_logic`, which allows several drivers. Nets with several drivers (tri-state buses) need the type `wire` and only appear at the pads of an ASIC.
 - **`wire` and `reg` are legacy Verilog.** Despite its name, `reg` does not mean register. Whether a flip-flop is created depends only on how a variable is assigned, never on its type.
 - **Vectors** are declared as `logic [7:0] data`, like `std_logic_vector(7 downto 0)` with the MSB on the left. Select a bit with `data[0]`, a fixed range with `data[7:4]`, and a range at a variable position with `data[i*4 +: 4]` (four bits starting at bit `i*4`).
 - **Signedness.** Vectors are unsigned by default, `logic signed [15:0] acc` declares a signed one, and `$signed()` and `$unsigned()` convert. If only one operand of an expression is unsigned, the whole expression is evaluated unsigned, so do not mix them.
@@ -313,7 +315,7 @@ Most operators exist in both languages, but SystemVerilog uses the C notation (@
 +---------------------------------+---------------------------+--------------------------------------------------------------------+
 | `not`, `and`, `or` on `boolean` | `!a`, `a && b`, `a || b`  | logical operators, 1-bit result                                    |
 +---------------------------------+---------------------------+--------------------------------------------------------------------+
-| `=`, `/=`                       | `==`, `!=`                | equality, the result is `x` if an operand contains `x`             |
+| `=`, `/=`                       | `==`, `!=`                | equality, `x` if an `x` or `z` bit makes the result ambiguous      |
 +---------------------------------+---------------------------+--------------------------------------------------------------------+
 | none                            | `===`, `!==`              | case equality, compares `x` and `z` literally, only in testbenches |
 +---------------------------------+---------------------------+--------------------------------------------------------------------+
@@ -334,7 +336,7 @@ Most operators exist in both languages, but SystemVerilog uses the C notation (@
 
 : Operators in VHDL and SystemVerilog {#tbl-sv-operators}
 
-The biggest difference to VHDL is how widths are handled. In SystemVerilog, the operands of an expression are extended to the width of the widest operand *and of the assignment target*, and the result is then truncated to the target. Nothing is reported as an error:
+The biggest difference from VHDL is how widths are handled. In SystemVerilog, the operands of an expression are extended to the width of the widest operand *and of the assignment target*, and the result is then truncated to the target. Nothing is reported as an error:
 
 ```systemverilog
 logic [7:0] a, b, sum8;
@@ -344,7 +346,7 @@ logic       hit;
 
 assign sum8   = a + b;          // carry silently lost, no warning
 assign sum9   = a + b;          // carry kept, the target is 9 bits wide
-assign nibble = a;              // upper bits cut off (Verilator: WIDTHTRUNC)
+assign nibble = a;              // MSBs cut off (Verilator: WIDTHTRUNC)
 assign hit    = (count == 20);  // always false (Verilator: WIDTHEXPAND)
 ```
 
@@ -355,31 +357,34 @@ In VHDL, `sum9 <= a + b` and `nibble <= a` are length mismatches: GHDL already w
 The VHDL concurrent signal assignment becomes an `assign` statement, a *continuous assignment* that is re-evaluated whenever one of its operands changes:
 
 ```systemverilog
-assign y_o   = a_i & b_i;           // VHDL: y_o <= a_i and b_i;
-assign mux_o = sel_i ? a_i : b_i;   // VHDL: mux_o <= a_i when sel_i = '1' else b_i;
+// VHDL: y_o <= a_i and b_i;
+assign y_o   = a_i & b_i;
+
+// VHDL: mux_o <= a_i when sel_i = '1' else b_i;
+assign mux_o = sel_i ? a_i : b_i;
 ```
 
 A selected signal assignment (`with ... select`) becomes a `case` statement in an `always_comb` block (@sec-sv-case). Unlike VHDL-93, SystemVerilog lets you read an output port inside the module, so the internal copy of an output that VHDL needs is not necessary.
 
-::: {.callout-tip title="Exercise: From VHDL to SystemVerilog"}
+::: {.callout-tip title="Exercise: A 4:1 Multiplexer in SystemVerilog"}
 The following VHDL entity is a 4:1 multiplexer for 8-bit data with a zero flag:
 
 ```{.vhdl filename="mux4/vhdl/mux4_ea.vhd"}
 {{< include /content/sv_crashcourse/code/mux4/vhdl/mux4_ea.vhd >}}
 ```
 
-1. Translate it into a SystemVerilog module `mux4` with the same port names and save it as `mux4.sv`.
+1. Translate it into a SystemVerilog module `mux4` with the same port names and save it as `mux4.sv`. @sec-sv-case shows the syntax of the `case` statement.
 2. Lint your module in the container with `verilator --lint-only -Wall mux4.sv` (@sec-sv-tools-lint explains the command). Verilator must not report any warning.
 :::
 
 Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
 
-::: {.callout-tip title="Solution: From VHDL to SystemVerilog" collapse="true"}
+::: {.callout-tip title="Solution: A 4:1 Multiplexer in SystemVerilog" collapse="true"}
 ```{.systemverilog filename="mux4/rtl/mux4.sv"}
 {{< include /content/sv_crashcourse/code/mux4/rtl/mux4.sv >}}
 ```
 
-- The selected signal assignment becomes a `case` statement in `always_comb`, and `when others` becomes `default`.
+- The selected signal assignment becomes a `case` statement in `always_comb`, and `when others` becomes `default`. A chain of conditional operators `?:` in an `assign` is also correct.
 - `x"00"` becomes `8'h00`. The comparison already has a 1-bit result, so `'1' when ... else '0'` is not needed.
 - The output `y_o` is read directly, and the internal signal `y` of the VHDL version is gone.
 - The zero flag can also be written with the reduction NOR operator, `assign zero_o = ~|y_o;`.
@@ -396,7 +401,7 @@ SystemVerilog has three dedicated process types for synthesizable code, which re
 Within these blocks, SystemVerilog has two kinds of assignments, which correspond to the variables and signals of VHDL:
 
 - The **blocking assignment** `=` updates the variable immediately, and the next statement already sees the new value, like a VHDL variable (`:=`).
-- The **non-blocking assignment** `<=` evaluates the right-hand side immediately but updates the variable only at the end of the time step, like a VHDL signal assignment in a clocked process.
+- The **non-blocking assignment** `<=` evaluates the right-hand side immediately but updates the variable only after all blocks triggered by the same clock edge have read their inputs, like a VHDL signal assignment.
 
 The difference matters as soon as a register reads another register that is updated at the same clock edge. The following two registers swap their values at every clock edge:
 
@@ -407,7 +412,7 @@ always_ff @(posedge clk_i) begin
 end
 ```
 
-With blocking assignments in this block, `b_q` would read the *new* value of `a_q`, and both registers would end up with the old value of `b_q`, in simulation and in synthesis. It gets worse when the two assignments sit in two separate `always_ff` blocks. The simulation result then depends on the order in which the simulator runs the blocks, which the standard leaves open, while synthesis builds the swap anyway. Icarus Verilog 14 and Verilator 5.052 both show no swap for this case, while the netlist of Yosys swaps. This simulation/synthesis mismatch is the most common SystemVerilog bug, and four rules avoid it completely.
+With blocking assignments in this block, `b_q` would read the *new* value of `a_q`, and both registers would end up with the old value of `b_q`, in simulation and in synthesis. It gets worse when the two blocking assignments sit in two separate `always_ff` blocks. The simulation result then depends on the order in which the simulator runs the blocks, which the standard leaves open, while synthesis builds the swap anyway. Icarus Verilog 14 and Verilator 5.052 both show no swap for this case, while the netlist of Yosys swaps. This mismatch between simulation and synthesis is one of the most common SystemVerilog bugs, and the following rules avoid it.
 
 ::: {.callout-important title="The Golden Rules of Processes"}
 1. In `always_ff`, use only non-blocking assignments `<=`.
@@ -430,7 +435,7 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
   end
 end
 
-// Synchronous active-high reset (as in the counter of the AMS chip template)
+// Synchronous active-high reset (counter of the AMS chip template)
 always_ff @(posedge clk_i) begin
   if (reset_i) begin
     q <= '0;
@@ -445,7 +450,7 @@ always_ff @(posedge clk_i) begin
 end
 ```
 
-In this course, the default is an **asynchronous active-low reset** named `rst_ni` (`_n` for active low, `_i` for input). This is the common convention in ASIC design and the rule of the lowRISC style guide. It also matches the hardware: the reset flip-flop of the SG13CMOS5L standard-cell library, `sg13cmos5l_dfrbp_1`, has an active-low reset pin `RESET_B`, and the reset pad of a chip is usually active low (`rst_n` in the chip core of the AMS chip template). Synthesis handles either polarity, an active-high reset only costs an inverter.
+In this course, the default is an **asynchronous active-low reset** named `rst_ni` (`_n` for active low, `_i` for input). This is the common convention in ASIC design and the rule of the lowRISC style guide. It also matches the hardware: the reset flip-flops of the SG13CMOS5L standard-cell library, e.g., `sg13cmos5l_dfrbp_1` and `sg13cmos5l_dfrbpq_1`, have an active-low reset pin `RESET_B`, and the reset pad of a chip is usually active low (`rst_n` in the chip core of the AMS chip template). Synthesis handles either polarity: an active-high reset only costs an inverter.
 
 - The reset test must be the first statement in the block, and its polarity must match the event list (`negedge rst_ni` with `if (!rst_ni)`). Otherwise, the block cannot be mapped onto a flip-flop with an asynchronous reset.
 - An asynchronous reset may be asserted at any time, but it must be released synchronously to the clock with a reset synchronizer (@sec-cdc).
@@ -454,7 +459,7 @@ In this course, the default is an **asynchronous active-low reset** named `rst_n
 
 ### The Two-Process Style {#sec-sv-two-process}
 
-In your VHDL designs, you split each block into a register process (`reg_proc`), which only holds the reset values and copies the `next_` signals into the registers, and one or more combinational processes, which start with complete default assignments and contain all decisions (@sec-sv-sync-design). This style maps one to one onto SystemVerilog, and we keep it: `always_ff` is the register process, `always_comb` the combinational process, and the `next_` prefix becomes the suffix pair `_d` (the next value at the D input of the register in @fig-sv-sync-design) and `_q` (the current value at its Q output), as in the lowRISC style guide. Here is the toggle flip-flop of @sec-sv-sync-design in SystemVerilog:
+In your VHDL designs, you split each block into a register process (`reg_proc`), which only holds the reset values and copies the `next_` signals into the registers, and one or more combinational processes, which start with complete default assignments and contain all decisions (@sec-sv-sync-design). This style maps one to one onto SystemVerilog, and we keep it: `always_ff` is the register process, `always_comb` the combinational process, and the VHDL pair `next_state` and `state` becomes `state_d` (the next value at the D input of the register in @fig-sv-sync-design) and `state_q` (the current value at its Q output), as in the lowRISC style guide. Here is the toggle flip-flop of @sec-sv-sync-design in SystemVerilog:
 
 ```systemverilog
 // Register process: only clock and reset in the event list
@@ -471,20 +476,20 @@ always_comb begin
   // default assignment
   state_d = state_q;
 
-  // calculate state_d out of state_q and the inputs
+  // calculate state_d from state_q and the inputs
   if (toggle_i) begin
     state_d = ~state_q;
   end
 end
 ```
 
-The three rules of the VHDL style carry over, and SystemVerilog enforces two of them for you:
+The three rules of the VHDL style carry over. `always_comb` makes the second one unnecessary, and the tools check the other two:
 
 - The event list of `always_ff` contains only the clock edge and the reset edge, just like the sensitivity list of `reg_proc`. If you add a data signal to it, Yosys stops with an error, even though Verilator accepts it.
 - `always_comb` infers the complete sensitivity list by itself, so a forgotten signal is no longer possible.
 - The default assignment `state_d = state_q;` comes first, as in VHDL. If you forget it, the tools report the latch: Verilator warns, and Yosys stops with an error (@sec-sv-case).
 
-The register process uses non-blocking assignments `<=` and the combinational process blocking assignments `=`, as the Golden Rules of @sec-sv-processes demand. The order of the two blocks in the file does not matter, since both are concurrent. The listings of this chapter put `always_comb` first, following the data flow from the logic into the register. Yosys 0.70 synthesizes the toggle flip-flop into exactly two cells, an inverter and a flip-flop with enable (`$_DFFE_PN0P_`) whose enable input is `toggle_i`. The default assignment that keeps the state has become the enable of the flip-flop, not a latch.
+The register process uses non-blocking assignments `<=` and the combinational process blocking assignments `=`, as the Golden Rules of @sec-sv-processes demand. The order of the two blocks in the file does not matter, since both are concurrent. This snippet follows the order of the VHDL version, while the files of this chapter put `always_comb` first, following the data flow from the logic into the register. Yosys 0.70 synthesizes the toggle flip-flop into exactly two cells, an inverter and a flip-flop with enable (`$_DFFE_PN0P_`) whose enable input is `toggle_i`. The default assignment that keeps the state has become the enable of the flip-flop, not a latch.
 
 As a larger example, consider a tick generator: while `en_i` is high, `tick_o` is high for one clock cycle every `DIV` clock cycles. Such a one-cycle pulse is a *strobe*, which typically triggers other blocks, e.g., to restart a counter or to signal that a result is valid. Here is the VHDL version in the style you know:
 
@@ -498,7 +503,7 @@ And the same design in SystemVerilog:
 {{< include /content/sv_crashcourse/code/tick_gen/rtl/tick_gen.sv >}}
 ```
 
-@tbl-sv-two-process lists the correspondences. Both versions describe exactly the same hardware: four flip-flops for the counter, one for the tick, and the increment and compare logic in front of them. The VHDL and SystemVerilog versions of the tick generator and of the two FSMs of this chapter were simulated with the same cocotb testbenches to make sure they behave identically.
+@tbl-sv-two-process lists the correspondences. With the default `DIV = 10`, both versions describe the same hardware apart from the reset polarity: four flip-flops for the counter, one for the tick, and the increment and compare logic in front of them. The VHDL and SystemVerilog versions of the tick generator and of the two FSMs of this chapter were simulated with the same cocotb testbenches, with the reset adapted, to make sure they behave identically.
 
 | VHDL (two-process) | SystemVerilog (two-process) |
 |-------------------------|-------------------------|
@@ -514,14 +519,14 @@ And the same design in SystemVerilog:
 
 : The two-process style in VHDL and SystemVerilog {#tbl-sv-two-process}
 
-The two-process style has three advantages. The register block is a fixed template that you never have to think about again. The defaults at the top of the combinational block make latches impossible. And the next values (`_d`) are signals that you can inspect in the waveform and reuse in other logic. The single-process style, in which the next-state logic is written directly into `always_ff` (as in the counter of the AMS chip template, @sec-sv-template), is fine for simple registers and counters, and both styles synthesize to the same hardware. We recommend the two-process style whenever the next-state logic is more than a line or two, and always for FSMs.
+The two-process style has three advantages. The register process is a fixed template that you never have to think about again. The defaults at the top of the combinational process make latches impossible. And the next values (`_d`) are signals that you can inspect in the waveform and reuse in other logic. The single-process style, in which the next-state logic is written directly into `always_ff` (as in the counter of the AMS chip template, @sec-sv-template), is fine for simple registers and counters, and both styles synthesize to the same hardware. We recommend the two-process style whenever the next-state logic is more than a line or two, and always for FSMs.
 
 ### `if`, `case`, and Latches {#sec-sv-case}
 
-`if`, `else if`, and `else` work as `if`, `elsif`, and `else` in VHDL and describe a priority. A condition does not need to be a `boolean`: every nonzero value is true, so you write `if (en_i)` instead of `if en_i = '1' then`. The `case` statement works as in VHDL, with `default` instead of `when others`. There are two important differences:
+`if`, `else if`, and `else` work as `if`, `elsif`, and `else` in VHDL and describe a priority. Unlike in VHDL, a condition does not need to be of type `boolean`: every nonzero value is true, so you write `if (en_i)` instead of `if en_i = '1' then`. The `case` statement works as in VHDL, with `default` instead of `when others`. There are two important differences:
 
-- VHDL requires a `case` to cover all values, SystemVerilog does not. A missing value in an `always_comb` block leaves the variable unassigned for that value, and the tools infer a **latch** that holds the old value.
-- The qualifier **`unique case`** states that exactly one item matches at a time, so the items can be implemented as a parallel multiplexer instead of a priority chain. Simulators that support it report a violation at run time (Icarus Verilog ignores the qualifier and prints a "sorry" message). Use `unique case` together with a `default` item.
+- VHDL requires a `case` to cover all values, but SystemVerilog does not. A missing value in an `always_comb` block leaves the variable unassigned for that value, and the tools infer a **latch** that holds the old value.
+- The qualifier **`unique`** in `unique case` states that exactly one item matches at a time, so the items can be implemented as a parallel multiplexer instead of a priority chain. Simulators that support it report a violation at run time. Icarus Verilog prints a "sorry" message that it ignores the qualifier, but it still warns at run time when no item matches. It does not check for overlapping items. Use `unique case` together with a `default` item.
 
 For decoders, `casez` treats `?` in the case items as don't care, e.g., `4'b01??`. Avoid `casex`, which also treats an `x` in the case expression as don't care and thereby hides `x` values in simulation.
 
@@ -550,8 +555,8 @@ The following module is meant to be a small ALU with a registered result: `op_i`
 ```
 
 1. Save the file as `lint_me.sv` and lint it with `verilator --lint-only -Wall lint_me.sv`. Explain every warning.
-2. Fix the code until Verilator reports no warning.
-3. Synthesize the original and the fixed file with `yosys -p "read_verilog -sv lint_me.sv; synth -top lint_me; stat"`. What does Yosys report for the original file? Which cells hold the result in the fixed version?
+2. Synthesize the file with `yosys -p "read_verilog -sv lint_me.sv; synth -top lint_me; stat"`. What does Yosys report?
+3. Fix the code until Verilator reports no warning, and synthesize it again. Which cells hold the result?
 :::
 
 Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
@@ -561,22 +566,22 @@ Verilator 5.052 reports seven warnings and exits with an error:
 
 - `IMPLICIT`: the name `zero` is not declared, so Verilog creates an implicit 1-bit wire. It is a typo for `zero_o`.
 - `UNDRIVEN` for `zero_o` and `UNUSEDSIGNAL` for `zero`: two consequences of the same typo.
-- `BLKSEQ` (twice): blocking assignments `=` in the sequential block, which must be non-blocking `<=`.
+- `BLKSEQ` (twice): blocking assignments `=` in the `always_ff` block, which must be non-blocking `<=`.
 - `CASEINCOMPLETE`: the case does not cover `op_i = 2'b11`, the OR operation was forgotten.
 - `LATCH` for `alu`: because of the missing case item, `alu` keeps its old value for `op_i = 2'b11`.
 
-The corrected module adds `` `default_nettype none``, which would have turned the typo into an error, completes the case, and uses non-blocking assignments:
+The corrected module fixes the typo, adds `` `default_nettype none``, which would have turned it into an error, completes the case with `unique` and a `default`, and uses non-blocking assignments:
 
 ```{.systemverilog filename="lint_me/solution/lint_me.sv"}
 {{< include /content/sv_crashcourse/code/lint_me/solution/lint_me.sv >}}
 ```
 
-For the original file, Yosys warns that `zero` is implicitly declared and then stops with `ERROR: Latch inferred for signal '\lint_me.\alu' from always_comb process`. The fixed version synthesizes to 114 generic cells, among them eight `$_DFF_PN0_` cells for `result_q`: flip-flops on the positive clock edge (`P`) with an active-low reset (`N`) to zero (`0`).
+For the original file, Yosys warns that `zero` is implicitly declared and then stops with ``ERROR: Latch inferred for signal `\lint_me.\alu' from always_comb process``. The fixed version synthesizes to 114 generic cells, among them eight `$_DFF_PN0_` cells for `result_q`: flip-flops on the positive clock edge (`P`) with an active-low reset (`N`) to zero (`0`).
 :::
 
 ### Finite State Machines {#sec-sv-fsm}
 
-FSMs are where the two-process style really pays off. As an example, consider a simple controller: a `start_i` pulse moves it from idle to a run state, in which `busy_o` is high, until `last_i` is high. Then `done_o` is high for one clock cycle, and the FSM returns to idle. Both outputs depend only on the state (Moore FSM). In VHDL:
+FSMs are where the two-process style pays off most. As an example, consider a simple controller: a `start_i` pulse moves it from idle to a run state, in which `busy_o` is high, until `last_i` is high. Then `done_o` is high for one clock cycle, and the FSM returns to idle. Both outputs depend only on the state (Moore FSM). In VHDL:
 
 ```{.vhdl filename="ctrl_fsm/vhdl/ctrl_fsm_ea.vhd"}
 {{< include /content/sv_crashcourse/code/ctrl_fsm/vhdl/ctrl_fsm_ea.vhd >}}
@@ -591,7 +596,7 @@ In SystemVerilog:
 - The state type is a `typedef enum` with an explicit base type (`logic [1:0]`). Following the lowRISC style guide, the type name ends in `_e` and the state names are UpperCamelCase with the prefix `St`.
 - In VHDL, a `case` over an enumeration type with three values is complete. The 2-bit state of the SystemVerilog version has a fourth encoding, `2'b11`, which the `default` item sends back to idle.
 - As in VHDL, the next state defaults to the current state, and every output defaults to its inactive value before the `case`.
-- The synthesis tool is free to choose the state encoding. Yosys 0.70 recognizes both FSMs of this chapter and re-encodes them one-hot, e.g., with three flip-flops instead of two for this controller.
+- The synthesis tool is free to choose the state encoding. Yosys 0.70 recognizes this FSM and re-encodes it one-hot, with three flip-flops instead of two.
 - Write the transitions with `if` and `else`. A conditional operator between enumeration values, such as `state_d = start_i ? StRun : StIdle;`, is rejected by Icarus Verilog 14, which requires an explicit cast for it.
 
 ### Hierarchy and Generate {#sec-sv-hierarchy}
@@ -622,7 +627,9 @@ adder #(
 );
 ```
 
-Always connect parameters and ports by name, never by position, and connect every port. Avoid the shortcuts `.*` and `.name`, which connect ports implicitly to signals of the same name and make the code hard to review. A `for` loop outside a process is a generate loop, which creates hardware once per iteration:
+Always connect parameters and ports by name, never by position, and connect every port. Avoid the shortcuts `.*` and `.name`, which connect ports implicitly to signals of the same name and make the code hard to review.
+
+A `for` loop outside a process is a generate loop, which creates hardware once per iteration:
 
 ```vhdl
 gen_lane: for i in 0 to 3 generate
@@ -708,10 +715,10 @@ endmodule
 ```
 
 - A `typedef struct packed` replaces a VHDL record. Its fields are accessed with a dot (`instr_i.op`), and the whole struct is also a plain bit vector, so it can be used as a port or stored in a register.
-- A `function automatic` describes combinational logic and is unrolled at every call. Declare functions `automatic`, so that every call gets its own variables. Tasks, which may contain timing, belong in testbenches.
+- A `function automatic` describes combinational logic, and every call becomes a separate copy of that logic. Declare functions `automatic`, so that every call gets its own variables. Tasks, which may contain timing, belong in testbenches.
 
 ::: {.callout-important title="Tool Support for SystemVerilog Features"}
-The default SystemVerilog front end of Yosys, which LibreLane uses unless `USE_SLANG: True` is set in its configuration, supports only part of the language. In Yosys 0.70, it fails on `import alu_pkg::*` (in the module body with a syntax error, before the module with an internal error), on `return` statements in functions, and on unpacked arrays as ports, all of which Verilator and Icarus Verilog accept. The code of this chapter therefore uses the scope operator `pkg::NAME`, assigns a function result to the function name, and uses packed arrays at ports. The slang front end of Yosys (`read_slang`, enabled in LibreLane with `USE_SLANG: True`) accepts all of these constructs. For the same reason, the counter of the AMS chip template uses `` `define`` macros instead of a package. When you use struct fields inside `always_comb`, Icarus Verilog prints a "sorry" message that the block becomes sensitive to the whole struct, which does not change the result.
+The default SystemVerilog front end of Yosys, which LibreLane uses unless `USE_SLANG: True` is set in its configuration, supports only part of the language. In Yosys 0.70, it fails on three constructs that Verilator and Icarus Verilog accept: `import alu_pkg::*` (the counterpart of `use work.alu_pkg.all`), `return` statements in functions, and unpacked arrays as ports. An `import` inside the module or its header gives a syntax error, and one before the `module` keyword gives a syntax error or an internal error. The code of this chapter therefore uses the scope operator `pkg::NAME`, assigns a function result to the function name, and uses packed arrays at ports. The slang front end of Yosys (`read_slang`, enabled in LibreLane with `USE_SLANG: True`) accepts all of these constructs. For the same reason, the counter of the AMS chip template uses `` `define`` macros instead of a package. When you use struct fields inside `always_comb`, Icarus Verilog prints a "sorry" message that the block becomes sensitive to the whole struct, which does not change the result.
 :::
 
 ### What Is Synthesizable {#sec-sv-synthesizable}
@@ -738,7 +745,7 @@ SystemVerilog grew out of Verilog. Verilog became the IEEE standard 1364 in 1995
 - **Netlists.** Yosys and LibreLane write their netlists in plain Verilog, e.g., `final/nl/counter_top.nl.v` of the counter macro in the AMS chip template: a port list in the style of Verilog-1995, a long list of `wire`s, and instances of standard cells such as `sg13cmos5l_dfrbpq_1`.
 - **Cell models.** A gate-level simulation needs a simulation model of every standard cell. The models in the PDK (`sg13cmos5l_stdcell.v`, with the user-defined primitives in `sg13cmos5l_udp.v`) are written in Verilog with gate primitives, user-defined primitives, and `specify` blocks for the timing.
 - **Generated code.** All alternative HDLs of @sec-sv-hdl-landscape emit Verilog or SystemVerilog.
-- **Existing code.** Many open-source cores, older IP blocks, textbooks, and online examples are written in Verilog-2001, as is the Verilog cheatsheet of @sec-sv-references. Code suggested by AI assistants often follows them.
+- **Existing code.** Many open-source cores, older IP blocks, textbooks, and online examples are written in Verilog-2001, as is the Verilog cheat-sheet of @sec-sv-references. AI assistants often suggest code in the same style.
 
 @tbl-sv-verilog-vs-sv maps the Verilog idioms you will meet onto the SystemVerilog of this chapter.
 
@@ -759,11 +766,11 @@ SystemVerilog grew out of Verilog. Verilog became the IEEE standard 1364 in 1995
 
 : Plain Verilog versus SystemVerilog {#tbl-sv-verilog-vs-sv}
 
-Most of these differences are syntax, but three of them change what the tools can check for you:
+Most of these differences are syntax, but three of them matter beyond syntax:
 
-- **`reg` and `wire` follow the assignment, not the hardware.** In Verilog, a signal assigned in an `always` block must be a `reg`, even if it is combinational, and a signal driven by an `assign` or by an instance must be a `wire`. If you turn an `assign` into an `always` block, you therefore have to change the declaration as well. In SystemVerilog, a variable (`logic` or `reg`) may be assigned in an `always` block or by a single `assign`, so the declaration stays the same, and no type name suggests a register that does not exist. Only a `wire` assigned in an `always` block remains an error (Verilator: `PROCASSWIRE`).
+- **`reg` and `wire` follow the assignment, not the hardware.** In Verilog, a signal assigned in an `always` block must be a `reg`, even if it is combinational, and a signal driven by an `assign` or by an instance must be a `wire`. If you turn an `assign` into an `always` block, you therefore have to change the declaration as well. In SystemVerilog, a variable (`logic` or `reg`) may be assigned in an `always` block or by a single `assign`, so the declaration stays the same, and no type name suggests a register that does not exist. Only a `wire` assigned in an `always` block remains an error (Icarus Verilog: not a valid l-value, Verilator: `PROCASSWIRE` for an internal `wire`).
 - **The process types state the intent.** For a missing assignment in `always @(*)`, Verilator and Yosys 0.70 only warn, and Yosys builds the latch. For `always_comb`, Yosys stops with an error (@sec-sv-case).
-- **Checks belong in the language, not in comments.** In Verilog, the comment `// synopsys full_case parallel_case` after a `case` tells the synthesis tool to treat all missing values as don't care. Yosys reads it and builds no latch, and Verilator reads it as well: it drops the `LATCH` and `CASEINCOMPLETE` warnings and stops the simulation when no item matches. Icarus Verilog ignores the comment and keeps the old value, while the netlist does whatever is cheapest. Write a complete `case` with a `default` item instead, and add `unique` if the items are mutually exclusive. Keep the `default` with `unique` as well: without it, Yosys treats `unique` like `full_case` and builds no latch, even in `always_comb`.
+- **Checks belong in the language, not in comments.** In Verilog, the comment `// synopsys full_case parallel_case` after a `case` tells the synthesis tool that all missing values are don't care (`full_case`) and that the items never overlap (`parallel_case`). Yosys reads it and builds no latch, and Verilator reads it as well: it drops the `LATCH` and `CASEINCOMPLETE` warnings and stops the simulation when no item matches. Icarus Verilog ignores the comment and keeps the old value, so its simulation can differ from the netlist. Write a complete `case` with a `default` item instead, and add `unique` if the items are mutually exclusive. Keep the `default` with `unique` as well. Without it, Yosys handles `unique` like `full_case`: it silently takes the missing values as don't care, even in `always_comb`, and the netlist can differ from the simulation.
 
 Most testbench features of this chapter are SystemVerilog as well, e.g., `$fatal`, `$isunknown()`, and `int` variables, and the verification part of the language (classes, randomization, assertions, and coverage) has no Verilog counterpart.
 
@@ -793,8 +800,8 @@ Before continuing, please finish the previous exercise. Once you are done, compa
     - The replication `{W{1'b0}}` becomes `'0`.
     - The untyped parameters become `parameter int unsigned`, and `W`, which must be set to match `N` by hand, becomes `$clog2(N)`.
     - The file extension `.v` becomes `.sv`.
-2. Verilator 5.052 reports two warnings. `WIDTHTRUNC`: the 32-bit `integer i` is assigned to the 3-bit `idx_next`. `LATCH`: if no bit of `req` is set, the loop assigns nothing, and `idx_next` keeps its old value. Yosys 0.70 only prints the warning `Latch inferred for signal '\prio_enc.\idx_next'` and builds 23 cells, among them four flip-flops `$_DFF_PN0_` for `idx` and `valid` and three latches `$_DLATCH_N_` for `idx_next`. Leaving a value unassigned does not mean "don't care," it means "keep the old value."
-3. With `always_comb`, Yosys stops with `ERROR: Latch inferred for signal '\prio_enc.\idx_d' from always_comb process`. Verilator reports the same `LATCH` warning as before, and `WIDTHTRUNC` again unless your translation already casts `i`.
+2. Verilator 5.052 reports two warnings. `WIDTHTRUNC`: the 32-bit `integer i` is assigned to the 3-bit `idx_next`. `LATCH`: if no bit of `req` is set, the loop assigns nothing, and `idx_next` keeps its old value. Yosys 0.70 only prints the warning ``Latch inferred for signal `\prio_enc.\idx_next'`` and builds 23 cells, among them four flip-flops `$_DFF_PN0_` for `idx` and `valid` and three latches `$_DLATCH_N_` for `idx_next`. Leaving a value unassigned does not mean "don't care" but "keep the old value."
+3. With `always_comb`, Yosys stops with ``ERROR: Latch inferred for signal `\prio_enc.\idx_d' from always_comb process``. Verilator reports the same `LATCH` warning as before, and `WIDTHTRUNC` again unless your translation already casts `i`.
 4. The fix is a default assignment, as in every combinational process of this chapter:
 
 ```{.systemverilog filename="prio_enc/rtl/prio_enc.sv"}
@@ -803,11 +810,11 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 
 - The width `W` follows from `N` with `$clog2` (available since Verilog-2005), so it can no longer be set wrong.
 - The size cast `W'(i)` makes the truncation of the loop variable explicit.
-- The loop variable is declared in the loop. It must be a signed `int`: with `int unsigned`, the condition `i >= 0` is always true, and Verilator reports a constant comparison (`UNSIGNED`) and an infinite loop (`INFINITELOOP`).
+- The loop variable is declared in the loop. It must be a signed `int`: with `int unsigned`, the condition `i >= 0` is always true. Verilator 5.052 reports a constant comparison (`UNSIGNED`) and an infinite loop (`INFINITELOOP`) and then stops with an internal error.
 
 Verilator reports no warning, and Yosys builds 22 cells with the four flip-flops and no latch. While `valid_o` is low, `idx_o` is now 0, where the original kept the last index (or `x` before the first request). This does not matter, since `idx_o` is only meaningful while `valid_o` is high. The default `idx_d = idx_q;` would also be correct: it keeps the last index in the register, and Yosys turns the three `idx` flip-flops into flip-flops with enable (`$_DFFE_PN0P_`), again without a latch.
 
-The testbench `prio_enc/testbenches/verilog/prio_enc_tb.sv` in the code folder applies all 256 values of `req` and compares the outputs with a reference model, checking `idx_o` only while `valid_o` is high. It also runs with your own translation, as long as the ports have the names above:
+The testbench `prio_enc/testbenches/verilog/prio_enc_tb.sv` in the code folder applies all 256 values of `req` and compares the outputs with a reference model, checking `idx_o` only while `valid_o` is high. It also runs with your own translation, as long as it has the parameter `N` and the ports `clk_i`, `rst_ni`, `req_i`, `idx_o`, and `valid_o`:
 
 ```bash
 iverilog -g2012 -o prio_enc_tb.vvp prio_enc.sv prio_enc_tb.sv
@@ -843,11 +850,13 @@ cocotb [@cocotb] runs the testbench as Python code next to the simulator. Python
 - Every function decorated with `@cocotb.test()` is a test. The tests of a file run one after another in the same simulation, so each one starts its own clock and applies the reset.
 - Tests are coroutines (`async def`), which wait for simulator events with `await`: `RisingEdge(sig)`, `FallingEdge(sig)`, `ClockCycles(sig, n)`, or `Timer(t, "ns")`. As in the SystemVerilog testbench, inputs are driven and outputs are checked on the falling edge.
 - `dut.en_i.value = 1` writes an input, and `dut.tick_o.value` reads an output. A write takes effect at the end of the current time step, so reading the same signal right after writing it still returns the old value.
-- `cocotb.start_soon(Clock(dut.clk_i, 20, "ns").start())` starts a 50 MHz clock that runs in parallel to the test.
+- `cocotb.start_soon(Clock(dut.clk_i, 20, "ns").start())` starts a 50 MHz clock that runs in parallel with the test.
 - A failing Python `assert` fails the test, and the f-string message explains why.
-- The function `tick_gen_runner()` follows the template idiom of the AMS chip template: the file runs itself. It selects the simulator from the environment variable `SIM` (Icarus Verilog by default), builds the DUT with the given parameters, and runs the tests. `runner.test()` returns the path of the result file `results.xml`, but a failing test does not change the exit status of `python3`. The last lines therefore check the results with `get_results()` and exit with an error if any test failed.
+- The function `tick_gen_runner()` follows the idiom of the AMS chip template: the file runs itself. It selects the simulator from the environment variable `SIM` (Icarus Verilog by default), builds the DUT with the given parameters, and runs the tests. `runner.test()` returns the path of the result file `results.xml`, but a failing test does not change the exit status of `python3`. The last lines therefore check the results with `get_results()` and exit with an error if any test failed.
 
 ### SystemVerilog or cocotb? {#sec-sv-tb-compare}
+
+@tbl-sv-tb-compare compares the two kinds of testbenches.
 
 | Aspect | SystemVerilog testbench | cocotb testbench |
 |--------------|----------------------|----------------------|
@@ -862,7 +871,7 @@ cocotb [@cocotb] runs the testbench as Python code next to the simulator. Python
 
 In this course, we use both: a SystemVerilog testbench for a quick self-check of a block, and cocotb for everything that needs a reference model or randomized stimuli.
 
-## Linting and Simulation in the IIC-OSIC-TOOLS Container {#sec-sv-tools}
+## Linting, Simulation, and Synthesis in the IIC-OSIC-TOOLS Container {#sec-sv-tools}
 
 All tools you need are installed in the IIC-OSIC-TOOLS container (@sec-intro-tools). In the AMS chip template, they are wrapped in make targets. In this chapter, you type the commands yourself, so that you know what is behind the targets when you use them later (@sec-sv-template).
 
@@ -875,7 +884,7 @@ mkdir -p /foss/designs/sv_exercises/tick_gen/{rtl,testbenches/verilog,testbenche
 cd /foss/designs/sv_exercises/tick_gen
 ```
 
-Save the three listings as `rtl/tick_gen.sv`, `testbenches/verilog/tick_gen_tb.sv`, and `testbenches/cocotb/tick_gen_tb.py`, e.g., with `gedit`, `vim`, or VS Code. Since `/foss/designs` is the folder `~/eda/designs` on your laptop, your files survive when the container is removed or updated.
+Save the three listings as `rtl/tick_gen.sv`, `testbenches/verilog/tick_gen_tb.sv`, and `testbenches/cocotb/tick_gen_tb.py`, e.g., with `gedit`, `vim`, or VS Code. With a local installation, `/foss/designs` is the folder `~/eda/designs` on your laptop, so your files survive when the container is removed or updated. All commands of this section start in the folder `/foss/designs/sv_exercises/tick_gen`.
 
 ### Linting with Verilator {#sec-sv-tools-lint}
 
@@ -894,7 +903,7 @@ verilator --lint-only -Wall rtl/tick_gen.sv
 | `WIDTHTRUNC`, `WIDTHEXPAND` | the widths of operands or of an assignment do not match | size the literals, extend with `{1'b0, x}`, or cast with `N'(x)` |
 | `LATCH` | a combinational block (`always_comb` or `always @(*)`) does not assign a variable on every path | default assignments first, complete `case` and `else` |
 | `CASEINCOMPLETE` | a `case` does not cover all values | add the missing items or a `default` |
-| `BLKSEQ` | a blocking assignment `=` in a sequential block | use `<=` in `always_ff` |
+| `BLKSEQ` | a blocking assignment `=` in `always_ff` | use `<=` instead |
 | `MULTIDRIVEN` | a variable is driven from more than one block | assign it in exactly one block |
 | `DECLFILENAME` | the file name differs from the module name | one module per file, with the same name |
 
@@ -910,16 +919,18 @@ Icarus Verilog compiles the design and the testbench into a simulation file, whi
 iverilog -g2012 -o testbenches/verilog/tick_gen_tb.vvp rtl/tick_gen.sv testbenches/verilog/tick_gen_tb.sv
 cd testbenches/verilog
 vvp tick_gen_tb.vvp
+cd ../..
 ```
 
-`-g2012` selects the SystemVerilog standard IEEE 1800-2012, and `-o` names the output file. List the files in compile order: packages and files with `` `define`` macros first, then the modules. `vvp` writes the VCD file into the current folder, which is why we change into the testbench folder first. The simulation prints `PASS: tick_gen_tb` and exits with status 0, or stops at the first failed check with `FATAL` and exit status 1 (check it with `echo $?`).
+`-g2012` selects the SystemVerilog standard IEEE 1800-2012, and `-o` names the output file. List the files in compile order: packages and files with `` `define`` macros first, then the modules. `vvp` writes the VCD file into the current folder, which is why we change into the testbench folder first and return afterwards. The simulation prints `PASS: tick_gen_tb` and exits with status 0, or stops at the first failed check with `FATAL` and exit status 1 (check it with `echo $?`).
 
-Verilator can also run SystemVerilog testbenches. It compiles them into a C++ program, which is much faster for large designs. The `--timescale` option gives the RTL, which has no `` `timescale`` of its own, the same time unit as the testbench, and `--trace` enables the VCD output:
+Verilator can also run SystemVerilog testbenches. It compiles them into a C++ program, which is much faster for large designs. `--binary` builds an executable, and `--timing` enables the delays and event controls of the testbench. `--timescale` gives the RTL, which has no `` `timescale`` of its own, the same time unit as the testbench, and `--trace` enables the VCD output:
 
 ```bash
 verilator --binary --timing --timescale 1ns/1ps --trace --top-module tick_gen_tb -o tick_gen_tb rtl/tick_gen.sv testbenches/verilog/tick_gen_tb.sv
 cd testbenches/verilog
 ../../obj_dir/tick_gen_tb
+cd ../..
 ```
 
 ### Running a cocotb Testbench {#sec-sv-tools-cocotb}
@@ -930,6 +941,7 @@ A cocotb testbench in the template idiom runs itself:
 cd testbenches/cocotb
 python3 tick_gen_tb.py                  # with Icarus Verilog (default)
 SIM=verilator python3 tick_gen_tb.py    # with Verilator
+cd ../..
 ```
 
 cocotb builds the simulation in the folder `sim_build/`, runs all tests, and prints a summary table with one line per test and a final line such as `TESTS=2 PASS=2 FAIL=0 SKIP=0`. The results are also stored in `sim_build/results.xml`. With Icarus Verilog, the waveform is written to `sim_build/tick_gen.fst`, with Verilator to `sim_build/dump.vcd`.
@@ -943,7 +955,7 @@ gtkwave testbenches/verilog/tick_gen_tb.vcd
 surfer testbenches/cocotb/sim_build/tick_gen.fst
 ```
 
-In GTKWave, select a module in the hierarchy on the left, append its signals to the wave window, and zoom to fit. GTKWave can store the selected signals in a save file (`.gtkw`), which you pass as a second argument the next time, e.g., `gtkwave tick_gen_tb.vcd tick_gen_tb.gtkw`. The AMS chip template keeps such save files next to its testbenches.
+In GTKWave, select a module in the hierarchy on the left, append its signals to the wave window, and zoom to fit. GTKWave can store the selected signals in a save file (`.gtkw`), which you pass as a second argument the next time, e.g., `gtkwave tick_gen_tb.vcd tick_gen_tb.gtkw` in the testbench folder. The AMS chip template keeps such save files next to its testbenches.
 
 ### A Quick Synthesis Check with Yosys {#sec-sv-tools-yosys}
 
@@ -953,7 +965,7 @@ A simulation shows *what* a design does, but not *which hardware* it becomes. A 
 yosys -p "read_verilog -sv rtl/tick_gen.sv; synth -top tick_gen; stat"
 ```
 
-`read_verilog -sv` reads the file with the SystemVerilog front end, `synth -top tick_gen` synthesizes the design with `tick_gen` as top module onto generic gates, and `stat` prints the cell statistics at the end of the log. Check that the number of flip-flops (`$_DFF_*` cells) matches the registers you intended and that there are no latches (`$_DLATCH_*` cells). In the LibreLane flow, Yosys maps these generic cells onto the standard cells of SG13CMOS5L (@sec-synthesis-lib).
+`read_verilog -sv` reads the file with the SystemVerilog front end, `synth -top tick_gen` synthesizes the design with `tick_gen` as top module onto generic gates, and `stat` prints the cell statistics at the end of the log. Check that the number of flip-flops (`$_DFF_*` and `$_DFFE_*` cells) matches the registers you intended and that there are no latches (`$_DLATCH_*` cells). The letters of a flip-flop name give the clock edge, the reset polarity, the reset value, and the enable polarity: `$_DFFE_PN0P_` is a flip-flop on the positive clock edge (`P`) with an active-low reset (`N`) to zero (`0`) and an active-high enable (`P`). In the LibreLane flow, Yosys maps these generic cells onto the standard cells of SG13CMOS5L (@sec-synthesis-lib).
 
 ::: {.callout-tip title="Exercise: Lint, Simulate, and Synthesize the Tick Generator"}
 1. Set up the folder as described in @sec-sv-tools-setup and save the three listings of the tick generator.
@@ -961,7 +973,7 @@ yosys -p "read_verilog -sv rtl/tick_gen.sv; synth -top tick_gen; stat"
 3. Run the SystemVerilog testbench with Icarus Verilog and look at the waveform in GTKWave. Find the cycles in which `tick` is high and compare them with `count_q` inside the DUT.
 4. Run the cocotb testbench with Icarus Verilog and with Verilator, and open the cocotb waveform in Surfer.
 5. Synthesize the RTL with Yosys. How many cells and flip-flops does it need, and of which types are the flip-flops?
-6. Change `DIV` to 8 in both testbenches and rerun them. Then build in a bug: compare `count_q` with `COUNT_LAST - 1` instead of `COUNT_LAST`. Do both testbenches catch it?
+6. Change `DIV` to 8 in both testbenches and rerun them. Since 8 is a power of two, the 3-bit counter uses all eight of its values. Then build in a bug: compare `count_q` with `COUNT_LAST - 1` instead of `COUNT_LAST`. Do both testbenches catch it?
 :::
 
 Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
@@ -1010,13 +1022,13 @@ cd testbenches/verilog && vvp pwm_tb.vvp
 gtkwave pwm_tb.vcd
 ```
 
-To check that the testbench really checks something, change `<` into `<=` in the comparison: the testbench then stops with `FATAL: duty 0 gives 1 high cycles`.
+To check that the testbench really checks something, change `<` to `<=` in the comparison: the testbench then stops with `FATAL` and the message `FAIL: duty 0 gives 1 high cycles`.
 :::
 
 ::: {.callout-tip title="Exercise: PWM Generator with a cocotb Testbench"}
 Write a cocotb testbench `pwm/testbenches/cocotb/pwm_tb.py` for your PWM generator from the previous exercise, again with `WIDTH = 4`:
 
-1. A test `test_all_duty_values` with the same check as the SystemVerilog testbench.
+1. A test `test_all_duty_values` with the same check as the SystemVerilog testbench. In cocotb, `dut.pwm_o.value.is_resolvable` is false if any bit is `x` or `z`, so `not dut.pwm_o.value.is_resolvable` corresponds to `$isunknown()`.
 2. A test `test_against_model` that changes `duty_i` to random values at random times (use a fixed seed, e.g., `random.Random(42)`) and compares `pwm_o` in every clock cycle with a cycle-accurate Python model of the counter and the output register.
 3. A runner in the template idiom of @sec-sv-tb-cocotb, which exits with an error if a test fails.
 
@@ -1030,7 +1042,7 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 {{< include /content/sv_crashcourse/code/pwm/testbenches/cocotb/pwm_tb.py >}}
 ```
 
-The model in `test_against_model` mirrors the two registers of the DUT: at every rising edge, the new `pwm` value is computed from the *old* counter value, and the counter increments, exactly like the two non-blocking assignments in `always_ff`. Note the comment on `duty`: the model must keep its own copy of the value it writes. Reading `dut.duty_i.value` right after the write would still return the old value, and the model would be one cycle off. Both simulators report `TESTS=2 PASS=2 FAIL=0 SKIP=0`. The model test is the stronger one: a counter that wraps at 14 instead of 15 fails both tests, but only the model test would also find a bug that keeps the number of high cycles right and shifts the pulse within the period.
+The model in `test_against_model` mirrors the two registers of the DUT: at every rising edge, the new `pwm` value is computed from the *old* counter value, and the counter increments, exactly like the two non-blocking assignments in `always_ff`. The comment on `duty` explains why the model keeps its own copy of the value it writes. Reading `dut.duty_i.value` right after the write would still return the old value, and the model would be one cycle off. Both simulators report `TESTS=2 PASS=2 FAIL=0 SKIP=0`. The model test is the stronger one: a counter that wraps at 14 instead of 15 fails both tests, but only the model test would also find a bug that keeps the number of high cycles right and shifts the pulse within the period.
 :::
 
 ::: {.callout-tip title="Exercise: Sequence Detector FSM"}
@@ -1041,7 +1053,7 @@ The following VHDL FSM detects the bit pattern `1011` in a serial input. It samp
 ```
 
 1. Draw the state diagram.
-2. Translate the FSM into a SystemVerilog module `seq_detect` in `seq_detect/rtl/seq_detect.sv`, with an asynchronous active-low reset `rst_ni` instead of `rst_i`. Lint it.
+2. Translate the FSM into a SystemVerilog module `seq_detect` in `seq_detect/rtl/seq_detect.sv`, with an asynchronous active-low reset `rst_ni` instead of `rst_i` and otherwise the same port names, which the testbench below uses. Lint it.
 3. Verify it with the following cocotb testbench, which compares `detect_o` with a Python reference model for a directed and a random bit stream. Run it with Icarus Verilog and with Verilator.
 
 ```{.python filename="seq_detect/testbenches/cocotb/seq_detect_tb.py"}
@@ -1052,13 +1064,23 @@ The following VHDL FSM detects the bit pattern `1011` in a serial input. It samp
 Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
 
 ::: {.callout-tip title="Solution: Sequence Detector FSM" collapse="true"}
-Each state stores the longest prefix of `1011` that the last bits match. A `0` after `1011` leaves `10`, a `1` leaves `1`, which is how overlapping occurrences are detected.
+Each state stores the longest prefix of `1011` that the received bits end with. A `0` after `1011` leaves `10`, and a `1` leaves `1`, which is how overlapping occurrences are detected. @tbl-sv-seq-detect gives the state diagram as a table, with the state names of the VHDL version. In the SystemVerilog solution, `DET_IDLE` becomes `StIdle`, `DET_1` becomes `St1`, and so on.
+
+| State | Next state for `bit_i = 0` | Next state for `bit_i = 1` | `detect_o` |
+|-----------|----------------|----------------|----------|
+| `DET_IDLE` | `DET_IDLE` | `DET_1` | 0 |
+| `DET_1` | `DET_10` | `DET_1` | 0 |
+| `DET_10` | `DET_IDLE` | `DET_101` | 0 |
+| `DET_101` | `DET_10` | `DET_1011` | 0 |
+| `DET_1011` | `DET_10` | `DET_1` | 1 |
+
+: Transitions of the sequence detector {#tbl-sv-seq-detect}
 
 ```{.systemverilog filename="seq_detect/rtl/seq_detect.sv"}
 {{< include /content/sv_crashcourse/code/seq_detect/rtl/seq_detect.sv >}}
 ```
 
-Five states need a 3-bit encoding, so three encodings are unused, and the `default` item sends them back to idle. Both simulators report `TESTS=2 PASS=2 FAIL=0 SKIP=0`, and the random stream of 500 bits contains the pattern 31 times. The testbench checks this count to make sure that the random test really exercises the detection. Icarus Verilog prints a "sorry" message that it ignores `unique`, which you can disregard. Since cocotb is independent of the HDL, the same testbench also runs the VHDL version with GHDL (with an inverted reset), and both versions pass.
+Five states need a 3-bit encoding, so three encodings are unused, and the `default` item sends them back to idle. Both simulators report `TESTS=2 PASS=2 FAIL=0 SKIP=0`, and the random stream of 500 bits contains the pattern 31 times. The testbench checks that this count is not zero, so that the random test cannot pass without ever seeing the pattern. Icarus Verilog prints a "sorry" message that it ignores `unique`, which you can disregard. Since cocotb is independent of the HDL, the same testbench also runs the VHDL version with GHDL (with the active-high reset `rst_i` instead of `rst_ni`), and both versions pass.
 :::
 
 ## Hands-On: The Counter of the AMS Chip Template {#sec-sv-template}
@@ -1101,13 +1123,13 @@ gtkwave sim_build/counter_top.fst counter_top_tb.gtkw
 ```
 
 - `constants.sv` defines the macros `` `COUNTER_MAX_DEFAULT`` and `` `CLK_FREQ_DEFAULT``, which `counter_top.sv` and the testbench use. A macro must be defined before it is used, and the tools read the files in the given order, so `constants.sv` comes first.
-- The SystemVerilog testbench prints `PASS: simulation complete.`, the cocotb testbench reports `TESTS=4 PASS=4 FAIL=0 SKIP=0`.
+- The SystemVerilog testbench prints `PASS: simulation complete.`, and the cocotb testbench reports `TESTS=4 PASS=4 FAIL=0 SKIP=0`.
 - The cocotb testbench checks all four behaviors, one test each. The SystemVerilog testbench (template version of October 2026) checks only two: the counter is zero after the reset, and it stays zero while disabled. It enables the counter for a full wrap-around, but does not check the values, so increment and wrap-around are only visible in the waveform. A `PASS` only means that the implemented checks passed.
 :::
 
 ::: {.callout-tip title="Exercise: The Counter in the Two-Process Style"}
 1. Rewrite `rtl/counter.sv` in the two-process style with `count_d` and `count_q`. Keep the module name, the parameters, the ports, and the behavior (synchronous reset, enable, wrap-around at `CTR_MAX`) exactly as they are.
-2. Lint the design and run both testbenches again. All checks must still pass, which shows that your refactoring did not change the behavior.
+2. Lint the design and run both testbenches again. All checks must still pass, which shows that your refactoring did not change the checked behavior.
 3. Now build in a bug: let the counter wrap one value early (compare with `CTR_MAX - 1`). Run both testbenches again and check their exit status with `echo $?`. Which testbench finds the bug? What does the exit status tell you?
 4. Restore the original file with `git restore rtl/counter.sv`.
 :::
@@ -1119,7 +1141,7 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 {{< include /content/sv_crashcourse/code/counter_2p/rtl/counter.sv >}}
 ```
 
-The synchronous reset stays in the register block, so `always_ff` holds the reset value and the copy of `count_d`, as in your VHDL `reg_proc`. Putting the reset into the combinational block as the first decision would describe the same hardware. Lint and both testbenches pass as before.
+The synchronous reset stays in the register process, so `always_ff` holds the reset value and the copy of `count_d`, as in your VHDL `reg_proc`. Putting the reset into the combinational process as the first decision would describe the same hardware. Lint and both testbenches pass as before.
 
 With the bug, the SystemVerilog testbench still prints `PASS` and exits with status 0, because it does not check the wrap-around. In the cocotb testbench, `test_wraps_at_max` fails, but `python3 counter_top_tb.py` still exits with status 0, because the runner of the template does not evaluate `results.xml` (compare it with the runner of @sec-sv-tb-cocotb). Two lessons follow: a testbench is only as good as its checks, and an exit status is only useful if the script sets it. Both matter as soon as testbenches run automatically, e.g., in a regression with `make` or in continuous integration.
 :::
@@ -1127,14 +1149,15 @@ With the bug, the SystemVerilog testbench still prints `PASS` and exits with sta
 ::: {.callout-tip title="Exercise: What Is Behind the Make Targets?"}
 Open `macros/counter/Makefile` of the template.
 
-1. Find the targets that run the commands you typed in the previous exercises, and compare them with your commands. What is different?
-2. `make help` lists all targets, and `make -n <target>` prints the commands of a target without running them (dry run). Try both.
-3. What does the Makefile check before it runs any target, and what do you have to do if this check fails?
+1. `make help` lists all targets. Try it, then try `make -n sim-rtl-verilog`, which prints the commands of a target without running them (dry run). What does the Makefile check before it runs a target, and what do you have to do if this check fails?
+2. Find the targets that run the commands you typed in the previous exercises, and compare their commands (`make -n <target>`) with yours. What is different?
 :::
 
 Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
 
 ::: {.callout-tip title="Solution: What Is Behind the Make Targets?" collapse="true"}
+Every target except `help` and `clean` first checks that the environment variable `PDK` is `ihp-sg13cmos5l`, because the macro is built for this PDK. If the shell is set to another PDK (the default of the container is `ihp-sg13g2`, check it with `echo $PDK`), the Makefile stops with an error message, even for a dry run. Switch the PDK with `sak-pdk ihp-sg13cmos5l` in the same shell and try again. Your own commands did not need this, because an RTL simulation does not use the PDK. @tbl-sv-make-targets compares the targets with your commands.
+
 | Your command | Make target | Differences |
 |--------------------|----------------|--------------------|
 | `verilator --lint-only -Wall ...` | `make lint-verilog`, `make lint-verilog CELL=counter`, `make lint-verilog-all` (both) | without `-Wall`, with the include path `-I"rtl"`, `CELL` selects the files |
@@ -1145,7 +1168,7 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 
 : The make targets of the counter macro and the commands behind them {#tbl-sv-make-targets}
 
-For example, `make -n sim-rtl-verilog` prints:
+After the switch, `make -n sim-rtl-verilog` prints:
 
 ```bash
 iverilog -g2012 -DSIM -o testbenches/verilog/test_counter_top rtl/constants.sv rtl/counter.sv rtl/counter_top.sv testbenches/verilog/counter_top_tb.sv
@@ -1153,7 +1176,7 @@ cd testbenches/verilog && vvp test_counter_top
 rm -f testbenches/verilog/test_counter_top
 ```
 
-The variable `CELL` (default `counter_top`) selects the cell, e.g., `make lint-verilog CELL=counter`. Every target except `help` and `clean` first checks that the environment variable `PDK` is `ihp-sg13cmos5l`, because the macro is built for this PDK. If the shell is set to another PDK (the default of the container is `ihp-sg13g2`, check it with `echo $PDK`), the Makefile stops with an error message. Switch the PDK with `sak-pdk ihp-sg13cmos5l` in the same shell and try again. Your own commands did not need this, because an RTL simulation does not use the PDK. From now on, you can use the make targets, knowing what they do.
+The variable `CELL` (default `counter_top`) selects the cell, e.g., `make lint-verilog CELL=counter`. From now on, you can use the make targets, knowing what they do.
 :::
 
 ## HDL Coding Guidelines {#sec-sv-guidelines}
@@ -1163,7 +1186,7 @@ The variable `CELL` (default `counter_top`) selects the cell, e.g., `make lint-v
 The [VHDL/Verilog Coding Guide](https://iic-jku.github.io/analog-circuit-design/aicd.html#vhdlverilog-coding-guide) of the Circuit Designer's Etiquette was written for Verilog and applies to SystemVerilog with small adaptations. Its rules, restated for the SystemVerilog of this course:
 
 1. **Lint every file** with `verilator --lint-only -Wall` and fix every warning. A warning you ignore today hides the one that matters tomorrow.
-2. **Write readable code** with speaking names and comments that explain the intention. Inputs end in `_i`, outputs in `_o`, bidirectional ports in `_io`. An active-low signal has an `n` before the direction suffix, e.g., `rst_ni`.
+2. **Write readable code** with descriptive names and comments that explain the intention. Inputs end in `_i`, outputs in `_o`, bidirectional ports in `_io`. An active-low signal has an `n` before the direction suffix, e.g., `rst_ni`.
 3. **Choose the reset deliberately.** A synchronous reset avoids reset races. An asynchronous reset, our default, must be free of glitches and released synchronously (@sec-cdc).
 4. **Use `logic` for all signals.** The suffixes `_w` and `_r` of plain Verilog for `wire` and `reg` are not needed.
 5. **Use `assign` for simple logic.** The conditional operator `c ? a : b` is often clearer than a nested `if`.
@@ -1176,9 +1199,9 @@ The [VHDL/Verilog Coding Guide](https://iic-jku.github.io/analog-circuit-design/
 12. **Parameterize** bit widths and other values with parameters and `localparam`s.
 13. **Make conversions and widths explicit** instead of relying on implicit extension and truncation (@sec-sv-operators).
 14. **Use blocking assignments `=` only in `always_comb` and non-blocking assignments `<=` only in `always_ff`.**
-15. **Make visible whether a control acts synchronously or asynchronously.** The etiquette names synchronous set and reset `set` and `res`, and asynchronous ones `pre` (preset) and `clr` (clear). In this course, the asynchronous reset of a block is `rst_ni`, and a synchronous clear is an ordinary input such as `clear_i`.
+15. **Make visible whether a control acts synchronously or asynchronously.** The etiquette names synchronous set and reset `set` and `res`, and asynchronous ones `pre` (preset) and `clr` (clear). In this course, the asynchronous reset of a block is `rst_ni`, and a synchronous reset or clear is an ordinary input, such as `reset_i` in the counter of the AMS chip template.
 
-From the lowRISC style guide [@lowRISC_Style_Guide], we additionally adopt the suffixes `_d` and `_q` for the next and current value of a register, `_e` for enumeration types and `_t` for other types, UpperCamelCase state names, `unique case` with a `default`, named connections for every port and parameter, and no plain `always` blocks. Finally, @tbl-sv-pitfalls collects the traps that VHDL designers fall into most often.
+From the lowRISC style guide [@lowRISC_Style_Guide], we additionally adopt the suffixes `_d` and `_q` for the next and current value of a register, `_e` for enumeration types and `_t` for other types, UpperCamelCase state names, `unique case` with a `default`, named connections for every port and parameter, and no plain `always` blocks. For parameters, however, we keep the UPPERCASE names of the etiquette (rule 7), while lowRISC uses UpperCamelCase. Finally, @tbl-sv-pitfalls collects the traps that VHDL designers fall into most often.
 
 | Pitfall | What happens | Fix |
 |----------------|--------------------|--------------------|
@@ -1189,7 +1212,7 @@ From the lowRISC style guide [@lowRISC_Style_Guide], we additionally adopt the s
 | A typo in a signal name | an implicit 1-bit wire, silently unconnected | `` `default_nettype none``, lint |
 | Mismatched widths | silent truncation or extension, e.g., a lost carry | sized literals, explicit widths, lint |
 | Mixing signed and unsigned | the whole expression is unsigned | `$signed()`, consistent types |
-| `==` with `x` in a testbench check | the result is `x`, the check passes silently | `!==` or `$isunknown()` in testbenches |
+| `==` with `x` in a testbench check | the result can be `x`, the check passes silently | `!==` or `$isunknown()` in testbenches |
 | `?:` between enumeration values | Icarus Verilog requires an explicit cast | `if` and `else` |
 | `int` for counters in RTL | 32 bits, two-state, hides `x` | `logic [N-1:0]` |
 | `initial` for reset values | not synthesizable for an ASIC | a reset in `always_ff` |
@@ -1202,11 +1225,11 @@ From the lowRISC style guide [@lowRISC_Style_Guide], we additionally adopt the s
 
 - An HDL describes hardware that works concurrently, not instructions that run one after another. Think hardware first, then write the code.
 - Almost every digital circuit is a register plus combinational next-state logic. The register loads the next state at every rising clock edge, so the logic has one clock period to compute it.
-- Many HDLs exist, but all of them end up as (System)Verilog. SystemVerilog is the industry standard and the language of our open-source flow.
-- Your VHDL two-process style maps directly onto SystemVerilog: `always_ff` holds the reset values and copies `_d` into `_q`, `always_comb` starts with defaults and contains all decisions.
+- Many HDLs exist, but all alternatives can generate (System)Verilog, which then runs through the same tools. SystemVerilog is the industry standard and the language of our open-source flow.
+- Your VHDL two-process style maps directly onto SystemVerilog: `always_ff` holds the reset values and copies `_d` into `_q`, and `always_comb` starts with defaults and contains all decisions.
 - Use `logic`, `always_comb` with `=`, `always_ff` with `<=`, sized literals, and an asynchronous active-low reset `rst_ni`. Lint every file and check it with a quick Yosys synthesis.
 - Plain Verilog is everywhere, in netlists, cell models, generated code, and older IP. Read it, but write SystemVerilog: `logic` instead of `reg` and `wire`, `always_comb` and `always_ff` instead of `always`.
 - Make every testbench self-checking, drive and check on the falling clock edge, and make sure that a failure sets the exit status: `$fatal` in SystemVerilog, `get_results()` in a cocotb runner.
-- The make targets of the AMS chip template wrap exactly the commands you typed in this chapter.
+- The make targets of the AMS chip template wrap the commands you typed in this chapter, with small differences, e.g., `-DSIM` and no `-Wall` (@tbl-sv-make-targets).
 
 In @sec-modeling, we look at modeling guidelines that turn correct RTL into RTL that synthesizes well, and @sec-verification takes the cocotb testbenches of this chapter to a systematic verification methodology.
