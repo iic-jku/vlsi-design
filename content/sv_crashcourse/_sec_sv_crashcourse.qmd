@@ -61,11 +61,13 @@ uint8_t popcount(uint8_t x)
 }
 ```
 
-The same function written in SystemVerilog looks almost identical, but the hardware behind it is not a loop at all:
+In the loop body, `(x >> i) & 1` shifts bit `i` of `x` into the least significant position and clears all other bits, so `count` grows by one exactly when bit `i` is set. The same function written in SystemVerilog looks almost identical, but the hardware behind it is not a loop at all:
 
 ```{.systemverilog filename="popcount/rtl/popcount.sv"}
 {{< include /content/sv_crashcourse/code/popcount/rtl/popcount.sv >}}
 ```
+
+In the loop body, `x_i[i]` selects bit `i` directly, without a shift and a mask, and the size cast `4'(...)` (@sec-sv-operators) extends this 1-bit value explicitly to the 4 bits of `count_o`, which SystemVerilog would otherwise do silently.
 
 ::: {.callout-tip title="Exercise: Loops in Software and in Hardware"}
 1. Roughly how many clock cycles does an MCU need for the C function? How long does the hardware need?
