@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Simon Dorrer
 // SPDX-License-Identifier: Apache-2.0
-// Description: Small ALU with a registered result. This file contains
-// mistakes on purpose (exercise), do not use it as a template.
+// Description: Small ALU with a registered result (corrected version).
+
+`default_nettype none
 
 module lint_me (
   input  logic       clk_i,
@@ -18,23 +19,26 @@ module lint_me (
 
   // ALU: 00 add, 01 subtract, 10 AND, 11 OR
   always_comb begin
-    case (op_i)
-      2'b00: alu = a_i + b_i;
-      2'b01: alu = a_i - b_i;
-      2'b10: alu = a_i & b_i;
+    unique case (op_i)
+      2'b00:   alu = a_i + b_i;
+      2'b01:   alu = a_i - b_i;
+      2'b10:   alu = a_i & b_i;
+      default: alu = a_i | b_i;  // 2'b11
     endcase
   end
 
   // Result register
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-      result_q = 8'h00;
+      result_q <= 8'h00;
     end else begin
-      result_q = alu;
+      result_q <= alu;
     end
   end
 
   assign result_o = result_q;
-  assign zero = (result_q == 8'h00);
+  assign zero_o   = (result_q == 8'h00);
 
 endmodule
+
+`default_nettype wire

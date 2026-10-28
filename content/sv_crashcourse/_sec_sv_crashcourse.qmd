@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 Most of you already design digital circuits in VHDL. This chapter is a crash course that maps what you know from VHDL onto synthesizable **SystemVerilog**, the hardware description language (HDL) we use throughout this course. It is not an introduction to digital design: the synchronous, latch-free design style you learned with VHDL carries over unchanged, and only the syntax and a few semantic rules are new. Along the way, you write testbenches in SystemVerilog and in Python with **cocotb**, and you lint, simulate, and synthesize your designs in the IIC-OSIC-TOOLS container.
 
 ::: {.callout-note}
-All code of this chapter (RTL, VHDL references, testbenches, and the solutions of the exercises) is available in the folder [`content/sv_crashcourse/code`]({{< meta var.url-repo >}}/tree/main/content/sv_crashcourse/code) of the course repository, in the same folder structure as the macros of the AMS chip template. All files in this folder were linted, simulated, and synthesized with the tools of the IIC-OSIC-TOOLS image `2026.10`: Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, GHDL 7.0.0-dev (for the VHDL files), and Yosys 0.70. With another image, the cell counts in the solutions can differ slightly.
+All code of this chapter (RTL, VHDL references, testbenches, and the solutions of the exercises) is available in the folder [`content/sv_crashcourse/code`]({{< meta var.url-repo >}}/tree/main/content/sv_crashcourse/code) of the course repository, with one folder per design. The SystemVerilog code follows the layout of a macro in the AMS chip template: the RTL in `rtl/` and the testbenches in `testbenches/verilog/` and `testbenches/cocotb/`. The VHDL versions are in `vhdl/`, the plain Verilog original of the priority encoder exercise is in `verilog/`, and the lint exercise keeps its file with deliberate mistakes in `exercise/`. Every file in `rtl/` lints without warnings and synthesizes, and all testbenches pass with the tools of the IIC-OSIC-TOOLS image `2026.10`: Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, GHDL 7.0.0-dev (for the VHDL files), and Yosys 0.70. With another image, the cell counts in the solutions can differ slightly.
 :::
 
 ## Learning Objectives {#sec-sv-objectives}
@@ -550,8 +550,8 @@ In a synchronous design, latches are almost always a bug: static timing analysis
 ::: {.callout-tip title="Exercise: Let the Linter Find the Bugs"}
 The following module is meant to be a small ALU with a registered result: `op_i` selects addition (`00`), subtraction (`01`), bitwise AND (`10`), or bitwise OR (`11`). `result_o` is the registered result, `zero_o` is high when `result_o` is zero, and the register has an asynchronous active-low reset. The file contains several mistakes.
 
-```{.systemverilog filename="lint_me/rtl/lint_me.sv"}
-{{< include /content/sv_crashcourse/code/lint_me/rtl/lint_me.sv >}}
+```{.systemverilog filename="lint_me/exercise/lint_me.sv"}
+{{< include /content/sv_crashcourse/code/lint_me/exercise/lint_me.sv >}}
 ```
 
 1. Save the file as `lint_me.sv` and lint it with `verilator --lint-only -Wall lint_me.sv`. Explain every warning.
@@ -572,8 +572,8 @@ Verilator 5.052 reports seven warnings and exits with an error:
 
 The corrected module fixes the typo, adds `` `default_nettype none``, which would have turned it into an error, completes the case with `unique` and a `default`, and uses non-blocking assignments:
 
-```{.systemverilog filename="lint_me/solution/lint_me.sv"}
-{{< include /content/sv_crashcourse/code/lint_me/solution/lint_me.sv >}}
+```{.systemverilog filename="lint_me/rtl/lint_me.sv"}
+{{< include /content/sv_crashcourse/code/lint_me/rtl/lint_me.sv >}}
 ```
 
 For the original file, Yosys warns that `zero` is implicitly declared and then stops with ``ERROR: Latch inferred for signal `\lint_me.\alu' from always_comb process``. The fixed version synthesizes to 114 generic cells, among them eight `$_DFF_PN0_` cells for `result_q`: flip-flops on the positive clock edge (`P`) with an active-low reset (`N`) to zero (`0`).
