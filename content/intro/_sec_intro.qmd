@@ -18,7 +18,7 @@ limitations under the License.
 
 This is the material for an introductory-level course on digital **very-large-scale integration (VLSI)** design, held at JKU under course number 336.051 ("KV VLSI Design").
 
-The course teaches the design of **digital application-specific integrated circuits (ASICs)** with a modern, fully **open-source** RTL-to-GDSII flow. We model hardware in **SystemVerilog**, verify it with **cocotb** (Python), inspect waveforms in **GTKWave**/**Surfer**, and harden, assemble and tape out a complete chip — including the padframe — with **LibreLane** on the **IHP SG13G2** 130 nm open PDK. In the course project, you take your own **RISC-V SoC** all the way to a tapeout-ready chip.
+The course teaches the design of **digital application-specific integrated circuits (ASICs)** with a modern, fully **open-source** RTL-to-GDSII flow. We model hardware in **SystemVerilog**, verify it with **cocotb** (Python), inspect waveforms in **GTKWave**/**Surfer**, and harden, assemble, and tape out a complete chip, including the padframe, with **LibreLane** on the **IHP SG13CMOS5L** 130 nm open PDK. In the course project, you take your own **RISC-V SoC** all the way to a tapeout-ready chip.
 
 ::: {.callout-important}
 All course material (the source of this document, the SystemVerilog code, the cocotb testbenches, the LibreLane configurations, and the Python sources for all figures) is made publicly available on GitHub ([follow this link](https://github.com/iic-jku/vlsi-design)) and shared under the Apache-2.0 license.
@@ -128,7 +128,7 @@ ASIC implementation styles trade off non-recurring engineering (NRE) cost, unit 
 
 : ASIC implementation styles {#tbl-asic-styles}
 
-This course focuses on the **standard-cell** style: we describe behavior in SystemVerilog and let the synthesis tool map it onto a library of pre-characterized standard cells from the SG13G2 PDK.
+This course focuses on the **standard-cell** style: we describe behavior in SystemVerilog and let the synthesis tool map it onto a library of pre-characterized standard cells from the SG13CMOS5L PDK.
 
 ## The Digital Design Flow {#sec-intro-flow}
 
@@ -155,13 +155,13 @@ Besides these steps, **design for test** inserts scan chains so that every fabri
 | Physical verification | Magic, KLayout (DRC); Netgen, KLayout (LVS) | @sec-digital-flow |
 | Chip assembly and padframe | LibreLane with the AMS chip template | @sec-digital-flow, @sec-project |
 
-: Steps of the RTL-to-GDSII flow, the open-source tools used for them in this course, and where they are covered. LibreLane orchestrates all steps from synthesis to GDSII; the PDK is IHP SG13G2 (130 nm). {#tbl-flow-tools}
+: Steps of the RTL-to-GDSII flow, the open-source tools used for them in this course, and where they are covered. LibreLane orchestrates all steps from synthesis to GDSII. The PDK is IHP SG13CMOS5L (130 nm). {#tbl-flow-tools}
 
 ## The IIC-OSIC-TOOLS Container {#sec-intro-tools}
 
 The legacy version of this course relied on commercial tools (Vivado, ModelSim, Synopsys Design Compiler, Cadence Innovus, TetraMAX, PrimeTime). This edition is built entirely on open-source tools, all pre-installed in the **[IIC-OSIC-TOOLS](https://github.com/iic-jku/IIC-OSIC-TOOLS)** container [@IIC_OSIC_TOOLS]. This all-in-one Docker/Podman image for analog and digital IC design is curated at JKU and runs natively on `x86_64` and `arm64` machines (e.g., Apple Silicon). Since everyone uses the identical container, results are reproducible, and "works on my machine" problems disappear.
 
-As @tbl-iic-osic-tools shows, the container covers much more than this course needs: full-custom (analog) design with schematic entry, analog simulation, layout, and electromagnetic (EM) simulation, semi-custom (digital) design with simulation, synthesis, and complete RTL-to-GDSII flows, as well as several open-source PDKs. In this course, we mainly use the digital tools (@tbl-flow-tools) with the IHP SG13G2 PDK; the analog tools appear in the AMS chip template (@sec-intro-template).
+As @tbl-iic-osic-tools shows, the container covers much more than this course needs: full-custom (analog) design with schematic entry, analog simulation, layout, and electromagnetic (EM) simulation, semi-custom (digital) design with simulation, synthesis, and complete RTL-to-GDSII flows, as well as several open-source PDKs. In this course, we mainly use the digital tools (@tbl-flow-tools) with the IHP SG13CMOS5L PDK, and the analog tools appear in the AMS chip template (@sec-intro-template).
 
 | Category | Tools and PDKs |
 |---------|----------------|
@@ -180,14 +180,14 @@ As @tbl-iic-osic-tools shows, the container covers much more than this course ne
 
 ## The AMS Chip Template {#sec-intro-template}
 
-Hardening a single digital block is only part of the way to a chip. A tapeout-ready chip additionally needs a padframe and a seal ring, the placement and wiring of all macros on the top level, logo and metal-fill insertion, full-chip verification, and finally a bonding diagram for packaging. To get there without fighting the tools, this course builds on the **[ihp-sg13g2-ams-chip-template](https://github.com/iic-jku/ihp-sg13g2-ams-chip-template)** [@AMS_Chip_Template], an open-source GitHub template repository for analog mixed-signal (AMS) chips developed at JKU:
+Hardening a single digital block is only part of the way to a chip. A tapeout-ready chip additionally needs a padframe and a seal ring, the placement and wiring of all macros on the top level, logo and metal-fill insertion, full-chip verification, and finally a bonding diagram for packaging. To get there without fighting the tools, this course builds on the **[ihp-sg13cmos5l-ams-chip-template](https://github.com/iic-jku/ihp-sg13cmos5l-ams-chip-template)** [@AMS_Chip_Template], an open-source GitHub template repository for analog mixed-signal (AMS) chips developed at JKU:
 
 - It is released under the permissive **Solderpad Hardware License v2.1**.
 - Create your own repository with GitHub's *Use this template* button (or simply `git clone` it), enter the IIC-OSIC-TOOLS container, and run `make all`. The result is a **tapeout-ready AMS chip**.
-- A step-by-step **[tutorial](https://iic-jku.github.io/ihp-sg13g2-ams-chip-template/index.html)**, written in Quarto, walks through all IC design steps on IHP's 130 nm process, with simple exercises to learn by doing. You start your project with this tutorial (@sec-project).
+- A step-by-step **[tutorial](https://iic-jku.github.io/ihp-sg13cmos5l-ams-chip-template/index.html)**, written in Quarto, walks through all IC design steps on IHP's 130 nm process, with simple exercises to learn by doing. You start your project with this tutorial (@sec-project).
 - **Regression tests** via GitHub Actions ensure that the flow keeps working with every new release of the tools.
 
-The template is also available for the ihp-sg13cmos5l, sky130A, and gf180mcuD open PDKs, and several chips have already been taped out with it, including TinyWhisper (@sec-intro-tinywhisper).
+The template is also available for the ihp-sg13g2, sky130A, and gf180mcuD open PDKs, and several chips have already been taped out with it, including TinyWhisper (@sec-intro-tinywhisper).
 
 ### Flow Overview {#sec-intro-template-flow}
 
