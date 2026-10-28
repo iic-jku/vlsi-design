@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 ```{python}
 #| label: fig-sv-sync-design
 #| echo: false
-#| fig-cap: "Synchronous sequential design. A register of edge-triggered flip-flops stores the state. The combinational next-state logic computes the next state from the state and the inputs, and the register takes it over at every rising clock edge. In the two-process style, the next-state logic is the combinational process (`next_state_logic` in VHDL, `always_comb` in SystemVerilog), and the register is the register process (`reg_proc` in VHDL, `always_ff` in SystemVerilog)."
+#| fig-cap: "Synchronous sequential design. A register of edge-triggered flip-flops stores the state. The combinational next-state logic computes the next state from the state and the inputs, and the register loads it at every rising clock edge. In the two-process style, the next-state logic is the combinational process (`next_state_logic` in VHDL, `always_comb` in SystemVerilog), and the register is the register process (`reg_proc` in VHDL, `always_ff` in SystemVerilog)."
 #| fig-alt: "Block diagram: the inputs and the fed-back state enter a cloud labeled next-state logic. Its output, the next state, enters the D input of a register with clock and reset inputs. The Q output of the register is the state, which is fed back to the next-state logic."
 import math
 import schemdraw as sd
