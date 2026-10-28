@@ -45,6 +45,8 @@ A C program for a microcontroller (MCU) and a SystemVerilog module may look alik
 
 The most important consequence is a change in thinking: **think hardware first, then write the code.** Before you write a module, sketch its block diagram with the registers and the combinational logic between them (@sec-sv-sync-design). The code then only describes this diagram. Keep in mind that a simulator executes your HDL as an event-driven program on your computer. This is why HDLs also contain constructs such as delays, `$display`, or file access, which only make sense in simulation and cannot be synthesized (@sec-sv-synthesizable).
 
+In the course project (@sec-project), you need both ways of thinking. You build a RISC-V SoC: the CPU and the blocks around it are hardware that you describe as registers and combinational logic, and the CPU runs firmware that you write as for any microcontroller. Many SoCs today contain such a processor core, because the firmware keeps the digital part flexible: a new feature or a bug fix in the control flow needs a firmware update instead of a new mask set, while dedicated hardware handles the time-critical parts. RISC-V is a popular choice for this core, since its instruction set is open and can be used and extended without license fees. TinyWhisper (@sec-intro-tinywhisper) is an example, with its modem in C firmware on the RISC-V CPU and its IQ modulator in dedicated hardware.
+
 ### Computing in Time and in Space {#sec-sv-time-space}
 
 The difference between software and hardware becomes obvious with a loop. The following C function counts the ones in a byte (population count):
