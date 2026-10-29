@@ -849,7 +849,7 @@ A testbench applies stimuli to the design under test (DUT) and checks its respon
 
 ### A cocotb Testbench {#sec-sv-tb-cocotb}
 
-cocotb [@cocotb] runs the testbench as Python code next to the simulator. Python then drives and reads the signals of the DUT through the programming interface of the simulator (VPI for Verilog simulators).
+cocotb [@cocotb] runs the testbench as Python code next to the simulator. Python then drives and reads the signals of the DUT through the programming interface of the simulator (the Verilog Procedural Interface, VPI, for Verilog simulators).
 
 ```{.python filename="tick_gen/testbenches/cocotb/tick_gen_tb.py"}
 {{< include /content/sv_crashcourse/code/tick_gen/testbenches/cocotb/tick_gen_tb.py >}}
