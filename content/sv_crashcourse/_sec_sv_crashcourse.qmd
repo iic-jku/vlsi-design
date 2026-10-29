@@ -3,7 +3,7 @@ Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
 SPDX-License-Identifier: Apache-2.0
 :::
 
-# From VHDL to SystemVerilog {#sec-sv-crashcourse}
+# Hardware Description with SystemVerilog {#sec-sv-crashcourse}
 
 Most of you already design digital circuits in VHDL. This chapter is a crash course that maps what you know from VHDL onto synthesizable **SystemVerilog**, the hardware description language (HDL) we use throughout this course. It is not an introduction to digital design: the synchronous, latch-free design style you learned with VHDL carries over unchanged, and only the syntax and a few semantic rules are new. Along the way, you write testbenches in SystemVerilog and in Python with **cocotb**, and you lint, simulate, and synthesize your designs in the IIC-OSIC-TOOLS container.
 

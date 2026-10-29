@@ -76,7 +76,7 @@ The following JKU courses, whose material is also openly available, complement t
 
 After this introduction, the course covers the following topics:
 
-1. from VHDL to SystemVerilog, and modeling guidelines for synthesizable RTL (@sec-sv-crashcourse, @sec-modeling);
+1. hardware description with SystemVerilog, and modeling guidelines for synthesizable RTL (@sec-sv-crashcourse, @sec-modeling);
 2. functional verification with cocotb (@sec-verification);
 3. sequential elements and static timing analysis (@sec-sequential);
 4. the synthesis library and synthesis optimizations (@sec-synthesis-lib, @sec-synth-opt);
