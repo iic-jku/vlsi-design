@@ -87,7 +87,7 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 
 ### Synchronous Sequential Design {#sec-sv-sync-design}
 
-The popcount module is purely combinational: its output depends only on its current inputs. Most circuits also need memory, e.g., for the state of a finite state machine (FSM) or the value of a counter. Almost all of them are built as **synchronous sequential circuits** with the structure of @fig-sv-sync-design, which you know from your VHDL courses. A **register** of edge-triggered flip-flops stores the current state. The **next-state logic**, a purely combinational circuit, computes the next state from the current state and the inputs. At every rising clock edge, the register loads the next state from its D input, and the new state appears at its Q output. The outputs of the circuit are derived from the state (Moore FSM) or from the state and the inputs (Mealy FSM).
+The popcount module is purely combinational: its output depends only on its current inputs. Most circuits also need memory, e.g., for the state of a finite state machine (FSM) or the value of a counter. Almost all of them are built as **synchronous sequential circuits** with the structure of @fig-sv-sync-design. A **register** of edge-triggered flip-flops stores the current state. The **next-state logic**, a purely combinational circuit, computes the next state from the current state and the inputs. At every rising clock edge, the register loads the next state from its D input, and the new state appears at its Q output. The outputs of the circuit are derived from the state (Moore FSM) or from the state and the inputs (Mealy FSM).
 
 {{< include /content/sv_crashcourse/_fig_sync_design.qmd >}}
 
