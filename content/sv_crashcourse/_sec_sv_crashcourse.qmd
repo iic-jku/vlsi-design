@@ -91,7 +91,9 @@ The popcount module is purely combinational: its output depends only on its curr
 
 {{< include /content/sv_crashcourse/_fig_sync_design.qmd >}}
 
-Edge-triggered flip-flops are the key to this structure. Their outputs change only at the rising clock edge and stay stable for the rest of the clock period. The next-state logic therefore sees stable inputs for one full clock period, and this is exactly the time it has to compute the next state. The result must have settled before the next rising edge (more precisely, a setup time before it), when the register loads it. The same holds for every path from a register through combinational logic to the next register, so the clock period only has to be longer than the slowest of these paths. Static timing analysis checks exactly this for every path in the design (@sec-sequential). The rule assumes that the inputs also change only after a clock edge, i.e., that they come from registers driven by the same clock. An asynchronous input needs a synchronizer first (@sec-cdc).
+Edge-triggered flip-flops are the key to this structure. Their outputs change only at the rising clock edge and stay stable for the rest of the clock period. The next-state logic therefore sees stable inputs for one full clock period, and this is exactly the time it has to compute the next state. The result must have settled before the next rising edge (more precisely, a setup time before it), when the register loads it (@fig-sv-clock-period). The same holds for every path from a register through combinational logic to the next register, so the clock period only has to be longer than the slowest of these paths. Static timing analysis checks exactly this for every path in the design (@sec-sequential). The rule assumes that the inputs also change only after a clock edge, i.e., that they come from registers driven by the same clock. An asynchronous input needs a synchronizer first (@sec-cdc).
+
+{{< include /content/sv_crashcourse/_fig_clock_period.qmd >}}
 
 In your VHDL designs, you describe this structure with two processes, a register process `reg_proc` and a combinational process such as `next_state_logic`. As a minimal example, consider a toggle flip-flop, whose state inverts at every rising clock edge at which `toggle_i` is high:
 
@@ -135,6 +137,10 @@ VHDL and Verilog appeared in the 1980s, and for decades they were practically th
 2. **Embedded domain-specific languages (eDSLs)**, also called *hardware construction languages*. The hardware is described with a library of a general-purpose language such as Scala, Python, or Haskell. Running the program *generates* the hardware as Verilog, so the classes, functions, loops, and type system of the host language are available to build parameterizable generators.
 3. **New standalone HDLs** with their own syntax and compiler, designed to avoid the pitfalls of Verilog. They also emit (System)Verilog.
 4. **High-level synthesis (HLS) and compiler intermediate representations.** An algorithm written in C/C++ or a dataflow language is scheduled into clock cycles by the tool, or a compiler uses an intermediate language as its hardware back end.
+
+@fig-sv-hdl-families shows how the four families relate.
+
+{{< include /content/sv_crashcourse/_fig_hdl_families.qmd >}}
 
 @tbl-sv-hdl-list gives an overview of the languages you are most likely to come across.
 

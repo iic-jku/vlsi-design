@@ -1,0 +1,39 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-sv-clock-period
+#| echo: false
+#| fig-cap: "Timing of a synchronous sequential circuit. The state at the Q output of the register changes only at the rising clock edge. The next-state logic then needs some time until the next state at the D input has settled (hatched), and it must be stable before the next rising edge, when the register loads it."
+#| fig-alt: "Timing diagram with three rows: clk with four rising edges, the state at Q with the values S0 to S3, each lasting one clock period, and the next state at D, which is undefined for the first part of each period and then shows S1 to S4. Dashed lines mark the rising edges, an arrow marks one clock period, and labels mark the settling and the stable part of the next state."
+import schemdraw as sd
+from schemdraw import logic
+from schemdraw import elements as elm
+from schemdraw.util import Point
+sd.svgconfig.svg2 = False
+
+period, x0 = 3.2, 0.075   # one clock period in drawing units, center of the first rising edge
+waves = {'signal': [
+    {'name': 'clk', 'wave': 'P...'},
+    {'name': 'state (Q)', 'wave': '====', 'data': ['S0', 'S1', 'S2', 'S3']},
+    {'name': 'next state (D)', 'wave': 'x=x=x=x=', 'period': 0.5, 'data': ['S1', 'S2', 'S3', 'S4']},
+], 'config': {'hscale': 2}}
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(fontsize=11, lw=1.5, bgcolor='white', margin=0.15)
+    td = logic.TimingDiagram(waves, ygap=0.5, risetime=0.15, yheight=0.8, fontsize=11, namecolor='black',
+                             grid=False)
+    for seg in td.segments:
+        if getattr(seg, 'align', None) == ('right', 'bottom'):   # signal names, onto the wave centers
+            seg.xy = Point((seg.xy[0], seg.xy[1] + 0.2))
+    for k in (1, 2, 3):   # the register loads D at every rising edge
+        x = x0 + k*period
+        elm.Line().at((x, 1.0)).to((x, -2.75)).color('#A6A6A6').linestyle('--').linewidth(1)
+    xa, xb = x0 + period, x0 + 2*period
+    elm.Line(arrow='<->').at((xa, 1.35)).to((xb, 1.35)).color('#6c8ebf').linewidth(1.5)
+    elm.Label().at(((xa + xb)/2, 1.75)).label('one clock period', color='#6c8ebf')
+    elm.Label().at((xa + period/4, -3.05)).label('settles', color='#595959')
+    elm.Label().at((xa + 3*period/4, -3.05)).label('stable', color='#595959')
+```

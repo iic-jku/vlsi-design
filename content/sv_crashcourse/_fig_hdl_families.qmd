@@ -1,0 +1,39 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-sv-hdl-families
+#| echo: false
+#| fig-cap: "The four families of HDLs. Embedded DSLs, standalone HDLs, and HLS tools generate one of the standardized HDLs, mostly (System)Verilog, which the tools for simulation, linting, synthesis, and layout then read."
+#| fig-alt: "Block diagram: three boxes on the left, embedded DSLs (Chisel, SpinalHDL, Amaranth, Clash), standalone HDLs (Bluespec, Veryl, Spade, Silice), and HLS and compiler IRs (XLS, Calyx, C/C++ HLS), point with arrows labeled generate into a central box of standardized HDLs (SystemVerilog, Verilog, VHDL). From there, arrows lead to three boxes on the right: simulation (Icarus Verilog, Verilator, GHDL), linting (Verilator, Verible, slang), and synthesis and layout (Yosys, LibreLane)."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    H, DY = 1.5, 1.85   # box height and vertical pitch
+
+    def box(x, y, w, h, title, body, fill='white', line='#6c8ebf'):
+        b = flow.Box(w=w, h=h).at((x, y)).anchor('center').fill(fill).color(line)
+        nbody = body.count('\n') + 1
+        elm.Label().at((x, y + 0.2*nbody + 0.05)).label(title, color='black', fontsize=11)
+        elm.Label().at((x, y - 0.22)).label(body, color='#404040', fontsize=10)
+        return b
+
+    left = [box(0, DY, 3.6, H, 'Embedded DSLs', 'Chisel, SpinalHDL,\nAmaranth, Clash, ...'),
+            box(0, 0, 3.6, H, 'Standalone HDLs', 'Bluespec, Veryl,\nSpade, Silice'),
+            box(0, -DY, 3.6, H, 'HLS, Compiler IRs', 'XLS, Calyx,\nC/C++ HLS')]
+    mid = box(5.4, 0, 3.4, 2*DY + H, 'Standardized HDLs', 'SystemVerilog\nVerilog\nVHDL', fill='#dae8fc')
+    right = [box(10.6, DY, 3.4, H, 'Simulation', 'Icarus Verilog,\nVerilator, GHDL'),
+             box(10.6, 0, 3.4, H, 'Linting', 'Verilator,\nVerible, slang'),
+             box(10.6, -DY, 3.4, H, 'Synthesis, Layout', 'Yosys,\nLibreLane')]
+    for b in left:
+        flow.Arrow().at(b.E).to((mid.W[0], b.E[1])).color('#595959')
+    for b in right:
+        flow.Arrow().at((mid.E[0], b.W[1])).to(b.W).color('#595959')
+    elm.Label().at(((left[0].E[0] + mid.W[0])/2, DY + 0.3)).label('generate', color='#595959', fontsize=10)
+```
