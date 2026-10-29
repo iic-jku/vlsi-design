@@ -607,6 +607,53 @@ In SystemVerilog:
 - The synthesis tool is free to choose the state encoding. Yosys 0.70 recognizes this FSM and re-encodes it one-hot, with three flip-flops instead of two.
 - Write the transitions with `if` and `else`. A conditional operator between enumeration values, such as `state_d = start_i ? StRun : StIdle;`, is rejected by Icarus Verilog 14, which requires an explicit cast for it.
 
+::: {.callout-tip title="Exercise: The Controller as a Mealy FSM"}
+In a Mealy FSM, the outputs depend on the state and on the current inputs.
+
+1. The combinational process of the controller reads `start_i` and `last_i`. Why is the controller still a Moore FSM?
+2. Change the controller into a Mealy FSM `ctrl_fsm_mealy` with the same ports: `done_o` is high in the clock cycle in which `last_i` is high in the run state, and the FSM returns to idle at the next rising clock edge. `busy_o` stays high in the run state, as before. How many states do you need? Draw the state diagram, with the condition and the outputs on each arc (`condition / busy_o done_o`).
+3. Implement `ctrl_fsm_mealy` in the two-process style in VHDL (`ctrl_fsm_mealy_ea.vhd`) and in SystemVerilog (`ctrl_fsm_mealy.sv`), and lint the SystemVerilog version.
+4. Number the clock cycles from 0, with the FSM idle in cycle 0. `start_i` is high in cycle 0, `last_i` in cycle 3, and both are low otherwise. In which cycles are `busy_o` and `done_o` high in the Moore and in the Mealy version? What does the Mealy version gain, and what does its `done_o` cost?
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: The Controller as a Mealy FSM" collapse="true"}
+1. The combinational process reads `start_i` and `last_i` only in the conditions that choose `state_d`. `busy_o` and `done_o` are assigned in each state without any condition, so they depend only on `state_q`. An output becomes a Mealy output as soon as it is assigned inside a condition on an input.
+2. Two states are enough. `done_o` now belongs to the transition from `StRun` back to `StIdle`, in the clock cycle in which `last_i` is high, so `StDone` is no longer needed. @fig-sv-ctrl-fsm-mealy shows the state diagram.
+
+{{< include /content/sv_crashcourse/_fig_ctrl_fsm_mealy.qmd >}}
+
+3. Compared with the Moore version, only the run state changes: the assignment to `done_o` moves into the condition on `last_i`, which now returns to idle.
+
+```{.vhdl filename="ctrl_fsm_mealy/vhdl/ctrl_fsm_mealy_ea.vhd"}
+{{< include /content/sv_crashcourse/code/ctrl_fsm_mealy/vhdl/ctrl_fsm_mealy_ea.vhd >}}
+```
+
+```{.systemverilog filename="ctrl_fsm_mealy/rtl/ctrl_fsm_mealy.sv"}
+{{< include /content/sv_crashcourse/code/ctrl_fsm_mealy/rtl/ctrl_fsm_mealy.sv >}}
+```
+
+The 1-bit state type of the SystemVerilog version has no unused encoding, and the `default` item stays only because the guidelines ask for `unique case` with a `default` (@sec-sv-guidelines). Verilator reports no warning. Yosys 0.70 builds the Mealy controller from 4 cells with one flip-flop, against 9 cells with three flip-flops for the one-hot Moore version.
+
+4. @tbl-sv-moore-mealy lists both versions cycle by cycle. Icarus Verilog, Verilator, and GHDL show exactly these values for the VHDL and the SystemVerilog versions.
+
+| Clock cycle | 0 | 1 | 2 | 3 | 4 | 5 |
+|----------------|------|------|------|------|------|------|
+| `start_i` | 1 | 0 | 0 | 0 | 0 | 0 |
+| `last_i` | 0 | 0 | 0 | 1 | 0 | 0 |
+| Moore state | `StIdle` | `StRun` | `StRun` | `StRun` | `StDone` | `StIdle` |
+| Moore `busy_o` | 0 | 1 | 1 | 1 | 0 | 0 |
+| Moore `done_o` | 0 | 0 | 0 | 0 | 1 | 0 |
+| Mealy state | `StIdle` | `StRun` | `StRun` | `StRun` | `StIdle` | `StIdle` |
+| Mealy `busy_o` | 0 | 1 | 1 | 1 | 0 | 0 |
+| Mealy `done_o` | 0 | 0 | 0 | 1 | 0 | 0 |
+
+: The Moore and the Mealy controller for the input sequence of step 4 {#tbl-sv-moore-mealy}
+
+The Mealy version raises `done_o` one clock cycle earlier, in the same cycle as `last_i`, needs one state less, and is ready for the next start one cycle earlier. The price is the combinational path from `last_i` to `done_o`. The output can glitch when `last_i` changes, and the path from the register that drives `last_i`, through this FSM, into the block that reads `done_o` must fit into one clock period. If that block also drives `last_i` combinationally from `done_o`, the two blocks even form a combinational loop. A Moore output comes directly from the state register and has none of these problems. If the earlier output is not needed, a register behind the Mealy output gives back the Moore timing.
+:::
+
 ### Hierarchy and Generate {#sec-sv-hierarchy}
 
 An instance of the adder of @sec-sv-modules with a width of 16 bits looks as follows in VHDL:

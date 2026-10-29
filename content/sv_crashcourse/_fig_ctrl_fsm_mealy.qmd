@@ -1,0 +1,37 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-sv-ctrl-fsm-mealy
+#| echo: false
+#| fig-cap: "State diagram of the controller as a Mealy FSM. Each arc carries its condition and, after the slash, the outputs `busy_o` and `done_o` in the clock cycle in which the condition holds. `done_o` is high on the arc from `StRun` back to `StIdle`, in the same cycle as `last_i`."
+#| fig-alt: "State diagram with two states. StIdle is entered at reset. The arc from StIdle to StRun is labeled start_i slash 00, the loop on StIdle not start_i slash 00. The loop on StRun is labeled not last_i slash 10, and the arc from StRun back to StIdle last_i slash 11."
+import schemdraw as sd
+from schemdraw import flow
+sd.svgconfig.svg2 = False
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    r, fs = 0.75, 11
+
+    def state(xy, text):
+        return flow.State(r=r).at(xy).anchor('center').fill('#dae8fc').color('#6c8ebf').label(text, color='black')
+
+    idle = state((0, 0), 'StIdle')
+    run = state((4.6, 0), 'StRun')
+
+    # arcs: condition / busy_o done_o in the clock cycle in which the condition holds
+    flow.Arc2(arrow='->', k=0.35).at(idle.NE).to(run.NW).color('black') \
+        .label('start_i / 00', 'top', fontsize=fs, color='black')
+    flow.Arc2(arrow='->', k=0.35).at(run.SW).to(idle.SE).color('black') \
+        .label('last_i / 11', 'bottom', fontsize=fs, color='black')
+    flow.ArcLoop(arrow='->', radius=0.6).at(idle.SW).to(idle.NW).color('black') \
+        .label('!start_i / 00', 'left', ofst=0.1, fontsize=fs, color='black')
+    flow.ArcLoop(arrow='->', radius=0.6).at(run.NE).to(run.SE).color('black') \
+        .label('!last_i / 10', 'right', ofst=0.1, fontsize=fs, color='black')
+
+    # asynchronous reset
+    flow.Arrow().at((0, 2.0)).to(idle.N).color('black').label('reset', 'top', fontsize=fs, color='black')
+```
