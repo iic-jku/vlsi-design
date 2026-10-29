@@ -1,0 +1,40 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-sv-ctrl-fsm
+#| echo: false
+#| fig-cap: "State diagram of the controller (Moore FSM). The outputs belong to the states and are written inside them. An arc shows the condition under which the FSM takes it at the next rising clock edge, and `1` means always. The VHDL version names the states `CTRL_IDLE`, `CTRL_RUN`, and `CTRL_DONE`. The unused encoding `2'b11` of the SystemVerilog version, which also leads back to `StIdle`, is not drawn."
+#| fig-alt: "State diagram with three states. StIdle with busy_o 0 and done_o 0 is entered at reset and stays there while start_i is low. With start_i high it goes to StRun, where busy_o is 1. StRun stays while last_i is low and goes to StDone when last_i is high. StDone, where done_o is 1, always returns to StIdle."
+import schemdraw as sd
+from schemdraw import flow
+sd.svgconfig.svg2 = False
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    r, fs = 1.05, 11
+
+    def state(xy, text):
+        return flow.State(r=r).at(xy).anchor('center').fill('#dae8fc').color('#6c8ebf').label(text, color='black')
+
+    idle = state((0, 0), 'StIdle\nbusy_o = 0\ndone_o = 0')
+    run = state((5.0, 0), 'StRun\nbusy_o = 1\ndone_o = 0')
+    done = state((2.5, -3.6), 'StDone\nbusy_o = 0\ndone_o = 1')
+
+    # transitions, labeled with the condition at the rising clock edge
+    flow.Arc2(arrow='->', k=0.2).at(idle.E).to(run.W).color('black') \
+        .label('start_i', 'top', fontsize=fs, color='black')
+    flow.Arc2(arrow='->', k=-0.15).at(run.S).to(done.E).color('black') \
+        .label('last_i', 'right', ofst=0.3, fontsize=fs, color='black')
+    flow.Arc2(arrow='->', k=-0.15).at(done.W).to(idle.S).color('black') \
+        .label('1', 'left', ofst=0.05, fontsize=fs, color='black')
+    flow.ArcLoop(arrow='->', radius=0.8).at(idle.NW).to(idle.NE).color('black') \
+        .label('!start_i', 'top', ofst=0.05, fontsize=fs, color='black')
+    flow.ArcLoop(arrow='->', radius=0.8).at(run.NW).to(run.NE).color('black') \
+        .label('!last_i', 'top', ofst=0.05, fontsize=fs, color='black')
+
+    # asynchronous reset
+    flow.Arrow().at((-2.4, 0)).to(idle.W).color('black').label('reset', 'top', fontsize=fs, color='black')
+```

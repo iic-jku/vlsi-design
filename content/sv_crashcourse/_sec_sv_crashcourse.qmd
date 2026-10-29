@@ -585,7 +585,11 @@ For the original file, Yosys warns that `zero` is implicitly declared and then s
 
 ### Finite State Machines {#sec-sv-fsm}
 
-FSMs are where the two-process style pays off most. As an example, consider a simple controller: a `start_i` pulse moves it from idle to a run state, in which `busy_o` is high, until `last_i` is high. Then `done_o` is high for one clock cycle, and the FSM returns to idle. Both outputs depend only on the state (Moore FSM). In VHDL:
+FSMs are where the two-process style pays off most. As an example, consider a simple controller: a `start_i` pulse moves it from idle to a run state, in which `busy_o` is high, until `last_i` is high. Then `done_o` is high for one clock cycle, and the FSM returns to idle. Both outputs depend only on the state (Moore FSM). @fig-sv-ctrl-fsm shows the state diagram, with the outputs written inside the states.
+
+{{< include /content/sv_crashcourse/_fig_ctrl_fsm.qmd >}}
+
+In VHDL, the controller looks as follows:
 
 ```{.vhdl filename="ctrl_fsm/vhdl/ctrl_fsm_ea.vhd"}
 {{< include /content/sv_crashcourse/code/ctrl_fsm/vhdl/ctrl_fsm_ea.vhd >}}
