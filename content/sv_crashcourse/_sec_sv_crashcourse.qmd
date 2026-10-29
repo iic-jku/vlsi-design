@@ -1132,15 +1132,22 @@ gtkwave sim_build/counter_top.fst counter_top_tb.gtkw
 :::
 
 ::: {.callout-tip title="Exercise: The Counter in the Two-Process Style"}
-1. Rewrite `rtl/counter.sv` in the two-process style with `count_d` and `count_q`. Keep the module name, the parameters, the ports, and the behavior (synchronous reset, enable, wrap-around at `CTR_MAX`) exactly as they are.
-2. Lint the design and run both testbenches again. All checks must still pass, which shows that your refactoring did not change the checked behavior.
-3. Now build in a bug: let the counter wrap one value early (compare with `CTR_MAX - 1`). Run both testbenches again and check their exit status with `echo $?`. Which testbench finds the bug? What does the exit status tell you?
-4. Restore the original file with `git restore rtl/counter.sv`.
+1. Draw the counter as a synchronous sequential circuit in the structure of @fig-sv-sync-design. Which signal is the state, which are the inputs, and which operations does the next-state logic need?
+2. Turn your diagram into the two-process style: rewrite `rtl/counter.sv` with `count_d` and `count_q`, the register in `always_ff` and the next-state logic in `always_comb`. Keep the module name, the parameters, the ports, and the behavior (synchronous reset, enable, wrap-around at `CTR_MAX`) exactly as they are.
+3. Lint the design and run both testbenches again. All checks must still pass, which shows that your refactoring did not change the checked behavior.
+4. Now build in a bug: let the counter wrap one value early (compare with `CTR_MAX - 1`). Run both testbenches again and check their exit status with `echo $?`. Which testbench finds the bug? What does the exit status tell you?
+5. Restore the original file with `git restore rtl/counter.sv`.
 :::
 
 Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
 
 ::: {.callout-tip title="Solution: The Counter in the Two-Process Style" collapse="true"}
+@fig-sv-counter-2p shows the counter in the structure of @fig-sv-sync-design. The state is `count_q`, held in `CTR_BW` flip-flops with the clock `clock_i` and the synchronous reset `reset_i`. The next-state logic gets `count_q` and the input `enable_i` and needs four parts: a comparator with `CTR_MAX`, an incrementer, a first multiplexer that selects zero at the wrap-around, and a second multiplexer that keeps `count_q` while `enable_i` is low.
+
+{{< include /content/sv_crashcourse/_fig_counter_2p.qmd >}}
+
+In the code, the register becomes `always_ff`, and the next-state logic becomes `always_comb`, where the two multiplexers turn into the `if` and `else` decisions:
+
 ```{.systemverilog filename="macros/counter/rtl/counter.sv (two-process version)"}
 {{< include /content/sv_crashcourse/code/counter_2p/rtl/counter.sv >}}
 ```

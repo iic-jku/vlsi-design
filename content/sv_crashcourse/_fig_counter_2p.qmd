@@ -1,0 +1,99 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-sv-counter-2p
+#| echo: false
+#| fig-cap: "The counter of the AMS chip template as register and next-state logic, in the structure of @fig-sv-sync-design. The register holds `count_q` and has the synchronous reset `reset_i`. In the next-state logic, the comparator and the incrementer work on `count_q` in parallel, the first multiplexer selects zero at the wrap-around, and the second keeps `count_q` while `enable_i` is low."
+#| fig-alt: "Block diagram: count_q from the Q output of the register feeds a comparator with CTR_MAX, an incrementer, and input 0 of an enable multiplexer. The comparator output wrap selects between count_q plus 1 and zero in a wrap multiplexer, whose output goes to input 1 of the enable multiplexer. enable_i selects the enable multiplexer, whose output count_d enters the D input of the register. The register has the inputs clock_i and reset_i, and count_q is also the output counter_value_o."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+from schemdraw.elements import Element
+from schemdraw.segments import SegmentPoly, SegmentText
+sd.svgconfig.svg2 = False
+
+
+class Mux2(Element):
+    ''' 2:1 multiplexer as a trapezoid, input 0 on top, input 1 below, select at the top or bottom '''
+    def __init__(self, w: float = 0.6, h: float = 1.2, s: float = 0.25, **kwargs):
+        super().__init__(**kwargs)
+        # zorder 3: polygons default below the filled boxes, which would hide the multiplexers
+        self.segments.append(SegmentPoly([(0, -h/2), (0, h/2), (w, h/2 - s), (w, -h/2 + s)], zorder=3))
+        self.segments.append(SegmentText((0.14, h/4), '0', fontsize=9))
+        self.segments.append(SegmentText((0.14, -h/4), '1', fontsize=9))
+        self.anchors['in0'] = (0, h/4)
+        self.anchors['in1'] = (0, -h/4)
+        self.anchors['out'] = (w, 0)
+        self.anchors['selbot'] = (w/2, -h/2 + s/2)
+        self.anchors['seltop'] = (w/2, h/2 - s/2)
+        self.params['theta'] = 0
+
+
+def dot(xy):
+    elm.Dot(radius=0.06).at(xy)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+
+    # next-state logic (always_comb) and register (always_ff)
+    flow.Box(w=5.3, h=3.2).at((4.05, -0.25)).anchor('center').fill('#d5e8d4').color('#82b366')
+    elm.Label().at((1.55, 1.0)).label('Next-State Logic (always_comb)', halign='left', color='black')
+    rx0, rx1, ry0, ry1 = 8.4, 10.0, -1.5, 1.5
+    flow.Box(w=rx1 - rx0, h=ry1 - ry0).at(((rx0 + rx1)/2, 0)).anchor('center').fill('#dae8fc').color('#6c8ebf') \
+        .label('Register\n(always_ff)', loc='center', ofst=(0, 0.85), color='black')
+    yc = -0.95   # clock input with the triangle of an edge-triggered flip-flop
+    flow.Line().at((rx0, yc + 0.2)).to((rx0 + 0.3, yc)).color('black')
+    flow.Line().at((rx0 + 0.3, yc)).to((rx0, yc - 0.2)).color('black')
+    elm.Label().at((rx0 + 0.25, 0)).label('D', color='black')
+    elm.Label().at((rx1 - 0.25, 0)).label('Q', color='black')
+
+    # comparator and incrementer work on count_q in parallel
+    cmp_ = flow.Box(w=2.3, h=0.6).at((3.0, 0.42)).anchor('center').fill('white').label('== CTR_MAX')
+    inc = flow.Box(w=1.0, h=0.6).at((3.0, -0.75)).anchor('center').fill('white').label('+1')
+    mux_a = Mux2().at((4.7, inc.E[1])).anchor('in0').fill('white')
+    mux_b = Mux2().at((6.2, 0.3)).anchor('in0').fill('white')
+
+    # the wrap multiplexer selects zero at CTR_MAX
+    flow.Arrow().at(inc.E).to(mux_a.in0)
+    elm.Label().at((mux_a.in1[0] - 0.8, mux_a.in1[1])).label("'0", color='black')
+    flow.Arrow().at((mux_a.in1[0] - 0.42, mux_a.in1[1])).to(mux_a.in1)
+    flow.Line().at(cmp_.E).to((mux_a.seltop[0], cmp_.E[1])).label('wrap', 'top', color='black')
+    flow.Arrow().at((mux_a.seltop[0], cmp_.E[1])).to(mux_a.seltop)
+
+    # the enable multiplexer keeps count_q while enable_i is low, and feeds D
+    xm = 5.65
+    flow.Line().at(mux_a.out).to((xm, mux_a.out[1]))
+    flow.Line().at((xm, mux_a.out[1])).to((xm, mux_b.in1[1]))
+    flow.Arrow().at((xm, mux_b.in1[1])).to(mux_b.in1)
+    flow.Arrow().at(mux_b.out).to((rx0, mux_b.out[1])).label('count_d', 'top', color='black')
+
+    # count_q leaves Q, goes to the output and back to the next-state logic
+    xo, yt, xl, xh = 11.3, 2.0, 1.0, 5.9
+    flow.Line().at((rx1, 0)).to((xo, 0)).label('count_q', 'top', color='black')
+    dot((xo, 0))
+    flow.Arrow().at((xo, 0)).to((13.2, 0)).label('counter_value_o', 'bottom', color='black')
+    flow.Line().at((xo, 0)).to((xo, yt))
+    flow.Line().at((xo, yt)).to((xl, yt))
+    dot((xh, yt))
+    flow.Line().at((xh, yt)).to((xh, mux_b.in0[1]))
+    flow.Arrow().at((xh, mux_b.in0[1])).to(mux_b.in0)
+    flow.Line().at((xl, yt)).to((xl, inc.W[1]))
+    dot((xl, cmp_.W[1]))
+    flow.Arrow().at((xl, cmp_.W[1])).to(cmp_.W)
+    flow.Arrow().at((xl, inc.W[1])).to(inc.W)
+
+    # enable, clock, and reset
+    ybot = -2.4
+    flow.Arrow().at((mux_b.selbot[0], ybot)).to(mux_b.selbot)
+    elm.Label().at((mux_b.selbot[0], ybot - 0.25)).label('enable_i', color='black')
+    xclk, xrst = 8.0, (rx0 + rx1)/2
+    flow.Line().at((xclk, ybot)).to((xclk, yc))
+    flow.Line().at((xclk, yc)).to((rx0, yc))
+    flow.Arrow().at((xrst, ybot)).to((xrst, ry0))
+    elm.Label().at((xclk, ybot - 0.25)).label('clock_i', color='black')
+    elm.Label().at((xrst + 0.2, ybot - 0.25)).label('reset_i', color='black')
+```
