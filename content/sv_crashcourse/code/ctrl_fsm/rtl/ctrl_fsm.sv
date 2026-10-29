@@ -23,6 +23,15 @@ module ctrl_fsm (
 
   state_e state_d, state_q;
 
+  // State register
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      state_q <= StIdle;
+    end else begin
+      state_q <= state_d;
+    end
+  end
+
   // Next-state and output logic, defaults first
   always_comb begin
     state_d = state_q;
@@ -42,15 +51,6 @@ module ctrl_fsm (
       end
       default: state_d = StIdle;  // unused encoding 2'b11
     endcase
-  end
-
-  // State register
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      state_q <= StIdle;
-    end else begin
-      state_q <= state_d;
-    end
   end
 
 endmodule

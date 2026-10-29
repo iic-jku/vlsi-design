@@ -20,6 +20,15 @@ module counter #(
 
   logic [CTR_BW-1:0] count_d, count_q;
 
+  // Register process: synchronous reset and copy of count_d only
+  always_ff @(posedge clock_i) begin
+    if (reset_i) begin
+      count_q <= '0;
+    end else begin
+      count_q <= count_d;
+    end
+  end
+
   // Combinational process: next counter value, wraps around at CTR_MAX
   always_comb begin
     count_d = count_q;
@@ -29,15 +38,6 @@ module counter #(
       end else begin
         count_d = count_q + 1'b1;
       end
-    end
-  end
-
-  // Register process: synchronous reset and copy of count_d only
-  always_ff @(posedge clock_i) begin
-    if (reset_i) begin
-      count_q <= '0;
-    end else begin
-      count_q <= count_d;
     end
   end
 

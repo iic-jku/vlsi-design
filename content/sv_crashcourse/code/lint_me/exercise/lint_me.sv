@@ -16,15 +16,6 @@ module lint_me (
   logic [7:0] alu;
   logic [7:0] result_q;
 
-  // ALU: 00 add, 01 subtract, 10 AND, 11 OR
-  always_comb begin
-    case (op_i)
-      2'b00: alu = a_i + b_i;
-      2'b01: alu = a_i - b_i;
-      2'b10: alu = a_i & b_i;
-    endcase
-  end
-
   // Result register
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
@@ -32,6 +23,15 @@ module lint_me (
     end else begin
       result_q = alu;
     end
+  end
+
+  // ALU: 00 add, 01 subtract, 10 AND, 11 OR
+  always_comb begin
+    case (op_i)
+      2'b00: alu = a_i + b_i;
+      2'b01: alu = a_i - b_i;
+      2'b10: alu = a_i & b_i;
+    endcase
   end
 
   assign result_o = result_q;

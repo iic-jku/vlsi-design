@@ -25,6 +25,14 @@ module seq_detect (
 
   state_e state_d, state_q;
 
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      state_q <= StIdle;
+    end else begin
+      state_q <= state_d;
+    end
+  end
+
   always_comb begin
     state_d  = state_q;
     detect_o = 1'b0;
@@ -50,14 +58,6 @@ module seq_detect (
       end
       default: state_d = StIdle;  // unused encodings
     endcase
-  end
-
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      state_q <= StIdle;
-    end else begin
-      state_q <= state_d;
-    end
   end
 
 endmodule

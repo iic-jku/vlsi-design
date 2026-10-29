@@ -21,6 +21,17 @@ module tick_gen #(
   logic [COUNT_WIDTH-1:0] count_d, count_q;
   logic                   tick_d, tick_q;
 
+  // Register process: reset values and copies of the _d signals only
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      count_q <= '0;
+      tick_q  <= 1'b0;
+    end else begin
+      count_q <= count_d;
+      tick_q  <= tick_d;
+    end
+  end
+
   // Combinational process: defaults first, then all decisions
   always_comb begin
     count_d = count_q;
@@ -32,17 +43,6 @@ module tick_gen #(
       end else begin
         count_d = count_q + 1'b1;
       end
-    end
-  end
-
-  // Register process: reset values and copies of the _d signals only
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      count_q <= '0;
-      tick_q  <= 1'b0;
-    end else begin
-      count_q <= count_d;
-      tick_q  <= tick_d;
     end
   end
 

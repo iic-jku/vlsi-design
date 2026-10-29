@@ -18,11 +18,6 @@ module pwm #(
   logic [WIDTH-1:0] count_d, count_q;
   logic             pwm_d, pwm_q;
 
-  always_comb begin
-    count_d = count_q + 1'b1;  // wraps from 2**WIDTH - 1 to 0
-    pwm_d   = (count_q < duty_i);
-  end
-
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
       count_q <= '0;
@@ -31,6 +26,11 @@ module pwm #(
       count_q <= count_d;
       pwm_q   <= pwm_d;
     end
+  end
+
+  always_comb begin
+    count_d = count_q + 1'b1;  // wraps from 2**WIDTH - 1 to 0
+    pwm_d   = (count_q < duty_i);
   end
 
   // Registered output: no glitches on the way to a pad

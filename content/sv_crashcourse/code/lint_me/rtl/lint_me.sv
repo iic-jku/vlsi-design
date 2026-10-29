@@ -17,6 +17,15 @@ module lint_me (
   logic [7:0] alu;
   logic [7:0] result_q;
 
+  // Result register
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      result_q <= 8'h00;
+    end else begin
+      result_q <= alu;
+    end
+  end
+
   // ALU: 00 add, 01 subtract, 10 AND, 11 OR
   always_comb begin
     unique case (op_i)
@@ -25,15 +34,6 @@ module lint_me (
       2'b10:   alu = a_i & b_i;
       default: alu = a_i | b_i;  // 2'b11
     endcase
-  end
-
-  // Result register
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      result_q <= 8'h00;
-    end else begin
-      result_q <= alu;
-    end
   end
 
   assign result_o = result_q;

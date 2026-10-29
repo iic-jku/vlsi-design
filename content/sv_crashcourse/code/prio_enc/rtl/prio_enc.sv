@@ -21,6 +21,17 @@ module prio_enc #(
   logic [W-1:0] idx_d, idx_q;
   logic         valid_d, valid_q;
 
+  // Register process: reset values and copies of the _d signals only
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      idx_q   <= '0;
+      valid_q <= 1'b0;
+    end else begin
+      idx_q   <= idx_d;
+      valid_q <= valid_d;
+    end
+  end
+
   // Combinational process: defaults first, then all decisions
   always_comb begin
     idx_d   = '0;
@@ -31,17 +42,6 @@ module prio_enc #(
       if (req_i[i]) begin
         idx_d = W'(i);
       end
-    end
-  end
-
-  // Register process: reset values and copies of the _d signals only
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      idx_q   <= '0;
-      valid_q <= 1'b0;
-    end else begin
-      idx_q   <= idx_d;
-      valid_q <= valid_d;
     end
   end
 
