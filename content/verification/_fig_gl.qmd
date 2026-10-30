@@ -1,0 +1,65 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-verification-gl
+#| echo: false
+#| fig-cap: "Ingredients of a gate-level simulation. Logic synthesis maps the RTL onto the cells of the Liberty library and writes the netlist. Static timing analysis computes the delay of every cell instance from the tables in the Liberty file and writes it into an SDF file. The simulator combines the netlist, the Verilog models of the cells from the PDK, the delays from the SDF file, and the same testbench as for the RTL. Without the SDF file, every cell switches without delay. After the layout, the SDF file also holds the wire delays."
+#| fig-alt: "Flow diagram. Top row: RTL feeds logic synthesis with Yosys, which writes the netlist. Middle row: the Liberty file feeds both logic synthesis and static timing analysis with OpenSTA. The netlist also feeds the static timing analysis, which writes an SDF file with the cell delays. The netlist and the SDF file enter the simulator, Icarus Verilog, from the left, the cocotb testbench from above, and the Verilog cell models of the PDK from below. The simulator produces pass or fail. A grey note below the SDF box says that after the layout, the SDF file also holds the wire delays."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'     # design data
+GREEN, GREEN_L = '#82b366', '#d5e8d4'   # tools
+YEL, YEL_L = '#d6b656', '#fff2cc'       # testbench
+GREY = '#666666'
+
+W, H = 2.6, 1.1
+c0, c1, c2, c3, c4 = 0.0, 3.4, 6.8, 10.2, 13.9
+yt, ym, yb = 2.3, -0.3, -2.5
+
+
+def box(x, y, text, fill, edge, w=W, h=H):
+    return flow.Box(w=w, h=h).at((x, y)).anchor('center').fill(fill).color(edge).label(text, color='black')
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+
+    rtl = box(c0, yt, 'RTL', BLUE_L, BLUE)
+    syn = box(c1, yt, 'logic synthesis\n(Yosys)', GREEN_L, GREEN)
+    nl = box(c2, yt, 'netlist', BLUE_L, BLUE)
+    lib = box(c0, ym, 'Liberty\n(cell timing)', BLUE_L, BLUE)
+    sta = box(c2, ym, 'STA\n(OpenSTA)', GREEN_L, GREEN)
+    sdf = box(c3, ym, 'SDF\n(cell delays)', BLUE_L, BLUE)
+    sim = box(c4, 0, 'simulator\n(Icarus Verilog)', GREEN_L, GREEN, w=2.8, h=1.7)
+    tb = box(c4, yt + 0.3, 'testbench\n(cocotb)', YEL_L, YEL)
+    cells = box(c4, yb, 'cell models\n(Verilog, PDK)', BLUE_L, BLUE)
+
+    flow.Arrow().at(rtl.E).to(syn.W)
+    flow.Arrow().at(syn.E).to(nl.W)
+
+    # the Liberty file feeds synthesis and STA
+    flow.Arrow().at(lib.E).to(sta.W)
+    elm.Dot(radius=0.06).at((c1, ym))
+    flow.Arrow().at((c1, ym)).to(syn.S)
+
+    flow.Arrow().at(nl.S).to(sta.N)
+    flow.Arrow().at(sta.E).to(sdf.W)
+
+    # netlist and SDF enter the simulator from the left
+    xr = c4 - 1.4 - 0.45
+    flow.Line().at(nl.E).to((xr, yt))
+    flow.Line().at((xr, yt)).to((xr, 0.4))
+    flow.Arrow().at((xr, 0.4)).to((c4 - 1.4, 0.4))
+    flow.Arrow().at(sdf.E).to((c4 - 1.4, ym))
+    flow.Arrow().at(tb.S).to(sim.N)
+    flow.Arrow().at(cells.N).to(sim.S)
+    flow.Arrow().at(sim.E).to((c4 + 2.4, 0))
+    elm.Label().right().at((c4 + 2.5, -0.1)).label('pass / fail', halign='left', color='black')
+    elm.Label().right().at((c3, ym - 1.0)).label('after layout:\n+ wire delays', fontsize=10, color=GREY)
+```

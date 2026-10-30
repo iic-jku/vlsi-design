@@ -5,6 +5,539 @@ SPDX-License-Identifier: Apache-2.0
 
 # Functional Verification with cocotb {#sec-verification}
 
+The last two chapters used testbenches: a few lines of SystemVerilog or Python that drive a design and check its outputs. This chapter turns them into a methodology. Three questions guide it. How does a testbench decide that a design is correct, without anybody looking at waveforms? Which stimuli does it apply, if it cannot apply all of them? And when is the verification complete? The answers are a testbench architecture with a reference model, a mix of directed, exhaustive, and random stimuli, and the measurement of coverage. Along the way, we check the checks themselves with deliberate bugs, and we run the same testbench on the synthesized netlist, without and with the delays of the cells.
+
 ::: {.callout-note}
-This chapter will be released later in the semester.
+All code of this chapter is available in the folder [`content/verification/code`]({{< meta var.url-repo >}}/tree/main/content/verification/code) of the course repository, with one folder per design. As in @sec-modeling, the RTL is in `rtl/`, the cocotb testbenches are in `testbenches/cocotb/`, and the files of an exercise are in `exercise/`. The assertions of the FIFO are in `testbenches/sva/`, and its timing analysis script is in `syn/`. Every file in `rtl/` lints without warnings and synthesizes. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, Yosys 0.70, OpenSTA 3.1.0) and the typical-corner library of SG13CMOS5L (`sg13cmos5l_stdcell_typ_1p20V_25C.lib`, 1.2 V, 25 °C). Run times depend on the computer, and the ones quoted here come from a laptop. The script [`scripts/check_verification.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_verification.sh) reproduces all other numbers: run `bash scripts/check_verification.sh` in the container from the root of the repository.
 :::
+
+For the exercises, clone the course repository into your designs folder once, if you have not done so yet:
+
+```bash
+cd /foss/designs
+git clone https://github.com/iic-jku/vlsi-design.git
+```
+
+The gate-level part of this chapter synthesizes a design onto the standard cells of SG13CMOS5L. Define the path of the cell library in every new terminal:
+
+```bash
+LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib
+LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+```
+
+## Learning Objectives {#sec-verification-objectives}
+
+After this chapter, you will be able to:
+
+- distinguish verification, test, and validation, and name what each verification method can prove
+- write a verification plan that gives each feature of a specification a check and a coverage goal
+- structure a cocotb testbench into generator, driver, monitor, reference model, scoreboard, and coverage
+- choose between directed, exhaustive, and constrained-random stimuli, estimate the run time of an exhaustive test, and reproduce a random test from its seed
+- measure code coverage with Verilator and functional coverage in Python, and explain why full coverage does not prove a correct design
+- write SystemVerilog assertions in a separate checker, attach them with `bind`, and know which open-source tools support them
+- judge the quality of a testbench with mutation testing
+- run the same testbench on the synthesized netlist, without and with the cell delays of an SDF file, and explain why a timing simulation does not replace static timing analysis
+- set up a regression that fails when a test fails
+
+## Why Verification Matters {#sec-verification-why}
+
+A chip cannot be patched. A bug in software is fixed with an update, but a bug in the masks of an ASIC is in every die of the wafer. The fix takes a new tapeout: new masks, a new run through the fab, new packaging, and new tests, which costs months and, in advanced technologies, millions of euros. The cost of a bug grows with every step of the flow that it passes. At RTL, a fix takes minutes and a new simulation. After synthesis or layout, it takes another run of the flow. On silicon, it takes a new tapeout. This is why verification takes a large share of the effort in every ASIC project, often more than writing the RTL.
+
+Three terms are easily confused:
+
+- **Verification** asks whether the design does what its specification says. It works on models of the chip, i.e., the RTL, the netlist, and the layout, and it happens before the tapeout. This chapter covers **functional verification**, which checks the logic behavior of the design, cycle by cycle.
+- **Test** asks whether a manufactured die is free of defects. It runs on every die after fabrication, with test patterns that the design for test of @sec-dft prepares. A test assumes that the design itself is correct.
+- **Validation** asks whether the chip does what its application needs, e.g., on a board with real signals and software. It happens with the first silicon.
+
+Verification has several methods, and each one answers a different question (@tbl-verification-methods).
+
+| Method | Question it answers | Limit | In this course |
+|---|---|---|---|
+| Simulation | Does the design behave correctly for the applied stimuli? | covers only the stimuli you apply | this chapter |
+| Logic equivalence checking | Does the netlist implement the same function as the RTL? | no timing, and the RTL itself must be correct | @sec-synthesis-lib |
+| Static timing analysis | Does every path meet its timing constraint? | only as good as the constraints, no function | @sec-sequential |
+| Formal property checking | Does a property hold for every possible input sequence? | limited to small blocks | outlook only |
+| FPGA prototyping and emulation | Does the design run its real software? | needs a working design and extra hardware | outlook only |
+
+: Methods of design verification {#tbl-verification-methods}
+
+Simulation remains the workhorse. It works for every design and at every level, from the RTL to the netlist with delays. Its fundamental limit is just as clear: a simulation can show that a bug exists, but never that no bug is left. Everything in this chapter aims at making the simulated stimuli count: checking every output automatically, steering the stimuli into the corners of the design, and measuring what they have reached.
+
+## A Synchronous FIFO as Running Example {#sec-verification-fifo}
+
+A first-in, first-out memory (FIFO) buffers data between a producer and a consumer that do not always run at the same rate. It makes a good example for verification: its interface is simple, but its behavior depends on the history of all pushes and pops, and the bugs hide in its corner cases, i.e., a full or an empty FIFO, a push and a pop in the same cycle, and the wrap-around of the pointers. Its asynchronous version, which connects two clock domains, follows in @sec-cdc. The specification of our FIFO:
+
+- The FIFO stores up to `DEPTH = 4` entries of `WIDTH = 8` bits.
+- With `push_i` high, the FIFO stores `data_i` at the next rising clock edge, but only if it is not full. With `pop_i` high, it removes the oldest entry, but only if it is not empty.
+- A push and a pop in the same cycle are allowed, and each one follows its own rule. On a full FIFO, the pop removes an entry and the push is refused. On an empty FIFO, the push stores an entry and the pop is refused.
+- `data_o` shows the oldest entry while `empty_o` is low (first-word fall-through). While the FIFO is empty, `data_o` is undefined.
+- `full_o` and `empty_o` show the state after the last clock edge. After the reset, the FIFO is empty.
+
+The third rule is a design decision. Many FIFOs accept a push on a full FIFO if a pop happens in the same cycle. Ours refuses it, and the specification must say so, because the testbench checks the specification, not the RTL. The RTL follows the two-process style of @sec-sv-two-process:
+
+```{.systemverilog filename="fifo/rtl/fifo.sv"}
+{{< include /content/verification/code/fifo/rtl/fifo.sv >}}
+```
+
+The storage `mem_q` holds four entries, organized as a ring (@fig-verification-fifo). The write pointer addresses the next free entry, and the read pointer the oldest one. Each pointer has one bit more than the address, the **wrap bit**, which toggles each time the pointer wraps around. The difference of the two pointers, taken modulo 8, is therefore the number of entries, from 0 to 4. With the address bits alone, a full and an empty FIFO would look the same, because both pointers address the same entry. The flags therefore compare the whole pointers: equal pointers mean empty, and equal addresses with different wrap bits mean full.
+
+{{< include /content/verification/_fig_fifo.qmd >}}
+
+As in @sec-modeling-memory, the storage has no reset. A pop never reads an entry that was not written, so its start value does not matter, and only the pointers are reset. The flags and `data_o` are decoded from the registers only, without a path from an input to an output.
+
+## The Verification Plan {#sec-verification-plan}
+
+Before writing a testbench, write down what has to be verified. A **verification plan** lists the features of the specification and gives each one a **check**, i.e., how the testbench notices a failure, and a **coverage goal**, i.e., how you know that the stimulus has exercised the feature. The verification is complete when every check passes and every coverage goal is reached, not when the testbench runs without errors. A testbench without checks also runs without errors. @tbl-verification-plan shows the plan for the FIFO, and the rest of this chapter builds the testbench, the assertions, and the coverage measurement that it asks for.
+
+| Feature of the specification | Check | Coverage goal |
+|---|---|---|
+| Entries come out in the order they went in | the scoreboard compares `data_o` with a model in every cycle | pushes and pops in every fill state |
+| `empty_o` after the reset and when drained, `full_o` with four entries | the scoreboard compares both flags in every cycle | the FIFO was empty, partially filled, and full |
+| A full FIFO refuses a push | scoreboard, assertions `a_room` and `a_level` | a push, and a push with a pop, on a full FIFO |
+| An empty FIFO refuses a pop | scoreboard, assertion `a_level` | a pop, and a pop with a push, on an empty FIFO |
+| The oldest entry stays until it is popped | scoreboard, assertion `a_head` | cycles without a pop on a partially filled and on a full FIFO |
+| The netlist behaves like the RTL | gate-level simulation with the same testbench | all of the above |
+
+: Verification plan of the FIFO {#tbl-verification-plan}
+
+## Anatomy of a Testbench {#sec-verification-anatomy}
+
+The testbenches of @sec-sv-testbenches drive the inputs and check the outputs in one loop. That works for a small block, but it mixes three concerns: which operations to apply, how to apply them at the pins, and what the correct answer is. Larger testbenches separate them into the blocks of @fig-verification-tb. They work with **transactions**, i.e., operations at a higher level than single pin values, e.g., "push the value `0x11`":
+
+- The **generator** creates the transactions, as a directed list or at random (@sec-verification-stimulus).
+- The **driver** turns each transaction into pin values at the inputs of the design under test (DUT), at the right time.
+- The **monitor** observes the pins at the inputs and outputs of the DUT and turns them back into transactions. It never drives a signal.
+- The **reference model** computes what the DUT must do. It is written from the specification, not from the RTL, and it is much simpler than the RTL, because it does not have to be synthesizable.
+- The **scoreboard** compares what the DUT did with what the model expects, and reports every difference.
+- The **coverage collector** counts which situations the stimulus has reached (@sec-verification-coverage).
+
+{{< include /content/verification/_fig_tb.qmd >}}
+
+In industry, testbenches with this structure are written in SystemVerilog with the **Universal Verification Methodology (UVM)** [@IEEE_1800_2_2020], a class library with a standard set of base classes for all these blocks. cocotb builds the same structure from plain Python, and the IIC-OSIC-TOOLS image also contains pyuvm [@pyuvm], an implementation of UVM in Python on top of cocotb. For the FIFO, a few functions and one class are enough:
+
+```{.python filename="fifo/testbenches/cocotb/fifo_tb.py"}
+{{< include /content/verification/code/fifo/testbenches/cocotb/fifo_tb.py >}}
+```
+
+- In this small testbench, the class `Scoreboard` holds three blocks of @fig-verification-tb: the reference model (`model` and `update()`), the scoreboard itself (`check()`), and the coverage collector (`coverage`, printed by `report()`). The generator is the list of transactions in each test.
+- The reference model is a Python `deque` with the oldest entry first. Compare it with the RTL: no pointers, no wrap bit, and no storage array. This independence is the point. A model that copied the structure of the RTL would also copy its bugs.
+- `check()` compares both flags in every cycle and `data_o` whenever the model holds an entry. It does not check `data_o` while the FIFO is empty, because the specification leaves it undefined. `update()` first counts the coverage and then applies one clock edge to the model, with the flags from before the edge, exactly as the specification says.
+- `driver()` applies one transaction per clock cycle, right after the falling edge, as in @sec-sv-testbenches.
+- `monitor()` runs in parallel with the test, started with `cocotb.start_soon()`. At every falling edge, it waits for `ReadOnly()`, the phase at the end of a time step in which all signals have settled and no process may write anymore. At that moment, the outputs show the state after the last rising edge, and the inputs show what the driver has just applied for the next one. So the monitor first checks the outputs against the model, and then updates the model with the inputs. Without `ReadOnly()`, the monitor would still see the inputs from before the writes of the driver, because cocotb applies writes later in the time step.
+- A failing `assert` in the monitor fails the test that is running, with the message of the assertion.
+- `test_fill_and_drain` is a directed test and `test_random` a random one (@sec-verification-stimulus). Both print the coverage at the end.
+- The runner reads the environment variables listed at the top of the file. They select the simulator, the assertions, and the netlist with or without delays, which the following sections use.
+
+Run the testbench in its folder:
+
+```bash
+cd /foss/designs/vlsi-design/content/verification/code/fifo
+cd testbenches/cocotb
+COCOTB_RANDOM_SEED=1 python3 fifo_tb.py
+cd ../..
+```
+
+Both tests pass, and each one prints a table of its coverage bins, which @sec-verification-coverage explains. `COCOTB_RANDOM_SEED` fixes the random numbers (@sec-verification-random).
+
+## Stimulus {#sec-verification-stimulus}
+
+A testbench is only as good as its stimulus: a bug that the stimulus never activates cannot be found by any check. There are three basic kinds of stimuli, and good testbenches combine them.
+
+### Directed Tests {#sec-verification-directed}
+
+A **directed test** applies a sequence that a person has written for one feature. `test_fill_and_drain` pushes four values and pops them again. Directed tests are easy to read and to debug, and they are the right tool for a known corner case, e.g., the reset or the largest value of a counter. Their weakness: they test exactly what their author thought of, and the author of a testbench tends to think of the same cases as the author of the RTL, who is often the same person.
+
+### Exhaustive Tests {#sec-verification-exhaustive}
+
+The ideal stimulus applies every possible input. For a combinational block with $n$ input bits, these are $2^n$ input vectors, and an exhaustive test proves the function, at least in simulation. The number grows quickly. A 16-bit multiplier has $2^{32} \approx 4.3 \cdot 10^{9}$ combinations of its two operands, and a 32-bit adder $2^{64} \approx 1.8 \cdot 10^{19}$. At 100,000 vectors per second, a good rate for a cocotb testbench, the exhaustive test of the multiplier takes about half a day, and that of the adder almost six million years.
+
+For sequential circuits, it is worse, because the outputs depend on the sequence of all previous inputs. The FIFO has 10 input bits (`push_i`, `pop_i`, and `data_i`), so there are $2^{10} = 1024$ possible inputs in every cycle and $1024^{10} \approx 1.3 \cdot 10^{30}$ different sequences of only ten cycles. Exhaustive simulation is therefore limited to small combinational blocks, and to small parameter values of a parameterized design.
+
+### Random Tests {#sec-verification-random}
+
+A **random test** applies a large number of random inputs. It finds bugs in cases that nobody thought of, at a low cost per test. The random numbers come from a pseudo-random number generator, whose sequence is fully determined by its start value, the **seed**. cocotb seeds the `random` module of Python at the start of every run, from the time or from the environment variable `COCOTB_RANDOM_SEED`, and prints the seed at the start of the simulation, e.g., `Seeding Python random module with 1793394914`. When a random test fails, rerun it with this seed to reproduce the failure exactly:
+
+```bash
+COCOTB_RANDOM_SEED=1793394914 python3 fifo_tb.py
+```
+
+This works only as long as the testbench draws its random numbers in the same order, so fix the bug before you change the testbench. All results of this chapter use seed 1.
+
+Purely random inputs are not always good stimuli. The interesting states of a design are often reached only by a particular sequence, e.g., a deep FIFO is full only after many more pushes than pops. `test_random` therefore uses **constrained-random stimuli**. It runs 20 phases of 50 cycles, i.e., 1000 cycles, and each phase draws the probability of a push from 0.2, 0.5, and 0.8 and sets the probability of a pop to the complement. A phase with mostly pushes fills the FIFO, and a phase with mostly pops drains it. The constraints steer the stimuli toward the corners, and the random values within them still reach combinations that nobody has written down. SystemVerilog has a whole constraint language for this (`rand`, `constraint`, and `randomize()`), and in Python, plain code does the job.
+
+The best tests combine directed and random values: directed values at the corners of every input, i.e., the smallest and the largest value, single bits, and the boundaries of every range, followed by random values. The following exercise shows why.
+
+::: {.callout-tip title="Exercise: Verify a Barrel Shifter"}
+The folder `barrel_shift` contains a combinational barrel shifter in `rtl/barrel_shift.sv`. It has the parameter `WIDTH` (a power of two, default 8), the inputs `data_i` (`WIDTH` bits), `shamt_i` (`$clog2(WIDTH)` bits), and `mode_i` (2 bits), and the output `data_o`. `mode_i` selects a shift left (`00`), a shift right (`01`), a rotation left (`10`), or a rotation right (`11`) of `data_i` by `shamt_i` positions, and a shift fills the free positions with zeros. The folder `testbenches/cocotb` holds the reference solution, so move it out of the way first. All commands start in the folder `barrel_shift`:
+
+```bash
+cd /foss/designs/vlsi-design/content/verification/code/barrel_shift
+mv testbenches/cocotb/barrel_shift_tb.py barrel_shift_tb_solution.py
+```
+
+1. Draw the testbench for the barrel shifter in the style of @fig-verification-tb. Which blocks does a combinational DUT need, and which ones merge?
+2. Write a cocotb testbench `testbenches/cocotb/barrel_shift_tb.py` with a reference model in Python and a test `test_exhaustive`, which applies all input vectors of the 8-bit version. Let the runner read `WIDTH` from an environment variable (default 8) and pass it to the DUT as a parameter, and skip the exhaustive test for `WIDTH` above 8 with the decorator `@cocotb.test(skip=WIDTH > 8)`. Run the testbench with Icarus Verilog and with Verilator, and note the run time of the test, which cocotb prints in its summary.
+3. Estimate from your measurement how long the exhaustive test would take for `WIDTH = 16` and for `WIDTH = 32`.
+4. Add a test `test_random`. It first applies corner values (zero, all ones, only the lowest bit, only the highest bit, and alternating bits, each with the shift amounts 0, 1, and `WIDTH - 1` and all four modes) and then 10,000 random vectors. Run it with `WIDTH=32`.
+5. The file `exercise/barrel_shift_bug.sv` contains the module `barrel_shift_bug`, with the same ports and one bug. Let your runner select it with the environment variable `TOPLEVEL=barrel_shift_bug`, as the testbenches of @sec-modeling do, and run both tests with `WIDTH` 8 and 32. Which test finds the bug, and why does the other one miss it? Then lint the file, once without and once with `-GWIDTH=32`.
+
+The commands of steps 2, 4, and 5:
+
+```bash
+cd testbenches/cocotb
+python3 barrel_shift_tb.py                 # Icarus Verilog
+SIM=verilator python3 barrel_shift_tb.py   # Verilator
+WIDTH=32 python3 barrel_shift_tb.py
+TOPLEVEL=barrel_shift_bug python3 barrel_shift_tb.py
+TOPLEVEL=barrel_shift_bug WIDTH=32 python3 barrel_shift_tb.py
+cd ../..
+verilator --lint-only -Wall exercise/barrel_shift_bug.sv
+verilator --lint-only -Wall -GWIDTH=32 exercise/barrel_shift_bug.sv
+```
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Verify a Barrel Shifter" collapse="true"}
+1. The generator creates the input vectors, in nested loops or at random. Since the DUT has no clock and no state, the driver and the monitor merge into one function: apply a vector, wait for the logic to settle, and read the output. The reference model computes the expected output from the same vector, and an `assert` compares them as the scoreboard. In the listing below, `check()` does all of this in one short function.
+2. The reference testbench:
+
+```{.python filename="barrel_shift/testbenches/cocotb/barrel_shift_tb.py"}
+{{< include /content/verification/code/barrel_shift/testbenches/cocotb/barrel_shift_tb.py >}}
+```
+
+The model uses the unlimited integers of Python and masks the result to `WIDTH` bits. For a rotation by 0, it shifts by `WIDTH` in the other direction, which gives 0, as in the RTL. `check()` applies a vector, waits 1 ns, and compares. The exhaustive test of the 8-bit version applies $2^8 \cdot 8 \cdot 4 = 8192$ vectors in about 0.1 s, i.e., about 70,000 vectors per second with Icarus Verilog and 100,000 with Verilator. For such a small DUT, the Python side of cocotb limits the rate, so Verilator is only about 1.4 times faster.
+
+3. The 16-bit version has $2^{16} \cdot 16 \cdot 4$ = 4,194,304 vectors, which takes about one minute (measured with the skip limit raised to 16: 64 s with Icarus Verilog and 47 s with Verilator). The 32-bit version has $2^{32} \cdot 32 \cdot 4 \approx 5.5 \cdot 10^{11}$ vectors, which would take two to three months at these rates.
+4. `test_random` passes for `WIDTH=32`.
+5. With `WIDTH` 8, both tests pass. With `WIDTH` 32, `test_random` fails at the first corner vector with the shift amount 31: `data 0xffffffff, shamt 31, mode 0` gives `11111111111111111111111110000000` instead of a 1 followed by 31 zeros. The data was shifted by 7 instead of 31 positions. The bug is the declaration `logic [2:0] sh`: three bits are enough for `WIDTH = 8`, but for `WIDTH = 32` the assignment cuts `shamt_i` down to its three lower bits. The exhaustive test is a complete proof for the 8-bit instance, but it says nothing about the 32-bit one. Verilator lint is clean with the default parameter, and it reports `WIDTHTRUNC` (and `UNUSEDSIGNAL` for `shamt_i[4:3]`) only with `-GWIDTH=32`. Verilator even refuses to build the 32-bit version for cocotb: `SIM=verilator` stops at the warning `WIDTHTRUNC`, which it treats as an error, before any test runs. Lint and simulate every parameter value that you use. An exhaustive test at a small parameter value complements a random test at the real one, but does not replace it.
+:::
+
+## Coverage {#sec-verification-coverage}
+
+Coverage answers the question of when the verification is complete. It measures what the stimuli have reached. Two kinds complement each other: code coverage, which the simulator measures on the RTL, and functional coverage, which the testbench measures on the specification.
+
+### Code Coverage {#sec-verification-code-coverage}
+
+**Code coverage** needs no work in the testbench. The simulator counts how often each part of the RTL was exercised. Verilator distinguishes:
+
+- **line coverage**: was every block of statements executed?
+- **branch coverage**: did every `if`, `case`, and conditional operator take each of its branches?
+- **expression coverage**: did the terms of every logical expression, e.g., `push_i` and `full_o` in `push_i && !full_o`, take the values that decide its result?
+- **toggle coverage**: did every bit of every signal change from 0 to 1 and from 1 to 0?
+
+The runner of `fifo_tb.py` builds with `--coverage` when you select Verilator, and the simulation writes the counts into `sim_build/coverage.dat`. The tool `verilator_coverage` summarizes them and writes a copy of the RTL with the counts in front of every line. The environment variable `COCOTB_TEST_FILTER` selects the tests to run by name, here only the directed one:
+
+```bash
+cd /foss/designs/vlsi-design/content/verification/code/fifo
+cd testbenches/cocotb
+SIM=verilator COCOTB_TEST_FILTER=test_fill_and_drain \
+  python3 fifo_tb.py
+verilator_coverage --annotate-min 1 --annotate-points \
+  --annotate annotated sim_build/coverage.dat
+```
+
+```
+Coverage Summary:                (excerpt)
+  line      : 100.0% (  3/  3)
+  toggle    : 50.7% ( 69/136)
+  branch    : 100.0% (  8/  8)
+  expr      : 100.0% ( 14/ 14)
+```
+
+The directed test reaches 100 % line, branch, and expression coverage. The full expression coverage is surprising, since the test never pushes into a full FIFO. But Verilator counts a term as covered when it alone decides the result: the point `(full_o==1) => 0` of `push_i && !full_o` is hit whenever the FIFO is full, with or without a push. Only the toggle coverage shows a gap. The annotated copy `annotated/fifo.sv` marks every partially covered line by `~` and, thanks to `--annotate-points`, lists the points below it, e.g.:
+
+```
+~000002   logic [AW:0]      wr_ptr_d, wr_ptr_q, rd_ptr_d, rd_ptr_q;
+-000000  point: type=toggle comment=wr_ptr_q[2]:1->0 hier=fifo
+```
+
+The wrap bits of both pointers rise once but never fall, because four pushes and four pops wrap each pointer only once. Bits 3 and 7 of `data_i` and `data_o` never toggle, because none of the four values `0x11` to `0x44` sets them, and the storage bits only rise, because each entry is written once. With both tests, the toggle coverage also reaches 100 % (136 of 136 points).
+
+### Functional Coverage {#sec-verification-functional-coverage}
+
+Code coverage measures the RTL. It cannot see a situation that the specification names but the RTL handles without a line of its own, and it cannot see a feature that the RTL lacks altogether. **Functional coverage** measures the situations of the specification instead. The verification engineer defines them as **cover points** and often **crosses** them, i.e., counts every combination. The FIFO testbench crosses the operation (idle, push, pop, or both) with the fill state (empty, partially filled, or full), which gives the 12 **bins** of @tbl-verification-bins. `Scoreboard.update()` counts them, and `report()` prints them at the end of each test.
+
+| Bin | `test_fill_and_drain` | `test_random` (seed 1) |
+|---|--:|--:|
+| idle when empty | 2 | 51 |
+| idle when partial | 0 | 85 |
+| idle when full | 0 | 54 |
+| push when empty | 1 | 16 |
+| push when partial | 3 | 142 |
+| push when full | 0 | 169 |
+| pop when empty | 0 | 126 |
+| pop when partial | 3 | 123 |
+| pop when full | 1 | 26 |
+| push+pop when empty | 0 | 47 |
+| push+pop when partial | 0 | 109 |
+| push+pop when full | 0 | 54 |
+
+: Functional coverage of the two FIFO tests, i.e., the number of cycles in each bin {#tbl-verification-bins}
+
+The directed test hits only 5 of the 12 bins, although its code coverage looks nearly perfect. It never pushes into a full FIFO, never pops from an empty one, and never pushes and pops in the same cycle. These are exactly the rules of the specification that are easy to get wrong. The random test hits all 12 bins, and it checks this itself: its last line fails the test if a bin was never hit. Such an automatic check of the coverage goals turns the verification plan into code.
+
+Both kinds of coverage have the same limit: they measure what the stimuli have reached, not what the checks have verified. A testbench that drives random inputs and checks nothing reaches the same coverage as one that checks every output. @sec-verification-mutation measures the checks.
+
+## Assertions {#sec-verification-assertions}
+
+An **assertion** states a property that must always hold, and the simulator checks it all the time. SystemVerilog has two kinds:
+
+- An **immediate assertion** checks a condition at one moment, like an `if` with an error message, e.g., `assert (!(full_o && empty_o)) else $error("full and empty");`. It is a statement inside an `always` or `initial` block.
+- A **concurrent assertion** describes a behavior over time and is checked at every clock edge. **SystemVerilog Assertions (SVA)** are a language of their own for such properties, with sequences of conditions, implications, and functions of past values.
+
+A concurrent assertion has this form:
+
+```systemverilog
+a_name: assert property (@(posedge clk_i) disable iff (!rst_ni)
+  antecedent |=> consequent);
+```
+
+- `@(posedge clk_i)` samples all signals at the rising clock edge, with their values from just before the edge, as a flip-flop does.
+- `disable iff (!rst_ni)` switches the assertion off during the reset.
+- `a |-> b` (overlapping implication) requires `b` in the same cycle in which `a` holds, and `a |=> b` (non-overlapping implication) in the next cycle. If `a` does not hold, the property holds.
+- `$stable(x)` is true if the sampled value of `x` equals the one at the previous clock edge, `$past(x)` returns the sampled value at the previous edge, and `$rose(x)` and `$fell(x)` detect a change of the sampled value. Glitches between two clock edges are never seen.
+- `cover property (...)` counts how often a property was reached, which is functional coverage written in SVA.
+
+The checker for the FIFO:
+
+```{.systemverilog filename="fifo/testbenches/sva/fifo_sva.sv"}
+{{< include /content/verification/code/fifo/testbenches/sva/fifo_sva.sv >}}
+```
+
+- `a_flags`: the FIFO is never full and empty at the same time.
+- `a_level`: the fill level never exceeds `DEPTH`. The checker computes it from the internal pointers, so this is a **white-box** property, which needs a look inside the design. A pop from an empty FIFO makes `level` wrap around to 7, so `a_level` also catches it.
+- `a_head`: while the FIFO holds an entry and no pop happens, `data_o` keeps its value in the next cycle. A push writes behind the oldest entry, never on it.
+- `a_room`: because a full FIFO refuses a push, a pop on a full FIFO must leave it not full.
+- `c_full_push_pop` counts the cycles with a push and a pop on a full FIFO.
+- The `bind` statement at the end inserts an instance of `fifo_sva` into every instance of `fifo`, as if it were written inside the module. The ports of the checker connect by name (`.*`) to the signals of `fifo` with the same names, including the internal pointers. The RTL stays untouched.
+
+Assertions can live in three places. **In the RTL**, the designer documents an assumption right where it matters, but every tool that reads the RTL has to handle them, including synthesis. **In a separate checker attached with `bind`**, as here, the RTL stays clean, and the checker can still read internal signals. **In the testbench**, as the checks of the cocotb scoreboard, they see only the ports. That is a limitation at RTL and an advantage at gate level: synthesis renames or removes the internal signals and does not translate assertions, so only checks at the ports still work on a netlist. A classic VHDL technique keeps the assertions in a separate entity that observes only the ports, so that its checks also run on the netlist.
+
+The open-source tools support assertions very differently (@tbl-verification-sva).
+
+| Tool | Immediate assertions | Concurrent assertions |
+|---|---|---|
+| Icarus Verilog 14.0 | supported, but `$error` only prints a message, and the simulation continues and exits with status 0 | rejected as not supported (`sorry`), dropped without a message with `-gsupported-assertions`, and the non-overlapping implication and `bind` are syntax errors |
+| Verilator 5.052 | supported | supported, at least the properties of this chapter, and checked by default (`--no-assert` switches them off). A failure stops the simulation. |
+| Yosys 0.70 (`read_verilog -sv`) | syntax error at `else` | syntax error at `@(posedge ...)` |
+| Yosys 0.70 with slang | read without an error | `unsupported SVA feature` for the non-overlapping implication |
+
+: Support of SystemVerilog assertions in the open-source tools {#tbl-verification-sva}
+
+Hence the rules of this course: keep concurrent assertions out of `rtl/`, in a checker file that only Verilator reads, and keep the checks at the ports in the cocotb testbench, which runs with every simulator and on the netlist. The runner adds the checker with `SVA=1`:
+
+```bash
+SIM=verilator SVA=1 COCOTB_RANDOM_SEED=1 python3 fifo_tb.py
+verilator_coverage --annotate annotated sim_build/coverage.dat
+```
+
+Both tests pass, and `sim_build/coverage.dat` now also holds the count of the cover property, which the annotated copy `annotated/fifo_sva.sv` shows in front of its line. With seed 1, `c_full_push_pop` counts 54, the same number as the bin `push+pop when full` of the Python coverage. When an assertion fails, Verilator prints a line such as `%Error: fifo_sva.sv:40: Assertion failed in fifo.u_sva.a_room` and stops the simulation. cocotb then reports `SimFailure: ... the simulation ended prematurely` for the running test and for every test after it, which never run, and the runner ends with a Python traceback instead of its `FAIL` line.
+
+Do assertions find more bugs than the scoreboard? Not in this testbench. Our scoreboard checks every output in every cycle, so a bug that reaches an output is reported at the next falling edge, half a cycle before an assertion can fire at the next rising edge. Assertions pay off where a scoreboard is blind or absent: they check internal state such as the pointers, they name the rule that was broken instead of a wrong output value, and they keep working when the FIFO sits deep inside a larger design without a FIFO scoreboard, because `bind` attaches the checker to every instance. Formal property checking tools, such as SymbiYosys, which is also in the image, can even prove an assertion for every input sequence. This course uses formal methods only for equivalence checking (@sec-synthesis-lib).
+
+## Mutation Testing {#sec-verification-mutation}
+
+Coverage measures the stimuli, but what measures the checks? **Mutation testing** inserts a small deliberate bug into the design, a **mutant**, and reruns the testbench. If a test fails, the mutant is **killed**. If all tests pass, the mutant **survives**, and there are only two possible reasons: the testbench has a hole, or the mutant does not change the behavior at the ports at all, in which case it is called **equivalent**. The share of killed mutants among the non-equivalent ones measures the quality of the testbench.
+
+An example: replace `if (push)` by `if (push_i)` in the storage process of `fifo.sv`. The storage is now also written by a push into a full FIFO, where the write pointer addresses the oldest entry, so the push overwrites it. Whether a test notices depends on its stimulus, which the following exercise measures.
+
+Mutants are usually created by tools. The IIC-OSIC-TOOLS image contains MCY (Mutation Cover with Yosys) [@MCY], which creates mutants of a design with Yosys and runs a testbench on each of them. For a small design, a handful of mutants written by hand already shows the holes of a testbench, as the following exercise shows.
+
+::: {.callout-tip title="Exercise: Kill the Mutants"}
+Each of the following six mutants changes one statement of `rtl/fifo.sv`, M6 the two reset assignments. All commands start in the folder `content/verification/code/fifo`.
+
+- **M1**: `push = push_i && !full_o;` becomes `push = push_i;`
+- **M2**: `pop = pop_i && !empty_o;` becomes `pop = pop_i;`
+- **M3**: `push = push_i && !full_o;` becomes `push = push_i && (!full_o || pop_i);`
+- **M4**: `if (push) begin` becomes `if (push_i) begin`
+- **M5**: `(wr_ptr_q == rd_ptr_q)` becomes `(wr_ptr_q[1:0] == rd_ptr_q[1:0])`
+- **M6**: in the reset branch, `'0` becomes `'1` for both pointers
+
+1. For each mutant, edit `rtl/fifo.sv` and run the first command below in the folder `testbenches/cocotb`. Which tests kill the mutant? Restore the original afterwards with `git restore rtl/fifo.sv` in the folder `fifo`.
+2. Also run each mutant with the assertions alone, i.e., without the checks of the scoreboard (second command). Which assertion fires first? Then run the third command, with Icarus Verilog and without checks. What do you observe?
+3. Explain with @tbl-verification-bins why `test_fill_and_drain` misses M1 to M4.
+4. Sketch the fill level of the FIFO over the cycles of `test_fill_and_drain`, and mark where a push into a full FIFO, a pop from an empty FIFO, and a push with a pop on a full FIFO would fit. Then add at most three transactions to the list in `test_fill_and_drain`, such that it kills M1 to M5 and still passes with the original design.
+5. Can any test kill M6? Is M6 a wrong design?
+
+```bash
+COCOTB_RANDOM_SEED=1 python3 fifo_tb.py
+SIM=verilator SVA=1 CHECK=0 COCOTB_RANDOM_SEED=1 python3 fifo_tb.py
+CHECK=0 COCOTB_RANDOM_SEED=1 python3 fifo_tb.py
+```
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Kill the Mutants" collapse="true"}
+1. and 2. The results with seed 1, where the times of the assertions are absolute simulation times:
+
+| Mutant | Directed test | Random test | First assertion |
+|---|---|---|---|
+| M1 | passes | fails | `a_room` at 1200 ns |
+| M2 | passes | fails | `a_level` at 300 ns |
+| M3 | passes | fails | `a_room` at 1200 ns |
+| M4 | passes | fails | `a_head` at 2380 ns |
+| M5 | fails | fails | `a_flags` at 120 ns |
+| M6 | passes | passes | none |
+
+The first message of the scoreboard is `full_o = 1, 3 entries` for M1 and M3, `empty_o = 0, 0 entries` for M2, `data_o = 10111011, expected 11011000` for M4, and `empty_o = 1, 4 entries` for M5. The scoreboard kills M1 to M5, and so do the assertions alone. For M4, the scoreboard reports the wrong `data_o` at 2370 ns (2150 ns after the start of `test_random`, which begins at 220 ns), half a cycle before `a_head` at 2380 ns. With `CHECK=0` and Icarus Verilog, every mutant passes both tests: without checks, a testbench verifies nothing, whatever its coverage.
+
+3. The four mutants M1 to M4 need a push or a pop at a boundary of the fill level: M1 and M4 a push into a full FIFO, M2 a pop from an empty FIFO, and M3 a push and a pop on a full FIFO. The bins `push when full`, `pop when empty`, and `push+pop when full` of the directed test are all 0. The coverage holes predicted the surviving mutants. M6 survives for another reason (step 5).
+4. After the four pushes, a push into the full FIFO kills M1 and M4, and a push with a pop on the full FIFO removes `0x11`, refuses `0x66`, and kills M3. The four pops then remove `0x22`, `0x33`, and `0x44`, and the last one pops the empty FIFO, which kills M2. A final push with a pop on the empty FIFO adds the bin `push+pop when empty`:
+
+```python
+    await driver(dut, [(1, v, 0) for v in values]
+                 + [(1, 0x55, 0), (1, 0x66, 1)]
+                 + [(0, 0, 1)] * DEPTH
+                 + [(1, 0x77, 1)])
+```
+
+The extended test kills M1 to M5 and passes with the original design.
+
+5. No. M6 starts both pointers at `3'b111` instead of `3'b000`. They are still equal after the reset, so the FIFO is empty, and from then on both pointers differ from the original ones by the same constant. Every port behaves as before wherever the specification defines it, so no testbench that checks the specification can tell the difference. Only `data_o` of an empty FIFO, which the specification leaves undefined, may show another stale entry. M6 is an equivalent mutant, and it is a correct design. A surviving mutant is a hint, not a verdict, and every survivor needs a look: a hole in the testbench, or a change that does not matter.
+:::
+
+## Gate-Level Simulation {#sec-verification-gl}
+
+@sec-modeling-mismatch explained why the netlist must pass the same testbench as the RTL: the chip implements the netlist. A logic equivalence check (@sec-synthesis-lib) proves that the netlist computes the same functions as the RTL, but it cannot see what @sec-modeling showed in simulation, i.e., unknown start values, a missing reset, and the propagation of `x`. A gate-level simulation also exercises what only exists in the netlist, e.g., the scan chains of @sec-dft, and with the cell delays, it gives a second, independent look at the timing. @fig-verification-gl shows its ingredients.
+
+{{< include /content/verification/_fig_gl.qmd >}}
+
+### Without Delays {#sec-verification-gl-zero}
+
+With `GL=1`, the runner of `fifo_tb.py` replaces `rtl/fifo.sv` by the Verilog models of the standard cells and the netlist `fifo.nl.v` in the folder `fifo`, and it works with Icarus Verilog only. It compiles with `-gno-specify`, which ignores the timing in the cell models, so every cell switches without delay. Synthesize the FIFO with the commands of @sec-modeling and run the same testbench:
+
+```bash
+cd /foss/designs/vlsi-design/content/verification/code/fifo
+yosys -p "read_verilog -sv rtl/fifo.sv; synth -top fifo; \
+  dfflibmap -liberty $LIB; abc -liberty $LIB; opt_clean; \
+  stat -liberty $LIB; write_verilog -noattr fifo.nl.v"
+cd testbenches/cocotb
+GL=1 python3 fifo_tb.py
+cd ../..
+```
+
+The netlist has 103 cells with an area of 3008 µm². Among them are 38 flip-flops of the type `dfrbpq_1`: 6 for the pointers and 32 for the storage, whose reset inputs are tied to 1, as in @sec-modeling-memory. The storage also needs 32 2:1 multiplexers that hold the values, and the read port 8 4:1 multiplexers. Both tests pass. As in @sec-modeling-reset, Icarus Verilog prints 68 `sorry` messages about the timing of the cell models, which do not matter without delays.
+
+In the waveform `sim_build/fifo.fst`, `data_o` is `xxxxxxxx` after the reset until the first push, at gate level as at RTL, because the storage has no reset. The testbench does not fail, because the specification leaves `data_o` undefined while the FIFO is empty, and the scoreboard follows the specification. A testbench that compared `data_o` in every cycle would fail here, on a correct design.
+
+### With Delays from an SDF File {#sec-verification-gl-sdf}
+
+For a timing simulation, the cell models need the delay of every cell instance. It depends on the load and on the input slew of each instance, which only a timing analysis knows. Static timing analysis therefore writes the delays into a file in the **Standard Delay Format (SDF)** [@IEEE_1497_2001], and the simulator annotates them to the cell instances, a step called **back-annotation**. Before the layout, the SDF file holds only the delays of the cells. After the layout, it also holds the delays of the wires, computed from the extracted parasitics (@sec-digital-flow).
+
+The script `syn/sta.tcl` runs OpenSTA on the netlist and writes `fifo.sdf`. Its constraints describe the testbench: a clock period of 20 ns, and inputs and outputs that may use half a period each, because the testbench changes the inputs and samples the outputs at the falling edge. @sec-sequential explains these commands. For each timing path, the report of OpenSTA lists the time at which the data arrives and the time at which it is required. Their difference is the **slack**, and a negative slack is a timing violation. The path with the smallest slack is the **critical path**. Here is the entry of one flip-flop in the SDF file:
+
+```
+ (CELL
+  (CELLTYPE "sg13cmos5l_dfrbpq_1")
+  (INSTANCE _120_)
+  (DELAY
+   (ABSOLUTE
+    (IOPATH CLK Q (0.159:0.161:0.163) (0.155:0.156:0.158))
+    (IOPATH RESET_B Q () (0.000:0.000:0.000))
+   )
+  )
+  (TIMINGCHECK
+    (REMOVAL (posedge RESET_B) (posedge CLK) (-0.097:-0.097:-0.097))
+    (RECOVERY (posedge RESET_B) (posedge CLK) (0.117:0.117:0.117))
+    (SETUP (posedge D) (posedge CLK) (0.117:0.119:0.121))
+    (SETUP (negedge D) (posedge CLK) (0.120:0.122:0.124))
+    (HOLD (posedge D) (posedge CLK) (-0.062:-0.064:-0.065))
+    (HOLD (negedge D) (posedge CLK) (-0.040:-0.042:-0.044))
+    (WIDTH (posedge CLK) (0.217:0.217:0.217))
+    (WIDTH (negedge CLK) (0.249:0.249:0.249))
+    (WIDTH (negedge RESET_B) (0.000:0.000:0.000))
+  )
+ )
+```
+
+- Every value is a triple of a minimum, a typical, and a maximum value in ns. Here, OpenSTA computes all three from the one typical-corner library: the minimum and the maximum from its minimum and maximum analyses, and the typical value as their mean.
+- `IOPATH` is the delay from an input pin to an output pin, first for a rising and then for a falling output. The clock-to-output delay of this flip-flop is about 0.16 ns.
+- `TIMINGCHECK` lists the limits that the flip-flop requires: the setup and hold times of `D`, the recovery and removal times of the asynchronous reset, and the minimum pulse widths. @sec-sequential explains them.
+- The delay of a wire would be an `INTERCONNECT` entry. Before the layout, these entries are all zero.
+
+The wrapper `fifo_sdf.sv` instantiates the netlist and calls `$sdf_annotate()` at the start of the simulation. With `GL=1 SDF=1`, the runner uses it as the top level, compiles with `-gspecify`, which keeps the timing of the cell models, and passes the name of the SDF file as the run-time argument (plusarg) `+SDF=...`:
+
+```{.systemverilog filename="fifo/testbenches/cocotb/fifo_sdf.sv"}
+{{< include /content/verification/code/fifo/testbenches/cocotb/fifo_sdf.sv >}}
+```
+
+```bash
+sta -no_init -exit syn/sta.tcl
+cd testbenches/cocotb
+GL=1 SDF=1 python3 fifo_tb.py
+cd ../..
+```
+
+Both tests pass. Icarus Verilog prints 38 warnings `SDF WARNING: ... TIMINGCHECK not supported`, one per flip-flop. It reads the delays, but it never checks a setup, hold, recovery, or removal time. A timing violation therefore shows up in Icarus Verilog only if it makes a flip-flop capture a wrong value. Simulators that support timing checks evaluate the `$setuphold` and `$recrem` checks of the cell models, and on a violation the model of the flip-flop drives its output to `x`, the same mechanism that VITAL, the IEEE standard for ASIC cell models in VHDL, defines.
+
+Four traps of the open-source flow, measured with OpenSTA 3.1.0 and Icarus Verilog 14.0. `sta.tcl` handles the first three:
+
+- OpenSTA writes the triples as `(min::max)`, without the typical value, unless `write_sdf` gets the option `-include_typ`. Icarus Verilog annotates only the typical value, so without the option it annotates nothing, without any message. The simulation then runs without delays, while it seems to run with them. In the FIFO, `empty_o` falls 0.44 ns after the clock edge that stores the first push with the typical values, and 0 ns after it without them.
+- Icarus Verilog reports an error for the header lines `VOLTAGE` and `TEMPERATURE`, whose triples also lack the typical value.
+- Icarus Verilog annotates `INTERCONNECT` entries only with the option `-ginterconnect`, and even then not those that start at the bits of the input bus `data_i`. Before the layout, all wire delays are zero anyway, so `sta.tcl` removes all `INTERCONNECT` entries together with the two header lines. After the layout, the wire delays count, and the entries must stay.
+- Icarus Verilog does not support the state-dependent delays of the cell models, i.e., delays that depend on the values of the other inputs, e.g., the select input of a `mux2_1`. These are the 68 `sorry: ifnone with an edge-sensitive path is not supported` messages. It uses the default delay of such a path instead.
+
+The lesson of the first trap applies to every flow: zero error messages do not prove that the annotation worked. Check that a delay really shows up in the waveform.
+
+A gate-level simulation is slower than an RTL simulation, because the netlist has more signals and events. For the small FIFO, the Python side of cocotb dominates: `test_random`, extended to 400 phases, i.e., 20,000 cycles, took about 1.0 s at RTL, 1.2 s at gate level, and 1.5 s with delays. For a large design, the difference grows with the number of cells, which is why only a selected set of tests runs on the netlist.
+
+::: {.callout-tip title="Exercise: Timing Simulation Against Static Timing Analysis"}
+All commands start in the folder `content/verification/code/fifo`. Synthesize the FIFO and write the SDF file as shown above.
+
+1. Look at the report of `sta -no_init -exit syn/sta.tcl`. Which path is the critical one at 20 ns, and what limits its speed?
+2. Find the shortest clock period at which static timing analysis reports no negative slack: `CLK_PERIOD_NS=<period> sta -no_init -exit syn/sta.tcl`. The delays in `fifo.sdf` do not depend on the clock period.
+3. Find the shortest clock period at which the timing simulation still passes, e.g., with 2.2, 2.0, 1.8, and 1.7 ns (command below, in the folder `testbenches/cocotb`). Repeat it with other seeds.
+4. Compare both results. Icarus Verilog checks no setup times. Is that the only reason why the timing simulation passes at clock periods for which static timing analysis reports violations? Which of the two do you trust for the tapeout?
+
+```bash
+export COCOTB_RANDOM_SEED=1
+CLK_PERIOD_NS=2.2 GL=1 SDF=1 python3 fifo_tb.py
+```
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Timing Simulation Against Static Timing Analysis" collapse="true"}
+1. At 20 ns, the worst slack is 8.863 ns. The critical path starts at the input `push_i`, which the testbench changes at the falling edge, 10 ns after the rising one. It runs through an inverter and a `nor4_1`, which decodes the write enable of one storage entry and drives the select inputs of its eight multiplexers. Its rising output is slow (0.66 ns): it is pulled up through four PMOS transistors in series, and it drives this load. Through a `mux2_1`, the path then reaches the `D` input of a storage flip-flop 1.01 ns after the input change, and the flip-flop needs it 0.13 ns before the clock edge (setup time). Since this path has only half a period, the period must be at least twice 1.14 ns, i.e., 2.28 ns.
+2. At 2.28 ns, the worst slack is 0.003 ns, and at 2.27 ns, it is -0.002 ns. The other paths are faster: the slowest output, `full_o`, settles 0.93 ns after the clock edge, and the slowest path between two flip-flops takes 1.75 ns plus the setup time.
+3. The timing simulation passes at 2.2, 2.0, and 1.8 ns, with seeds 1 to 5. At 1.7 ns, it fails with every seed, already in the directed test: `data_o = XXX1XXX1, expected 00010001`. The first push misses the clock edge on exactly the critical path of step 1. In the simulation, the path takes 0.89 ns from the change of `push_i` to the falling outputs of the `mux2_1` cells, but at 1.7 ns, the next rising edge comes after 0.85 ns. Entry 0 captures the 1-bits of `0x11`, which arrive earlier through the faster rising outputs, keeps `x` in the other bits, and shows them until it is popped.
+4. The timing simulation passes down to 1.8 ns, although static timing analysis requires 2.28 ns. The directed test does exercise the critical path, so the gap has three other causes, all in the simulator:
+   - Icarus Verilog checks no setup times. A flip-flop takes its `D` input up to the clock edge, while static timing analysis requires it 0.13 ns earlier.
+   - Icarus Verilog uses the typical value of each delay, while static timing analysis checks the setup time with the maximum values: 0.58 ns instead of 0.66 ns for the `nor4_1`.
+   - Icarus Verilog ignores the state-dependent delays of the cell models and uses the default delay from the select input of the `mux2_1` to its falling output: 0.25 ns instead of 0.29 ns.
+
+   Together, the path takes 0.06 + 0.58 + 0.25 ≈ 0.89 ns in the simulation, against 0.06 + 0.66 + 0.29 = 1.01 ns plus the setup time of 0.13 ns in static timing analysis. At 1.8 ns, the path arrives 10 ps before the clock edge. In general, a simulation sees a path at its slowest only if its stimulus causes exactly the slowest transitions, while static timing analysis covers every path without any stimulus. For the tapeout, trust static timing analysis. With a simulator that checks the timing limits, a timing simulation is a sanity check for what static timing analysis does not cover, e.g., the reset sequence and asynchronous inputs. With Icarus Verilog, it mainly catches wrong constraints and a missing annotation.
+:::
+
+## Regression and Continuous Integration {#sec-verification-regression}
+
+A design has many tests, and every change to the RTL can break any of them. A **regression** runs all tests with one command and reports one verdict. In the AMS chip template (@sec-intro-template), `make sim-all` runs all simulations of a macro, at RTL and at gate level, and `make regression` at the top level runs lint, the simulations, the FPGA build, and the LibreLane flow of the digital example macro and of the chip, with part of the DRC skipped to save run time. **Continuous integration (CI)** runs the regression automatically. The template runs `make regression` with GitHub Actions in the IIC-OSIC-TOOLS container every night at 02:00 UTC, and skips the run if nothing has changed since the last one.
+
+A regression is only useful if a failing test fails the whole command. @sec-sv-tb-cocotb showed that the cocotb runner does not set the exit status when a test fails, so the runner of every testbench must check `results.xml` with `get_results()`, as all testbenches of this course do. Some more rules for a useful regression:
+
+- Run the fast tests on every change, i.e., lint and the RTL tests. Run the slow ones every night, i.e., the gate-level and timing simulations and the complete flow.
+- Use fixed seeds in the regression, so that every failure can be reproduced, and run additional random seeds every night to explore new stimuli. Always log the seed.
+- Keep the regression green. A known failure hides every new one behind it.
+- Turn every bug that you find into a directed test of its scenario, so that it cannot come back unnoticed.
+
+## Further Reading {#sec-verification-reading}
+
+- [@Spear_Tumbush_2012] introduces the verification features of SystemVerilog: classes, constrained randomization, assertions, and functional coverage.
+- [@Bergeron_2006] covers the methodology behind testbench architectures, coverage-driven verification, and verification plans.
+- The documentation of cocotb [@cocotb] describes the triggers, the runner, and the handling of signal values in detail.
+
+## Summary {#sec-verification-summary}
+
+- Verification checks a design against its specification before the tapeout. Simulation works for every design at every level, but it can only show that a bug exists, never that none is left.
+- A verification plan gives each feature of the specification a check and a coverage goal. The verification is complete when all checks pass and all goals are reached.
+- A testbench separates the generator, the driver, the monitor, an independent reference model, the scoreboard, and the coverage collector. In cocotb, they are plain Python coroutines and classes, and the monitor samples after the driver, in the `ReadOnly()` phase of the falling edge.
+- Exhaustive tests are possible only for small combinational blocks and small parameter values. Constrained-random tests with a logged seed, combined with directed corner values, cover the rest.
+- Code coverage measures the RTL, and functional coverage measures the situations of the specification. The directed FIFO test reached 100 % line, branch, and expression coverage, but only 5 of 12 functional bins.
+- Coverage measures the stimuli, and mutation testing measures the checks. A surviving mutant points to a hole in the testbench or is equivalent.
+- Keep concurrent assertions in a separate checker attached with `bind`, which Verilator runs. Icarus Verilog and Yosys do not support them. Keep the checks at the ports in the cocotb testbench, so that they also run on the netlist.
+- The same testbench runs on the netlist, without and with the delays of an SDF file. Icarus Verilog annotates only the typical value of each delay, ignores state-dependent delays, and checks no setup or hold times, so a timing simulation is optimistic and does not replace static timing analysis.
+- A regression runs all tests with one command and fails if any test fails, on every change and every night.
+
+In @sec-synthesis-lib, we look inside the synthesis step that produced the netlist of this chapter: the standard-cell library, its timing model, and the logic equivalence check that proves the netlist equivalent to the RTL without any simulation.

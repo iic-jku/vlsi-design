@@ -1,0 +1,50 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-verification-fifo
+#| echo: false
+#| fig-cap: "The storage of the FIFO with `DEPTH = 4`: four entries, which the pointers use as a ring, addressed by the two lower bits of the pointers. The write pointer `wr` points at the next free entry and the read pointer `rd` at the oldest entry, which `data_o` shows. Both pointers have a third bit, the wrap bit, which toggles each time a pointer wraps from entry 3 to entry 0. Below each panel, a pointer is written as wrap bit and address, e.g., `1 00`. (a) After the reset, both pointers are equal: empty. (b) After three pushes. (c) After four pushes, both pointers address entry 0 again, and only the different wrap bits tell full from empty. (d) After three pops and one more push, the two entries wrap around the end of the storage."
+#| fig-alt: "Four panels side by side, each with a column of four storage entries numbered 0 to 3 from top to bottom. Occupied entries are filled blue and show their value. An arrow labeled rd points at an entry from the left, an arrow labeled wr from the right. Panel (a), empty: no entry occupied, rd and wr both at entry 0, rd = 0 00, wr = 0 00. Panel (b), 3 entries: entries 0 to 2 hold 11, 22, 33, rd at 0, wr at 3, rd = 0 00, wr = 0 11. Panel (c), full: all four entries hold 11, 22, 33, 44, rd and wr both at entry 0, rd = 0 00, wr = 1 00. Panel (d), 2 entries: entry 3 holds 44 and entry 0 holds 55, rd at 3, wr at 1, rd = 0 11, wr = 1 01."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+RED, GREY = '#b85450', '#666666'
+EW, EH = 1.2, 0.6                     # one storage entry
+
+
+def panel(x, title, entries, rd, wr, rd_bits, wr_bits, verdict):
+    ''' Storage column at x: entries maps address -> value '''
+    elm.Label().right().at((x, 0.75)).label(title, color='black')
+    for a in range(4):
+        y = -a * EH
+        b = flow.Box(w=EW, h=EH).at((x, y)).anchor('center')
+        if a in entries:
+            b.fill(BLUE_L).color(BLUE).label(entries[a], color='black')
+        else:
+            b.fill('white').color(GREY)
+        # a Label puts its baseline at the anchor, so shift it down
+        elm.Label().right().at((x - EW/2 + 0.08, y - 0.07)).label(str(a), halign='left',
+                                                            fontsize=8, color=GREY)
+    # rd from the left, wr from the right
+    elm.Arrow().at((x - EW/2 - 0.8, -rd * EH)).to((x - EW/2, -rd * EH)).color(BLUE)
+    elm.Label().right().at((x - EW/2 - 0.95, -rd * EH - 0.1)).label('rd', halign='right', color=BLUE)
+    elm.Arrow().at((x + EW/2 + 0.8, -wr * EH)).to((x + EW/2, -wr * EH)).color(RED)
+    elm.Label().right().at((x + EW/2 + 0.85, -wr * EH - 0.1)).label('wr', halign='left', color=RED)
+    elm.Label().right().at((x, -3 * EH - 0.9)).label(f'rd = {rd_bits}\nwr = {wr_bits}', color='black', fontsize=10)
+    elm.Label().right().at((x, -3 * EH - 1.7)).label(verdict, color='black')
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    dx = 4.2
+    panel(0 * dx, '(a)', {}, 0, 0, '0 00', '0 00', 'empty')
+    panel(1 * dx, '(b)', {0: '11', 1: '22', 2: '33'}, 0, 3, '0 00', '0 11', '3 entries')
+    panel(2 * dx, '(c)', {0: '11', 1: '22', 2: '33', 3: '44'}, 0, 0, '0 00', '1 00', 'full')
+    panel(3 * dx, '(d)', {3: '44', 0: '55'}, 3, 1, '0 11', '1 01', '2 entries')
+```
