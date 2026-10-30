@@ -27,7 +27,7 @@ Please feel free to submit pull requests on GitHub to fix errors and omissions!
 :::
 
 ::: {.callout-important}
-Please use the IIC-OSIC-TOOLS image with tag `2026.09` or later. It contains all tools and the PDK used in this course.
+Please use the IIC-OSIC-TOOLS image with tag `2026.10` or later. It contains all tools and the PDK used in this course.
 :::
 
 ## Preamble on the Use of AI {#sec-intro-ai}
@@ -50,10 +50,12 @@ After completing this course, you will be able to:
 - read and write synthesizable **SystemVerilog** RTL for synchronous digital designs, and translate idiomatic VHDL into idiomatic SystemVerilog;
 - apply **modeling guidelines** that lead to clean, fast, and testable synthesis results (avoiding latches, inferring proper registers, structuring arithmetic);
 - verify RTL with **self-checking cocotb testbenches** and reason about coverage and corner cases;
+- explain how logic synthesis maps RTL onto a **standard-cell library**, and prove the resulting netlist equivalent to the RTL with **logic equivalence checking (LEC)**;
 - understand and explain the **RTL-to-GDSII flow** (synthesis, floorplanning, placement, clock tree synthesis, routing, signoff) and drive it with **LibreLane**;
-- analyze timing using the concepts of **setup/hold, propagation delay, clock skew, and static timing analysis (STA)**;
+- analyze timing using the concepts of **setup/hold, propagation delay, clock skew, and static timing analysis (STA)**, and write the **timing constraints** that STA checks against;
+- reduce the dynamic power of a design with **clock gating**;
 - explain **design for test (DFT)**, the stuck-at fault model, scan chains, and test coverage;
-- handle **multiple clock domains** safely with synchronizers and reason about metastability;
+- handle **multiple clock domains** and **resets** safely with synchronizers and reason about metastability;
 - integrate a digital macro into a **padframe** and assemble a complete, **tapeout-ready ASIC** with open-source tools;
 - design, verify, harden, and document a **RISC-V SoC with your own extension** as a capstone project;
 - optionally, use **LLM agents** efficiently, and critically, in a chip design workflow.
@@ -78,11 +80,12 @@ After this introduction, the course covers the following topics:
 
 1. hardware description with SystemVerilog, and modeling guidelines for synthesizable RTL (@sec-sv-crashcourse, @sec-modeling);
 2. functional verification with cocotb (@sec-verification);
-3. sequential elements and static timing analysis (@sec-sequential);
-4. the synthesis library and synthesis optimizations (@sec-synthesis-lib, @sec-synth-opt);
-5. design for test and clock domain crossing (@sec-dft, @sec-cdc);
-6. the RTL-to-GDSII flow with LibreLane, chip assembly, and padframe (@sec-digital-flow);
-7. the project: a tapeout-ready RISC-V SoC (@sec-project).
+3. logic synthesis, the standard-cell library, and logic equivalence checking (@sec-synthesis-lib);
+4. sequential elements, static timing analysis, and timing constraints (@sec-sequential);
+5. synthesis optimizations and low-power design (@sec-synth-opt);
+6. clock domain crossing and resets, and design for test (@sec-cdc, @sec-dft);
+7. the RTL-to-GDSII flow with LibreLane, chip assembly, and padframe (@sec-digital-flow);
+8. the project: a tapeout-ready RISC-V SoC (@sec-project).
 
 The appendices provide a SystemVerilog cheat-sheet (@sec-app-sv-cheatsheet), a tooling cheat-sheet (@sec-app-tooling), and sample exam questions (@sec-app-exam).
 
@@ -149,6 +152,7 @@ Besides these steps, **design for test** inserts scan chains so that every fabri
 | HDL | SystemVerilog | @sec-sv-crashcourse, @sec-modeling |
 | RTL, pre- and post-layout simulation | cocotb with Icarus Verilog or Verilator; GTKWave, Surfer | @sec-verification |
 | Logic synthesis | Yosys | @sec-synthesis-lib, @sec-synth-opt |
+| Logic equivalence checking | EQY (Yosys) | @sec-synthesis-lib, @sec-digital-flow |
 | Floorplanning, placement, CTS, routing | OpenROAD | @sec-digital-flow |
 | Parasitic extraction | OpenRCX | @sec-digital-flow |
 | Static timing analysis | OpenSTA | @sec-sequential, @sec-digital-flow |

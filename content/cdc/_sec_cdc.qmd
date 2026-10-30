@@ -3,7 +3,7 @@ Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
 SPDX-License-Identifier: Apache-2.0
 :::
 
-# Clock Domains and Metastability {#sec-cdc}
+# Clock Domains, Metastability, and Resets {#sec-cdc}
 
 ::: {.callout-note}
 This chapter will be released later in the semester.

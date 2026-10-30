@@ -3,7 +3,7 @@ Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
 SPDX-License-Identifier: Apache-2.0
 :::
 
-# The Synthesis Library {#sec-synthesis-lib}
+# Logic Synthesis and the Standard-Cell Library {#sec-synthesis-lib}
 
 ::: {.callout-note}
 This chapter will be released later in the semester.

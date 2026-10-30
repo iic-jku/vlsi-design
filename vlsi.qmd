@@ -62,11 +62,11 @@ format:
 {{< include /content/sv_crashcourse/_sec_sv_crashcourse.qmd >}}
 {{< include /content/modeling/_sec_modeling.qmd >}}
 {{< include /content/verification/_sec_verification.qmd >}}
-{{< include /content/sequential/_sec_sequential.qmd >}}
 {{< include /content/synthesis_lib/_sec_synthesis_lib.qmd >}}
+{{< include /content/sequential/_sec_sequential.qmd >}}
 {{< include /content/synth_opt/_sec_synth_opt.qmd >}}
-{{< include /content/dft/_sec_dft.qmd >}}
 {{< include /content/cdc/_sec_cdc.qmd >}}
+{{< include /content/dft/_sec_dft.qmd >}}
 {{< include /content/digital_flow/_sec_digital_flow.qmd >}}
 {{< include /content/project/_sec_project.qmd >}}
 {{< include /content/appendix/_app_sv_cheatsheet.qmd >}}
