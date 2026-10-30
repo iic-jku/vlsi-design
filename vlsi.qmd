@@ -69,6 +69,4 @@ format:
 {{< include /content/dft/_sec_dft.qmd >}}
 {{< include /content/digital_flow/_sec_digital_flow.qmd >}}
 {{< include /content/project/_sec_project.qmd >}}
-{{< include /content/appendix/_app_sv_cheatsheet.qmd >}}
-{{< include /content/appendix/_app_tooling_cheatsheet.qmd >}}
 {{< include /content/appendix/_app_exam_questions.qmd >}}

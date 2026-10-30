@@ -87,7 +87,7 @@ After this introduction, the course covers the following topics:
 7. the RTL-to-GDSII flow with LibreLane, chip assembly, and padframe (@sec-digital-flow);
 8. the project: a tapeout-ready RISC-V SoC (@sec-project).
 
-The appendices provide a SystemVerilog cheat-sheet (@sec-app-sv-cheatsheet), a tooling cheat-sheet (@sec-app-tooling), and sample exam questions (@sec-app-exam).
+The appendix provides sample exam questions (@sec-app-exam).
 
 ::: {.callout-note title="Further Reading"}
 These notes are self-contained but kept concise. For depth we recommend:

@@ -216,7 +216,7 @@ In short, VHDL protects you with strong typing, while SystemVerilog relies on co
 
 ## Cheat-Sheets, Guidelines, and Further Reading {#sec-sv-references}
 
-Besides the SystemVerilog cheat-sheet in the appendix of this book (@sec-app-sv-cheatsheet), two cheat-sheets are provided with the AMS chip template:
+Two cheat-sheets are provided with the AMS chip template:
 
 - [SystemVerilog Cheat-Sheet](https://github.com/iic-jku/ihp-sg13cmos5l-ams-chip-template/blob/main/doc/verilog/SystemVerilog_cheatsheet.pdf) (S. H. Shawon, Algo Science Lab)
 - [Verilog Cheat-Sheet](https://github.com/iic-jku/ihp-sg13cmos5l-ams-chip-template/blob/main/doc/verilog/Verilog_cheatsheet.pdf) (S. Winberg and J. Taylor)
