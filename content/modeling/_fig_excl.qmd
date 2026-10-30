@@ -1,0 +1,87 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-modeling-excl
+#| echo: false
+#| fig-cap: "Two architectures of the exclusive counter. (a) A 3-bit binary counter `cnt_q` and a decoder: few flip-flops, but the outputs come from combinational logic. (b) A one-hot ring of eight flip-flops: each output comes directly from a flip-flop. All flip-flops run on `clk_i` with the reset `rst_ni`. In (b), the multiplexers in front of the D inputs that implement `clr_i` and `en_i` are not drawn."
+#| fig-alt: "Two block diagrams. (a) Next-state logic with the inputs clr_i and en_i feeds a register cnt_q of three flip-flops, whose output is fed back to the logic and drives a decoder from 3 to 8 bits with the output q_o of 8 bits. (b) Eight flip-flops in a row, each output feeding the D input of the next one, with the output of the last one fed back to the first. Each flip-flop output is also one bit of q_o, from q_o[0] to q_o[7]."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+GREEN, GREEN_L = '#82b366', '#d5e8d4'
+
+
+def clock_triangle(x, yc):
+    flow.Line().at((x, yc + 0.15)).to((x + 0.22, yc)).color('black')
+    flow.Line().at((x + 0.22, yc)).to((x, yc - 0.15)).color('black')
+
+
+def bus_mark(x, y, n):
+    ''' Slash with the bus width on a horizontal wire '''
+    elm.Line().at((x - 0.12, y - 0.18)).to((x + 0.12, y + 0.18)).color('black').linewidth(1.2)
+    elm.Label().at((x, y + 0.32)).label(str(n), fontsize=11, color='black')
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+
+    # (a) binary counter and decoder
+    ya = 0.0
+    elm.Label().at((-1.2, ya + 2.2)).label('(a) binary counter and decoder', halign='left', color='black')
+    nsl = flow.Box(w=2.2, h=1.3).at((1.0, ya)).anchor('center').fill(GREEN_L).color(GREEN) \
+        .label('next-state\nlogic (+1)', color='black')
+    rx0, rx1 = 3.4, 4.8
+    flow.Box(w=rx1 - rx0, h=1.6).at(((rx0 + rx1)/2, ya)).anchor('center').fill(BLUE_L).color(BLUE) \
+        .label('cnt_q', loc='center', ofst=(0, 0.35), color='black')
+    clock_triangle(rx0, ya - 0.5)
+    dec = flow.Box(w=1.8, h=1.3).at((7.3, ya)).anchor('center').fill(GREEN_L).color(GREEN) \
+        .label('decoder\n3 to 8', color='black')
+    flow.Arrow().at(nsl.E).to((rx0, ya))
+    flow.Arrow().at((rx1, ya)).to(dec.W)
+    bus_mark(5.3, ya, 3)
+    flow.Arrow().at(dec.E).to((10.4, ya))
+    elm.Label().at((10.6, ya)).label('q_o', halign='left', color='black')
+    bus_mark(9.2, ya, 8)
+    xf, yt = 5.95, ya + 1.25
+    elm.Dot(radius=0.06).at((xf, ya))
+    flow.Line().at((xf, ya)).to((xf, yt))
+    flow.Line().at((xf, yt)).to((1.0, yt))
+    flow.Arrow().at((1.0, yt)).to(nsl.N)
+    flow.Arrow().at((-0.9, ya + 0.3)).to((nsl.W[0], ya + 0.3))
+    flow.Arrow().at((-0.9, ya - 0.3)).to((nsl.W[0], ya - 0.3))
+    elm.Label().at((-1.0, ya + 0.3)).label('clr_i', halign='right', color='black')
+    elm.Label().at((-1.0, ya - 0.3)).label('en_i', halign='right', color='black')
+
+    # (b) one-hot ring of eight flip-flops
+    yb = -4.2
+    elm.Label().at((-1.2, yb + 2.2)).label('(b) one-hot ring', halign='left', color='black')
+    pitch, fw, fh, x0 = 1.6, 0.8, 1.0, -0.6
+    ys = yb + 0.2
+    for i in range(8):
+        x = x0 + i*pitch
+        flow.Box(w=fw, h=fh).at((x + fw/2, yb)).anchor('center').fill(BLUE_L).color(BLUE)
+        clock_triangle(x, yb - 0.25)
+        xt = x + fw + 0.2                         # tap of q_o[i] right of the flip-flop
+        if i < 7:
+            flow.Line().at((x + fw, ys)).to((xt, ys))
+            flow.Arrow().at((xt, ys)).to((x + pitch, ys))
+        else:
+            flow.Line().at((x + fw, ys)).to((xt, ys))
+        elm.Dot(radius=0.06).at((xt, ys)) if i < 7 else None
+        flow.Arrow().at((xt, ys)).to((xt, yb - 1.1))
+        elm.Label().at((xt, yb - 1.4)).label(f'q_o[{i}]', fontsize=10, color='black')
+    # the last output returns to the first input
+    xl, yr = x0 + 7*pitch + fw + 0.2, yb + 1.0
+    xs = x0 - 0.35
+    flow.Line().at((xl, ys)).to((xl, yr))
+    flow.Line().at((xl, yr)).to((xs, yr))
+    flow.Line().at((xs, yr)).to((xs, ys))
+    flow.Arrow().at((xs, ys)).to((x0, ys))
+    elm.Dot(radius=0.06).at((xl, ys))
+```

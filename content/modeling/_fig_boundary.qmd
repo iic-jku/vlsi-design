@@ -1,0 +1,93 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-modeling-boundary
+#| echo: false
+#| fig-cap: "Two macros, hardened separately. (a) Without registers at the boundary, one timing path (red) runs from a register in macro A through the logic of both macros to a register in macro B. Neither macro sees the whole path, so each one is hardened with an assumed delay for the other part. (b) With registered outputs and inputs, every path through logic stays inside one macro, and the connection between the macros is a plain wire from register to register, which is easy to time at the top level."
+#| fig-alt: "Two rows, each with two dashed macro outlines A and B side by side. Row (a): a register in A feeds logic in A, which feeds an output port, a wire to an input port of B, logic in B, and a register in B. The whole chain from register to register is red. Row (b): in A, a register feeds logic and a second register, which drives the output port. In B, the input port feeds a register, then logic and a last register. Each register-to-register path stays inside one macro."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+GREEN, GREEN_L = '#82b366', '#d5e8d4'
+RED, GREY = '#b85450', '#666666'
+FW, FH = 0.8, 1.1                     # register box
+
+
+def reg(x, y):
+    ''' Register box centered at (x, y), returns its D and Q points '''
+    flow.Box(w=FW, h=FH).at((x, y)).anchor('center').fill(BLUE_L).color(BLUE)
+    yc = y - 0.3
+    flow.Line().at((x - FW/2, yc + 0.15)).to((x - FW/2 + 0.22, yc)).color('black')
+    flow.Line().at((x - FW/2 + 0.22, yc)).to((x - FW/2, yc - 0.15)).color('black')
+    return (x - FW/2, y + 0.2), (x + FW/2, y + 0.2)
+
+
+def logic_box(x, y):
+    b = flow.Box(w=1.5, h=0.9).at((x, y + 0.2)).anchor('center').fill(GREEN_L).color(GREEN)
+    b.label('logic', color='black')
+    return b.W, b.E
+
+
+def macro(x0, x1, y, name):
+    for (a, b) in [((x0, y - 1.1), (x1, y - 1.1)), ((x1, y - 1.1), (x1, y + 1.5)),
+                   ((x1, y + 1.5), (x0, y + 1.5)), ((x0, y + 1.5), (x0, y - 1.1))]:
+        elm.Line().at(a).to(b).linestyle('--').color(GREY).linewidth(1)
+    elm.Label().at(((x0 + x1)/2, y + 1.8)).label(name, color=GREY)
+
+
+def wire(a, b, color='black', arrow=True):
+    (flow.Arrow if arrow else flow.Line)().at(a).to(b).color(color)
+
+
+def port(xy):
+    elm.Dot(open=True, radius=0.1).at(xy)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    xa0, xa1, xb0, xb1 = 0.0, 5.6, 7.0, 12.6
+
+    # (a) unregistered boundary: one path through both macros
+    ya = 0.0
+    elm.Label().at((-0.2, ya + 2.5)).label('(a) unregistered boundary', halign='left', color='black')
+    macro(xa0, xa1, ya, 'macro A')
+    macro(xb0, xb1, ya, 'macro B')
+    _, q1 = reg(1.0, ya)
+    lw1, le1 = logic_box(3.3, ya)
+    lw2, le2 = logic_box(9.3, ya)
+    d2, _ = reg(11.6, ya)
+    wire(q1, lw1, RED)
+    wire(le1, (xa1, ya + 0.2), RED, arrow=False)
+    port((xa1, ya + 0.2))
+    wire((xa1, ya + 0.2), (xb0, ya + 0.2), RED, arrow=False)
+    port((xb0, ya + 0.2))
+    wire((xb0, ya + 0.2), lw2, RED)
+    wire(le2, d2, RED)
+
+    # (b) registered outputs and inputs: every path stays in one macro
+    yb = -4.2
+    elm.Label().at((-0.2, yb + 2.5)).label('(b) registered outputs and inputs', halign='left', color='black')
+    macro(xa0, xa1, yb, 'macro A')
+    macro(xb0, xb1, yb, 'macro B')
+    _, q1 = reg(0.8, yb)
+    lw1, le1 = logic_box(2.6, yb)
+    d2, q2 = reg(4.5, yb)
+    d3, q3 = reg(8.1, yb)
+    lw2, le2 = logic_box(9.9, yb)
+    d4, _ = reg(11.8, yb)
+    wire(q1, lw1)
+    wire(le1, d2)
+    wire(q2, (xa1, yb + 0.2), arrow=False)
+    port((xa1, yb + 0.2))
+    wire((xa1, yb + 0.2), (xb0, yb + 0.2), arrow=False)
+    port((xb0, yb + 0.2))
+    wire((xb0, yb + 0.2), d3)
+    wire(q3, lw2)
+    wire(le2, d4)
+```

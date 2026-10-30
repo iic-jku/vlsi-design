@@ -5,6 +5,421 @@ SPDX-License-Identifier: Apache-2.0
 
 # Modeling Guidelines for Synthesizable RTL {#sec-modeling}
 
+In @sec-sv-crashcourse, you learned to write SystemVerilog that lints, simulates, and synthesizes. This chapter takes the next step: from RTL that is correct to RTL that is ready for an ASIC. Three questions guide it. Does the synthesized netlist behave exactly like the RTL you simulated? Does the RTL use only what a standard-cell ASIC offers, or does it rely on habits from FPGA design? And does its architecture fit the requirements on area and speed? The answers are a set of modeling guidelines, and each of them is backed by a small experiment that you can repeat in the IIC-OSIC-TOOLS container.
+
 ::: {.callout-note}
-This chapter will be released later in the semester.
+All code of this chapter is available in the folder [`content/modeling/code`]({{< meta var.url-repo >}}/tree/main/content/modeling/code) of the course repository, with one folder per design. As in @sec-sv-crashcourse, the RTL is in `rtl/` and the testbenches are in `testbenches/verilog/` and `testbenches/cocotb/`. The starting point of an exercise is in `exercise/`, and the folder `pitfalls/` holds code with deliberate mistakes. Every file in `rtl/` lints without warnings and synthesizes. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, Yosys 0.70, OpenSTA 3.1.0) and the typical-corner library of SG13CMOS5L (`sg13cmos5l_stdcell_typ_1p20V_25C.lib`, 1.2 V, 25 °C). The script [`scripts/check_modeling.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_modeling.sh) reproduces all of them: run `bash scripts/check_modeling.sh` in the container from the root of the repository.
 :::
+
+For the exercises, clone the course repository into your designs folder once, if you have not done so yet:
+
+```bash
+cd /foss/designs
+git clone https://github.com/iic-jku/vlsi-design.git
+```
+
+The synthesis commands of this chapter map the design onto the standard cells of SG13CMOS5L, and the gate-level simulations use the Verilog models of these cells. Define the paths of the cell library and the cell models in every new terminal:
+
+```bash
+LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib
+LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+CELLS=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/verilog
+```
+
+## Learning Objectives {#sec-modeling-objectives}
+
+After this chapter, you will be able to:
+
+- explain why the simulation of the RTL and of the synthesized netlist must agree, and name the typical causes of a mismatch
+- predict how `if`, `case`, and the conditional operator treat an unknown value `x`, in an RTL and in a gate-level simulation, and explain why Verilator shows no `x` at all
+- find a missing reset in simulation, and decide which registers need a reset
+- recognize FPGA habits that do not carry over to an ASIC, such as initial values, divided clocks, inferred block RAMs, and internal tri-state buses
+- replace a divided clock by a clock enable
+- design the boundary of a macro so that its timing is easy to close and the same testbench runs on the RTL and on the netlist
+- compare architectures of the same function by area and timing with Yosys and OpenSTA, and explain why the architecture matters more than the coding style
+
+## Simulation Must Match the Netlist {#sec-modeling-mismatch}
+
+A hardware description exists at several levels of abstraction. A **behavioral model** describes the function only, e.g., a reference model in Python or a testbench that uses delays, files, and `real` numbers. The **register-transfer level (RTL)** describes the registers and the combinational logic between them (@sec-sv-sync-design), and it is the level you write and synthesize. The **gate level** is a netlist of standard cells, the output of logic synthesis. Finally, the **layout** describes the polygons on the masks. The digital design flow (@sec-intro-flow) translates the RTL into the netlist and the netlist into the layout.
+
+Here lies a trap. You verify the RTL, but the chip implements the netlist. If both behave differently, all simulations of the RTL are worthless, and without further checks you only find out on the chip. @fig-modeling-mismatch shows the two ways to check that the netlist implements the RTL: a gate-level simulation of the netlist with the same testbench, and a logic equivalence check, which proves it without any simulation (@sec-synthesis-lib).
+
+{{< include /content/modeling/_fig_mismatch.qmd >}}
+
+The two checks complement each other. The gate-level simulation only covers the stimuli of the testbench, but it shows what the netlist does from its real, unknown start state. The equivalence check covers every input sequence, but it works with the two values `0` and `1` and starts both designs from the same state, so it cannot see a mismatch that comes from unknown start values (@sec-modeling-reset). Neither of them tells you how to avoid a mismatch, and debugging a netlist is hard. It consists of thousands of cells with generated names, the FSM states have lost their names, and the hierarchy is flattened. In the final netlist of the counter of the AMS chip template, for example, the outputs of the eight flip-flops are called `net3` to `net10`. It pays to write RTL that cannot cause a mismatch in the first place. Mismatches have only a few root causes:
+
+- **Simulation semantics that synthesis ignores**: the unknown value `x` and initial values. They are the subject of @sec-modeling-x and @sec-modeling-init.
+- **Constructs that tools read differently**: incomplete sensitivity lists, the `full_case` and `parallel_case` pragmas, and `unique case` without `default`. @sec-sv-crashcourse already showed how to avoid them (@sec-sv-processes, @sec-sv-verilog).
+- **Timing that the RTL simulation does not model**: glitches of combinational outputs and the delay of a derived clock. @sec-modeling-clken and @sec-modeling-boundaries show how to design them away, and @sec-sequential covers timing in depth.
+
+## Four-Valued Simulation, Two-Valued Silicon {#sec-modeling-x}
+
+A variable of type `logic` has four values (@sec-sv-types): `0`, `1`, `z` for high impedance, and `x` for unknown. Silicon has only two: every node is either low or high, apart from short transitions. An `x` is the simulator's way of saying that it does not know which of the two. The most common sources of `x` are a register without reset before its first load, a net with two conflicting drivers, an explicit assignment of `'x`, and an array index out of range.
+
+A perfect simulator would set a signal to `x` only if it could really be `0` or `1` in the hardware. Such an exact analysis is far too expensive, so the language defines simple rules for every operator and statement instead, and these rules err in both directions:
+
+- **X-optimism**: the simulation shows a known value where the hardware could have either. An `if` treats an unknown condition as false and takes the `else` branch, and a `case` item never matches an unknown expression, so the `default` branch runs.
+- **X-pessimism**: the simulation shows `x` where the hardware has a known value, e.g., because an `x` that cancels out in the hardware is still propagated.
+
+The following testbench describes a 2:1 multiplexer in three ways, plus an AND gate, and sets the select `sel` to `x`. The `default` branch of the `case` assigns `x` only for this demonstration.
+
+```{.systemverilog filename="xprop/testbenches/verilog/xprop_tb.sv"}
+{{< include /content/modeling/code/xprop/testbenches/verilog/xprop_tb.sv >}}
+```
+
+@tbl-modeling-xprop shows the results in Icarus Verilog and in Verilator, each for two input combinations. For comparison, the fourth row is the gate-level model of the SG13CMOS5L multiplexer cell `sg13cmos5l_mux2_1`, simulated in Icarus Verilog with the same inputs.
+
+| Description | Icarus Verilog | Verilator | Hardware |
+|----------------------|:--------:|:--------:|:--------:|
+| `if`, `else` | `0` / `1` | `0` / `1` | `0` or `1` / `1` |
+| `case`, `default` assigns `x` | `x` / `x` | `0` / `1` | `0` or `1` / `1` |
+| `sel ? b : a` | `x` / `1` | `0` / `1` | `0` or `1` / `1` |
+| cell `sg13cmos5l_mux2_1` | `x` / `1` | not run | `0` or `1` / `1` |
+| `sel & a` | `0` / `x` | `0` / `0` | `0` / `0` or `1` |
+
+: A multiplexer and an AND gate with the unknown select `sel = x`. Each entry gives the result for `a = 0`, `b = 1` and for `a = b = 1`. {#tbl-modeling-xprop}
+
+Five lessons follow from the table:
+
+- **`if` is optimistic.** With `a=0` and `b=1`, it shows a clean `0` where the hardware could have either value. A bug that leaves a select unknown is invisible behind an `if`.
+- **A `default` that assigns `x` is pessimistic.** With `a=b=1`, the `case` shows `x`, although the hardware gives `1` for either select. With a defined default, as in the FSM of @sec-modeling-reset, the `case` is optimistic like the `if`.
+- **The conditional operator `?:` behaves like the multiplexer cell.** For an unknown select, it merges both inputs bit by bit: equal bits stay known, different bits become `x`. A multiplexer that synthesis builds from AND and OR gates, however, is pessimistic again, since `(x & 1) | (~x & 1)` gives `x`. Even a gate-level simulation is only as exact as its cells.
+- **The AND gate is exact.** Icarus Verilog knows that `x & 0` is `0`.
+- **Verilator knows no `x`.** It is a two-state simulator and replaces every `x` by a two-state value, here `0`, so its results are those of `sel = 0`. That makes Verilator fast, but it hides every unknown value. The option `--x-assign` selects what an explicit `'x` becomes, by default the value that simulates fastest. The option `--x-initial` selects what the variables start with. With its default, `unique`, they start at `0`, unless the run-time option `+verilator+rand+reset+2` asks for random values, and `+verilator+seed+<n>` selects the seed. Random start values are what silicon does: every flip-flop powers up as `0` or `1`, and nobody knows which.
+
+Since an `x` cannot be trusted in either direction, the guidelines are strict. **Never assign `'x` in RTL.** The lowRISC style guide puts it clearly: "The use of `X` literals in RTL code is strongly discouraged" [@lowRISC_Style_Guide]. An `'x` tells the synthesis tool that it may choose any value, so the netlist can implement a value that the RTL simulation never showed. Assign a defined default instead, as the two-process style does (@sec-sv-two-process). **Do not take the absence of `x` in an RTL simulation as a proof** that a design is defined. Run the regression in Verilator with random start values and several seeds, and simulate the netlist at least once (@sec-verification). With `--x-assign unique`, Verilator also randomizes the explicit `'x` assignments that slipped through. In testbench checks, compare with `!==` or `$isunknown()`, as in @tbl-sv-pitfalls.
+
+### The Missing Reset {#sec-modeling-reset}
+
+The most common source of an unknown value is a register without reset. As an example, take the controller FSM of @sec-sv-fsm and remove the reset from its state register:
+
+```systemverilog
+// State register without a reset: its start value is unknown
+always_ff @(posedge clk_i) begin
+  state_q <= state_d;
+end
+```
+
+The complete module is `ctrl_fsm_noreset/rtl/ctrl_fsm_noreset.sv`. Its testbench prints the first eight clock cycles after power-up, with `start_i` high in cycle 2 and `last_i` high in cycle 4. @fig-modeling-noreset compares four simulations of the same RTL: Icarus Verilog, Verilator with its default start values, Verilator with random start values, and Icarus Verilog with the netlist that Yosys synthesizes onto SG13CMOS5L cells.
+
+{{< include /content/modeling/_fig_noreset.qmd >}}
+
+- In the **RTL simulation with Icarus Verilog**, `state_q` starts as `xx`. No `case` item matches, so the `default` branch sets `state_d` to `StIdle`, and the outputs keep their default value `0`. After the first clock edge, the FSM is in `StIdle` and works perfectly. The missing reset is invisible: the X-optimism of the `case` statement keeps every `x` away from the outputs.
+- **Verilator** starts `state_q` at `00`, which is `StIdle`. The missing reset is invisible again.
+- With **random start values**, Verilator shows what the chip does after power-up. Seed 1 starts in `StIdle` (`00`) and seed 2 in the unused code `11`, which the `default` branch turns into `StIdle` after one cycle. Both are harmless. Seed 3, however, starts in `StRun` (`01`): `busy_o` is high from cycle 0 until `last_i` ends a run that was never started. Seed 9 starts in `StDone` (`10`), and `done_o` reports the end of a job that never existed. Which of these a chip shows depends on the die, the supply ramp, and the temperature.
+- The **gate-level simulation** of the netlist shows that something is wrong: `busy_o` and `done_o` are `x` in cycle 0, and `busy_o` stays `x` until `start_i` forces a known state.
+
+The guidelines for resets are therefore:
+
+1. **Reset every register that holds control state**: FSM states, counters, valid flags, and pointers (@sec-sv-guidelines, rule 8).
+2. **A data register may stay without reset** if the control logic guarantees that it is written before it is read, e.g., a pipeline register behind a valid flag, or the content of a memory. Large designs often omit these resets, because the reset net must reach every flip-flop that uses it, and it then needs its own buffer tree and timing checks like a clock. In SG13CMOS5L, a register without reset saves no cell area, though: the library has no flip-flop without reset. Its flip-flops are `dfrbp` and `dfrbpq` and the scan flip-flops `sdfrbp`, `sdfrbpq`, and `sdfbbp` (@sec-dft), and all of them have a reset input, which synthesis simply ties inactive for a register without reset.
+3. **Use the four-state type `logic` for registers**, also as the base type of an enumeration. The two-state types `bit` and `int` start at `0` in every simulator and hide a missing reset, just like Verilator. In VHDL, a signal of an enumeration type starts with its leftmost value, e.g., `IDLE`, so the RTL simulation of a VHDL FSM without reset looks fine as well, while the gate-level simulation shows `U`.
+
+::: {.callout-tip title="Exercise: Find the Missing Reset"}
+Change into the folder `content/modeling/code/ctrl_fsm_noreset` of the course repository.
+
+1. Simulate the RTL with Icarus Verilog:
+
+   ```bash
+   iverilog -g2012 -o rtl.vvp rtl/ctrl_fsm_noreset.sv \
+     testbenches/verilog/ctrl_fsm_noreset_tb.sv
+   vvp rtl.vvp
+   ```
+
+   In which cycle is `state_q` unknown? Why do the outputs never show an `x`?
+
+2. Build the RTL with Verilator once, and run it first with the default start values and then with random ones for ten seeds:
+
+   ```bash
+   verilator --binary --timing --timescale 1ns/1ps \
+     --top-module ctrl_fsm_noreset_tb rtl/ctrl_fsm_noreset.sv \
+     testbenches/verilog/ctrl_fsm_noreset_tb.sv
+   ./obj_dir/Vctrl_fsm_noreset_tb
+   for s in 1 2 3 4 5 6 7 8 9 10; do
+     ./obj_dir/Vctrl_fsm_noreset_tb +verilator+rand+reset+2 \
+       +verilator+seed+$s | head -1
+   done
+   ```
+
+   Which start states do the ten seeds give? Run seeds 3 and 9 again without `| head -1`. How does the controller behave?
+
+3. In `rtl/ctrl_fsm_noreset.sv`, change the base type of the enumeration from `logic [1:0]` to the two-state `bit [1:0]`, and repeat step 1. What changes in cycle 0, and why is that dangerous? Restore the file with `git restore rtl/ctrl_fsm_noreset.sv`.
+
+4. Synthesize the RTL onto SG13CMOS5L cells and simulate the netlist, with the cell models of the PDK (`$LIB` and `$CELLS` as defined at the beginning of the chapter):
+
+   ```bash
+   yosys -p "read_verilog -sv rtl/ctrl_fsm_noreset.sv; \
+     synth -top ctrl_fsm_noreset; \
+     dfflibmap -liberty $LIB; abc -liberty $LIB; opt_clean; \
+     stat -liberty $LIB; write_verilog -noattr nl.v"
+   iverilog -g2012 -gno-specify -DGL -o gl.vvp \
+     $CELLS/sg13cmos5l_udp.v $CELLS/sg13cmos5l_stdcell.v nl.v \
+     testbenches/verilog/ctrl_fsm_noreset_tb.sv
+   vvp gl.vvp
+   ```
+
+   Which flip-flop cells does Yosys use, and how are their reset inputs connected? For the controller with reset, Yosys chooses a one-hot encoding (@sec-sv-fsm). Does it do so here? In which cycles are `busy_o` and `done_o` unknown?
+
+5. Which of the simulations reveal the bug, and what does each of them show? How do you fix it?
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Find the Missing Reset" collapse="true"}
+1. `state_q` is `xx` in cycle 0 only:
+
+   ```text
+   cycle 0: state_q=xx busy_o=0 done_o=0
+   cycle 1: state_q=00 busy_o=0 done_o=0
+   cycle 2: state_q=00 busy_o=0 done_o=0
+   cycle 3: state_q=01 busy_o=1 done_o=0
+   cycle 4: state_q=01 busy_o=1 done_o=0
+   cycle 5: state_q=10 busy_o=0 done_o=1
+   cycle 6: state_q=00 busy_o=0 done_o=0
+   cycle 7: state_q=00 busy_o=0 done_o=0
+   ```
+
+   The outputs are assigned `0` by default before the `case`, and no `case` item matches `xx`, so they keep their defaults. The `default` branch moves the FSM to `StIdle` at the first clock edge. Icarus Verilog prints a "sorry" message that it ignores the `unique` qualifier (@sec-sv-case), which does not change the result.
+
+2. With the default start values, Verilator prints the same trace, except that `state_q` is already `00` in cycle 0. With random start values, the ten seeds of Verilator 5.052 start in all four codes: seeds 1 and 10 in `StIdle` (`00`), seeds 2 and 5 in the unused code `11`, seeds 3, 4, 6, 7, and 8 in `StRun` (`01`), and seed 9 in `StDone` (`10`). Another version of Verilator can map the seeds to other start values. From `11`, the `default` branch returns to `StIdle` after one cycle. Seed 3 starts in `StRun`, so `busy_o` is high from cycle 0 to cycle 4, until `last_i` ends a run that was never started. Seed 9 starts in `StDone`, so `done_o` is high in cycle 0. From cycle 5 on, all runs are identical.
+
+3. With `bit [1:0]`, Icarus Verilog starts `state_q` at `00`, and the trace no longer shows any `x`, just like Verilator. A two-state type thus hides a missing reset in every simulator, which is why registers should be of type `logic`.
+
+4. Yosys maps the design onto 8 cells, among them two `sg13cmos5l_dfrbpq_1` flip-flops. Since the RTL has no reset, their `RESET_B` inputs are tied to `1'h1`. Yosys keeps the binary encoding: its FSM detection reports "Not marking ctrl_fsm_noreset.state_q as FSM state register: Circuit seems to be self-resetting", because the `default` branch returns every unknown state to `StIdle`, and it leaves such a register alone. In the gate-level simulation, `busy_o` is unknown in cycles 0 to 2, and `done_o` in cycle 0:
+
+   ```text
+   cycle 0: busy_o=x done_o=x
+   cycle 1: busy_o=x done_o=0
+   cycle 2: busy_o=x done_o=0
+   cycle 3: busy_o=1 done_o=0
+   ```
+
+   The `default` branch does not help here, since in the netlist, gates compute the next state, and they propagate the unknown state. After the first clock edge, the state can only be `StIdle` or `StRun` (every other state leads to `StIdle`), so `done_o` is known to be `0`, while `busy_o` stays `x`. In cycle 2, `start_i` moves both possible states to `StRun`. The gate-level simulation is exact here: an output is `x` exactly where the chip can show either value. Icarus Verilog also prints 68 "sorry: ifnone with an edge-sensitive path is not supported" messages for the timing blocks of the cell models, which `-gno-specify` skips anyway, and Yosys reports "ABC: Warning: The network is combinational". Neither affects the result.
+
+5. The RTL simulation in Icarus Verilog, Verilator with its default start values, and a two-state type all hide the bug. The gate-level simulation reveals it: it shows which outputs are undefined after power-up. The random start values show the concrete wrong behaviors, a run and a `done_o` pulse that nobody started. The fix is the reset of the original `ctrl_fsm` (@sec-sv-fsm).
+:::
+
+## FPGA Habits That Break on an ASIC {#sec-modeling-fpga}
+
+Many of you have designed for FPGAs, and FPGA tools are forgiving. The bitstream initializes every flip-flop of an SRAM-based FPGA, the synthesis tool maps arrays and multiplications onto the block RAMs and multipliers of the FPGA, and clock managers and global clock buffers are available as primitives. On an ASIC, every gate comes from the standard-cell library, and the only larger blocks are the macros of the PDK, such as SRAMs and I/O cells. @tbl-modeling-fpga lists the habits that do not carry over.
+
+| FPGA habit | On an ASIC | Instead |
+|------------------|----------------------|------------------|
+| initial values | dropped by synthesis without a warning | a reset (@sec-modeling-init) |
+| a register output as clock | a second clock with its own tree | a clock enable (@sec-modeling-clken) |
+| an inferred block RAM | flip-flops, ten times the area | an SRAM macro (@sec-modeling-memory) |
+| an inferred multiplier (DSP block) | a large, slow array of standard cells | a suitable architecture (@sec-synth-opt) |
+| an internal tri-state bus | buffers that can short or float | a multiplexer (@sec-modeling-tristate) |
+| clock managers, PLLs, vendor primitives | not in the cell library | analog IP, clock gating (@sec-synth-opt) |
+| the global reset at configuration | no automatic reset | a reset pin and synchronizer (@sec-cdc) |
+
+: FPGA habits that do not carry over to an ASIC {#tbl-modeling-fpga}
+
+### Initial Values {#sec-modeling-init}
+
+On an FPGA, a register gets its start value with an initial value in the declaration, and the bitstream loads it at configuration. The LED blinker of the following exercise is written this way:
+
+```systemverilog
+logic [COUNT_WIDTH-1:0] count_q    = '0;
+logic                   slow_clk_q = 1'b0;
+logic                   led_q      = 1'b0;
+```
+
+The RTL simulation honors the initial values, and the counter starts at zero in Icarus Verilog and in Verilator. Verilator also warns with `-Wall`, three times: `PROCASSINIT`, "Procedural assignment to declaration with initial value", followed by the hint "Perhaps should initialize instead using a reset in this process". Yosys keeps the initial values through the generic synthesis, but an ASIC flip-flop has no way to implement them, and the mapping onto SG13CMOS5L cells drops them without a single warning in the log. In a gate-level simulation of the blinker with `DIV = 4`, the counter therefore stays unknown, and `led_o` is still `x` after 40 clock cycles, in which it should have toggled five times. On the chip, the registers start with random values. An `initial` block is for testbenches only (@tbl-sv-synthesizable). In RTL, the reset sets the start values.
+
+### Clock Dividers and Clock Enables {#sec-modeling-clken}
+
+On an FPGA, it is common to divide a clock with a register and to clock another register with its output, as in @fig-modeling-clkdiv (a). On an ASIC, such a divided clock causes several problems:
+
+- **A second clock.** All registers clocked by `slow_clk_q` run on a clock of their own. It is derived from `clk_i`, so the paths between the two clocks are synchronous and can be timed, but each of them must be timed with the delay between the two clock edges.
+- **A second clock tree.** Clock tree synthesis (@sec-digital-flow) builds a balanced tree for every clock. The divided clock arrives later than `clk_i` by the clock-to-Q delay of the divider and the delay of its own tree, so the two clocks are skewed, which leads to hold violations on the paths between them unless the trees are balanced against each other.
+- **Constraints.** Static timing analysis only knows the clocks it is told about. A register output used as a clock needs a generated clock in the constraints (@sec-sequential), otherwise the paths it clocks are not analyzed at all.
+- **Test.** The scan test must control every clock in the design (@sec-dft).
+- **Simulation.** Without a reset or an initial value, the divider starts as `x` and never produces an edge, so the registers behind it never change.
+
+The solution is a **clock enable**, @fig-modeling-clkdiv (b). Every rising edge of the divided clock becomes a pulse `tick` that is high for one cycle of `clk_i`, like the strobe of the tick generator in @sec-sv-two-process. The register stays on `clk_i` and only loads a new value while `tick` is high, otherwise it keeps its value (@sec-sv-registers). The design keeps one clock, one clock tree, and one set of constraints. Where a block really needs a lower clock frequency, its clock comes from a dedicated clock generation block and is declared in the constraints. To save power, the clock of an idle block is switched off with a clock gating cell instead (@sec-synth-opt). Neither of them is a register output that happens to toggle somewhere in the logic.
+
+{{< include /content/modeling/_fig_clkdiv.qmd >}}
+
+::: {.callout-tip title="Exercise: An LED Blinker from FPGA to ASIC"}
+The file `content/modeling/code/led_blink/exercise/led_blink_fpga.sv` is an LED blinker written with FPGA habits:
+
+```{.systemverilog filename="led_blink/exercise/led_blink_fpga.sv"}
+{{< include /content/modeling/code/led_blink/exercise/led_blink_fpga.sv >}}
+```
+
+Change into the folder `content/modeling/code/led_blink`. Its `rtl/` already holds the solution, so move it out of the way first with `mv rtl/led_blink.sv led_blink_solution.sv`, and compare at the end.
+
+1. Lint the file with `verilator --lint-only -Wall exercise/led_blink_fpga.sv` and explain the warnings.
+2. List all FPGA habits in the file, and explain what happens to each of them on an ASIC.
+3. Draw the block diagram of an ASIC version `led_blink` with only one clock, `clk_i`, and an asynchronous active-low reset `rst_ni`. Which registers do you need, and which of them need an enable?
+4. Implement `led_blink` in `rtl/led_blink.sv` in the two-process style, with the parameter `DIV` and the ports `clk_i`, `rst_ni`, and `led_o`. After the reset, `led_o` must toggle every `2*DIV` clock cycles, exactly as in the FPGA version. Lint your file.
+5. Run the cocotb testbench on both versions, in the folder `testbenches/cocotb`: `TOPLEVEL=led_blink_fpga python3 led_blink_tb.py` and `python3 led_blink_tb.py`. Run your version also with `SIM=verilator`.
+6. Synthesize both versions with `yosys -p "read_verilog -sv <file>; synth -top <module>; stat"` and compare the flip-flop types. Which clock does each flip-flop use?
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: An LED Blinker from FPGA to ASIC" collapse="true"}
+1. Verilator reports `PROCASSINIT` three times, once for each of `count_q`, `slow_clk_q`, and `led_q`: the registers have initial values instead of a reset.
+2. The file has three FPGA habits. The **initial values** are dropped by the ASIC synthesis, so all registers start with random values, and the gate-level simulation stays `x` (@sec-modeling-init). **`slow_clk_q` is a register output used as a clock**, which creates a second clock with its own clock tree and constraints (@sec-modeling-clken). And the design has **no reset**, so neither the simulation nor the chip has a defined start.
+3. The block diagram is @fig-modeling-clkdiv (b), with the tick generator made of two registers. All three registers run on `clk_i`: the counter `count_q`, the register `phase_q`, which takes over the role of `slow_clk_q`, and `led_q`. `count_q` wraps every `DIV` cycles (`wrap`). `phase_q` toggles at every `wrap`, so the old divided clock would rise exactly when `wrap` comes while `phase_q` is low. This is the enable `tick` of `led_q`. `phase_q` also needs an enable (`wrap`), `count_q` does not.
+4. The ASIC version follows below. `phase_q` is in fact one more bit of the counter: a counter that wraps every `2*DIV` cycles would do the same job, with `tick` at its wrap-around.
+
+```{.systemverilog filename="led_blink/rtl/led_blink.sv"}
+{{< include /content/modeling/code/led_blink/rtl/led_blink.sv >}}
+```
+
+5. All runs end with `TESTS=1 PASS=1 FAIL=0`. In the RTL simulation, both versions behave identically: the testbench checks that `led_o` toggles exactly every `2*DIV` cycles, with `DIV = 4`.
+6. In the FPGA version, Yosys 0.70 builds 108 generic cells with 26 flip-flops: 24 `$_SDFF_PP0_` for the counter (it has recognized the wrap-around to zero as a synchronous reset), one `$_DFFE_PP_` for `slow_clk_q` with the wrap-around as enable, and one `$_DFF_P_` for `led_q`, which runs on `posedge slow_clk_q`. In the ASIC version, all 26 flip-flops run on `clk_i` with the reset `rst_ni`: 24 `$_DFF_PN0_` for the counter and two `$_DFFE_PN0P_` for `phase_q` and `led_q`, with their enables. The ASIC version needs 117 generic cells, a few more than the FPGA version, because the asynchronous reset keeps Yosys from merging the wrap-around to zero into the flip-flops as a synchronous reset. Without `rst_ni`, the same RTL needs 110 cells.
+:::
+
+### Memories: Flip-Flops or SRAM Macros {#sec-modeling-memory}
+
+On an FPGA, an array with a synchronous write and read infers a block RAM:
+
+```{.systemverilog filename="ram_ff/rtl/ram_ff.sv"}
+{{< include /content/modeling/code/ram_ff/rtl/ram_ff.sv >}}
+```
+
+On an ASIC, Yosys builds the same RTL from standard cells: a flip-flop for every bit, a multiplexer in front of each flip-flop that keeps its value while the word is not written (the library has no flip-flop with an enable input), and a tree of multiplexers for the read port. For 256 words of 8 bits, it needs 2056 `sg13cmos5l_dfrbpq_1` flip-flops (2048 for the content and 8 for the read data), 2074 `sg13cmos5l_mux2_1` cells, most of them the multiplexers that keep the values, and 368 `sg13cmos5l_mux4_1` cells, most of them the read tree. In total, that is 165,743 µm² of cell area, or 81 µm² per bit. The SG13CMOS5L PDK, however, also provides SRAM macros (`$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_sram`). The single-port macro `RM_IHPSG13_1P_256x8_c3_bm_bist` stores the same 256 words of 8 bits in 236.8 µm × 74.1 µm = 17,547 µm², 8.6 µm² per bit, which is about 9.4 times less, even before the routing of the flip-flop version is counted. Even a memory of 32 words of 8 bits needs 20,944 µm² of flip-flops and multiplexers, more than the smallest SRAM macro of the PDK, `RM_IHPSG13_1P_64x16_c2` with 1024 bits in 236.8 µm × 64.36 µm = 15,240 µm².
+
+Use flip-flops for small memories, e.g., a FIFO of a few words, and for memories with several read ports, such as the register file of a CPU with two read ports and one write port. The PDK has single-port macros (`RM_IHPSG13_1P_*`) and two-port macros (`RM_IHPSG13_2P_*`), but none with more ports. For everything larger, use an SRAM macro. It is a hard macro, like the macros of the AMS chip template: the RTL instantiates it by name, and the PDK provides its simulation model, its timing library, its LEF abstract for place and route, and its layout. Its read data appear one clock cycle after the address, as in `ram_ff`, but details such as the behavior when a read and a write hit the same address can differ, so check them in the simulation model before you replace an array. The macros with `_bm_bist` in their names also offer a bit mask for the write data and a second set of ports for a memory test, which a test controller in the design drives (@sec-dft).
+
+### Tri-States {#sec-modeling-tristate}
+
+On a circuit board, several chips share a bus through tri-state drivers. Inside an FPGA, the tools convert such a bus into multiplexers. Inside an ASIC, a tri-state bus is a real tri-state bus:
+
+```{.systemverilog filename="pitfalls/bus_tri.sv"}
+{{< include /content/modeling/code/pitfalls/bus_tri.sv >}}
+```
+
+Verilator lints this file without a warning. A plain `synth` in Yosys 0.70 warns that "Yosys has only limited support for tri-state logic at the moment" and then stops with an error, because the output `y_o` is "already driven" by the other driver. LibreLane runs the extra pass `tribuf` and maps the drivers onto the tri-state buffers `sg13cmos5l_ebufn_2` of the library, so it would build the bus. Do not use one anyway. If two enables overlap, two drivers fight, and a large current flows. If no enable is active, the bus floats, the gates that read it draw cross current, and the simulation shows `x`. Tri-states also complicate the timing analysis and the scan test. The lowRISC style guide forbids them: "Do not use three-state logic (`Z` state) to accomplish on-chip logic such as muxing" [@lowRISC_Style_Guide]. Write a multiplexer, here `assign y_o = sel_a_i ? a_i : b_i;`. Tri-states belong to the bidirectional pads of the padframe (@sec-digital-flow).
+
+## Macro Boundaries {#sec-modeling-boundaries}
+
+A chip built with the AMS chip template consists of macros that are hardened separately and then assembled into the chip top level (@sec-intro-template). Two properties of a macro boundary decide how easy this assembly is: whether the timing of a macro depends on its neighbors, and whether the macro can be verified at gate level with its RTL testbench.
+
+### Registered Inputs and Outputs {#sec-modeling-registered-io}
+
+When LibreLane hardens a macro, it does not know the logic outside. It assumes that the environment uses a fixed part of the clock period on each side: the constraints of the template set the input and output delays to `IO_DELAY_CONSTRAINT`, by default 20 % of the clock period, i.e., 4 ns of the 20 ns period of the counter macro. A path from an input to a register of the macro may then use the remaining 80 %, and a combinational path from an input to an output only 60 %, both a little less after the setup time and the clock uncertainty. If the logic outside is slower than assumed, the chip fails timing, although every macro met its own constraints. @fig-modeling-boundary (a) shows such a path through two macros.
+
+{{< include /content/modeling/_fig_boundary.qmd >}}
+
+With **registered outputs**, every output of a macro comes directly from a flip-flop, @fig-modeling-boundary (b). The paths through the logic of a macro end at this register, and the next macro sees a stable signal right after the clock edge, so the timing of each macro depends only on its own logic. What remains between the macros is a wire from register to register, which has almost a full clock cycle and is easy to time at the top level. Outputs from flip-flops are also free of glitches, which matters when they drive a pad, another clock domain, or an asynchronous input. Register the inputs as well when they come from another macro far away on the die, so that the long wire gets a full clock cycle. Asynchronous inputs from pads need a synchronizer anyway (@sec-cdc). The price is a clock cycle of latency for every register stage.
+
+### Ports That Survive Synthesis {#sec-modeling-ports}
+
+The template simulates a macro with the same cocotb testbench at RTL and at gate level, the latter with `make sim-gl-cocotb` (@tbl-sv-make-targets). This only works if the testbench sees the same interface in both cases:
+
+- **Plain `logic` vectors at the top-level ports.** Inside the macro, structures, enumerations, and arrays are fine, but after synthesis, every port is a plain vector of bits, and a testbench that relies on a structure or an interface at the top level cannot drive the netlist.
+- **No top-level parameters that the testbench changes.** The netlist is synthesized for one set of parameter values, and the gate-level testbench must use exactly these values. A testbench that sets a parameter, such as `DIV = 4` in `led_blink_tb.py`, needs a netlist synthesized with that value.
+- **Access only the ports.** Internal names do not reliably survive synthesis and place and route. In the synthesized netlist of the template counter, the outputs of the flip-flops are still called `counter_value_o`, but in its final netlist, they are `net3` to `net10` (@sec-modeling-mismatch). A testbench that reads an internal signal works at RTL and fails at gate level.
+- **A reset at the start of every test**, and no reliance on initial values, since the netlist starts as `x`.
+
+## Architecture Determines the Result {#sec-modeling-architecture}
+
+Logic synthesis optimizes the logic you describe, but it does not invent a new architecture. A binary counter stays a binary counter, and a shift register stays a shift register. An adder written with `+` becomes a fast adder only if the synthesis tool knows a fast architecture for it (@sec-synth-opt). The choice of the architecture is yours, and it decides area and speed much more than the details of the code.
+
+### Case Study: The Exclusive Counter {#sec-modeling-excl}
+
+An **exclusive counter** has eight outputs `q_o[7:0]`, of which exactly one is high at any time (a one-hot code). Its specification:
+
+- After the asynchronous active-low reset `rst_ni`, `q_o[0]` is high.
+- The synchronous clear `clr_i` makes `q_o[0]` high at the next rising clock edge. It has priority over `en_i`.
+- While `en_i` is high, the high bit moves up by one position at every rising clock edge and wraps around from `q_o[7]` to `q_o[0]`. While `en_i` is low, `q_o` keeps its value.
+
+@fig-modeling-excl shows two architectures for this function. The first one counts in binary with three flip-flops and decodes the count into the one-hot code:
+
+{{< include /content/modeling/_fig_excl.qmd >}}
+
+```{.systemverilog filename="excl_cnt/rtl/excl_cnt_bin.sv"}
+{{< include /content/modeling/code/excl_cnt/rtl/excl_cnt_bin.sv >}}
+```
+
+The second one stores the one-hot code directly in a ring of eight flip-flops and rotates it:
+
+```{.systemverilog filename="excl_cnt/rtl/excl_cnt_ring.sv"}
+{{< include /content/modeling/code/excl_cnt/rtl/excl_cnt_ring.sv >}}
+```
+
+The cocotb testbench `excl_cnt/testbenches/cocotb/excl_cnt_tb.py` checks the reset value, a full count with wrap-around, and 500 cycles of random `clr_i` and `en_i` against a model, and both architectures pass. To compare them, each one is synthesized onto SG13CMOS5L cells with the Yosys command of the exercise in @sec-modeling-reset, and the netlist is analyzed with the static timing analyzer OpenSTA, using the script `excl_cnt/syn/sta.tcl`. It assumes a 100 MHz clock without a clock tree, inputs that change at the clock edge, and a load of 10 fF at every output. @sec-sequential explains these timing constraints. @tbl-modeling-excl lists the results.
+
+| | Binary counter and decoder | One-hot ring |
+|------------------|:---:|:---:|
+| flip-flops | 3 | 8 |
+| standard cells | 22 | 28 |
+| cell area | 308.4 µm² | 553.2 µm² |
+| longest path from the clock to an output | 0.49 ns | 0.23 ns |
+| longest path between two flip-flops | 0.52 ns | 0.31 ns |
+
+: The two architectures of the exclusive counter on SG13CMOS5L (typical corner, 10 fF output load, ideal clock) {#tbl-modeling-excl}
+
+- **The ring needs 79 % more area.** Flip-flops are expensive: a `sg13cmos5l_dfrbpq_1` has 49.0 µm², a 3-input NOR gate `sg13cmos5l_nor3_1` only 9.1 µm². The eight flip-flops of the ring take 392 of its 553 µm².
+- **The ring is faster.** Its outputs come directly from the flip-flops, so the path from the clock to an output is just the clock-to-Q delay of 0.23 ns. In the binary version, the decoder adds two gates, and the incrementer in front of the flip-flops makes the path between them longer as well.
+- **The ring has clean outputs.** Outputs from flip-flops are free of glitches. The decoder outputs of the binary version can glitch when several counter bits change at once, e.g., from `011` to `100`. This matters when `q_o` leaves the macro, drives a pad, or selects something in another clock domain (@sec-modeling-boundaries).
+- **The binary version is more robust.** Its outputs are one-hot by construction, whatever the counter holds. The ring is one-hot only as long as its state is: if it starts without a reset, or if a bit flips, e.g., from radiation, the ring can hold no high bit or several of them until the next `clr_i`. For the ring, the reset is mandatory.
+
+Neither architecture is better in general: the requirements decide. Note what did *not* matter here: the coding style. The file `excl_cnt/rtl/excl_cnt_ring_for.sv` describes the ring with a `for` loop instead of the concatenation, and writes the clear last, so that it overrides the rotation instead of being checked first. Yosys synthesizes it into exactly the same 28 cells with 553.2 µm². What synthesis sees is the function of every register, not the syntax that describes it.
+
+::: {.callout-tip title="Exercise: A Third Architecture, the Johnson Counter"}
+A **Johnson counter** (twisted ring counter) of four flip-flops `s_q[3:0]` shifts left and feeds the inverted most significant bit back into the least significant bit: `s_d = {s_q[2:0], ~s_q[3]}`. As an exclusive counter, the reset and `clr_i` load `0000`, and the k-th state of the sequence (counted from 0) drives `q_o[k]`. The folder `excl_cnt/rtl` already holds the solution, so move it out of the way first with `mv excl_cnt/rtl/excl_cnt_johnson.sv excl_cnt_johnson_solution.sv`.
+
+1. Starting from `0000`, write down the sequence of its states. After how many steps does it repeat? Draw the block diagram of an exclusive counter built from a Johnson counter and a decoder, in the style of @fig-modeling-excl.
+2. In the sequence, every state differs from the next one in exactly one bit. Show that two neighboring bits of the ring identify every state (`s_q[3]` and `s_q[0]` count as neighbors too), and write down the decoder for the eight outputs with one 2-input AND gate each (inputs may be inverted).
+3. Implement `excl_cnt_johnson` in `excl_cnt/rtl/excl_cnt_johnson.sv` with the same ports and behavior as the other two architectures. Lint it and run the testbench in `excl_cnt/testbenches/cocotb` with `TOPLEVEL=excl_cnt_johnson python3 excl_cnt_tb.py`.
+4. Synthesize your design onto SG13CMOS5L cells and analyze its timing, both in the folder `excl_cnt`:
+
+   ```bash
+   yosys -p "read_verilog -sv rtl/excl_cnt_johnson.sv; \
+     synth -top excl_cnt_johnson; \
+     dfflibmap -liberty $LIB; abc -liberty $LIB; opt_clean; \
+     stat -liberty $LIB; write_verilog -noattr excl_cnt_johnson.nl.v"
+   TOP=excl_cnt_johnson sta -no_init -exit syn/sta.tcl
+   ```
+
+   Add a column to @tbl-modeling-excl.
+5. Rank the three architectures by area and by speed. Which one would you choose (a) for the smallest area, (b) for outputs that go to another clock domain, where a glitch can be captured as a pulse, and (c) for the highest clock frequency?
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: A Third Architecture, the Johnson Counter" collapse="true"}
+1. The sequence is `0000`, `0001`, `0011`, `0111`, `1111`, `1110`, `1100`, `1000`, and then `0000` again: four flip-flops pass through eight states. The block diagram is @fig-modeling-excl (a) with a 4-bit register `s_q` in place of `cnt_q`, a shift with the inverted feedback in place of the incrementer, and a decoder from 4 to 8 bits.
+2. Within the sequence, the ones fill up from the right and then the zeros. A state is therefore identified by the position of its single 0-1 or 1-0 edge between two neighboring bits, or, for `0000` and `1111`, by the equal bits `s_q[3]` and `s_q[0]` at both ends. Each output is one 2-input AND gate, as in the decoder of the following listing.
+
+```{.systemverilog filename="excl_cnt/rtl/excl_cnt_johnson.sv"}
+{{< include /content/modeling/code/excl_cnt/rtl/excl_cnt_johnson.sv >}}
+```
+
+3. Lint and all three tests pass (`TESTS=3 PASS=3 FAIL=0`).
+4. The Johnson counter needs 4 flip-flops and 24 cells with 368.3 µm². Its longest path from the clock to an output and its longest path between two flip-flops are both 0.35 ns.
+5. By area, the binary version is the smallest (308.4 µm²), followed by the Johnson counter (368.3 µm²) and the ring (553.2 µm²). By speed, the ring is the fastest (0.23 ns from the clock to an output), followed by the Johnson counter (0.35 ns) and the binary version (0.49 ns). (a) The binary version is the smallest, and its outputs are one-hot by construction. (b) Only the ring has outputs that come directly from flip-flops and never glitch. The Johnson counter comes close: while it counts, only one bit of its state changes per step, and each output depends on only two bits, so a decoder of 2-input gates cannot glitch, unlike the binary decoder, where up to three bits change at once. A clear from, e.g., `0111` to `0000`, however, changes three bits at once, and then the Johnson decoder can glitch as well. (c) For the highest clock frequency, the ring is the best choice. Like the ring, the Johnson counter needs its reset: its eight unused states form a second cycle of their own, e.g., `0010`, `0101`, `1011`, in which several outputs are high, and the counter never leaves it without `clr_i`.
+:::
+
+## Checklist for Synthesizable, ASIC-Ready RTL {#sec-modeling-checklist}
+
+The coding guidelines of @sec-sv-guidelines make your RTL correct and readable. The following checklist adds the guidelines of this chapter, which make it ready for an ASIC:
+
+1. **Every register that holds control state has a reset.** Data registers may stay without reset if they are written before they are read.
+2. **No initial values and no `initial` blocks in RTL.**
+3. **No `'x` assignments.** Every variable gets a defined default value.
+4. **One clock per macro if possible.** No clock comes from a register or from logic: a clock enable replaces a divided clock.
+5. **Memories with more than a few hundred bits are SRAM macros.** Flip-flop arrays are for small memories and for memories with several read ports.
+6. **No internal tri-states.** Tri-states only exist in the pads.
+7. **Every output of a macro comes from a flip-flop.** Inputs from far away get a register, asynchronous inputs from pads a synchronizer.
+8. **The top-level ports are plain `logic` vectors**, and the testbench accesses only the ports.
+9. **The architecture comes first.** Compare the candidates with a quick synthesis and timing analysis before you optimize the code.
+10. **Simulate with more than one tool:** Icarus Verilog with four values, Verilator with random start values, and the netlist at gate level.
+
+## Summary {#sec-modeling-summary}
+
+- You verify the RTL, but the chip implements the netlist. Their simulations must agree, and the guidelines of this chapter remove the most common causes of a mismatch.
+- Simulators approximate the unknown value `x`: `if` and a `case` with a defined default are optimistic and hide an unknown select or state, a default that assigns `x` is pessimistic, the conditional operator matches the multiplexer cell, and Verilator replaces every `x` by a two-state value. Never assign `'x` in RTL, and do not trust an RTL simulation without `x`.
+- A missing reset hides in the RTL simulation. Random start values in Verilator and the gate-level simulation reveal it. Reset all control state. In SG13CMOS5L, every flip-flop has a reset input anyway.
+- FPGA habits do not carry over: initial values are dropped by synthesis without a warning, a divided clock creates a second clock with its own tree, an inferred memory is built from flip-flops with about ten times the area of an SRAM macro, and an internal tri-state bus either fails to synthesize or risks shorts and floating nodes.
+- Replace a divided clock by a clock enable: every rising edge of the slow clock becomes a one-cycle pulse that enables registers on the main clock.
+- Register the outputs of every macro, so that its timing does not depend on its neighbors, and keep the top-level ports plain, so that the same testbench runs on the netlist.
+- The architecture decides area and speed. For the exclusive counter, the binary version is the smallest, the one-hot ring the fastest, and the Johnson counter lies in between. Two codings of the same architecture gave the same netlist.
+
+In @sec-verification, we take the testbenches of the last two chapters to a systematic verification methodology, including the gate-level simulation of a netlist with the same testbench.

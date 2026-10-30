@@ -1,0 +1,68 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-modeling-mismatch
+#| echo: false
+#| fig-cap: "You verify the RTL, but the chip implements the netlist. The same testbench drives the RTL simulation and the gate-level simulation of the synthesized netlist, and both must give the same results. Logic equivalence checking (@sec-synthesis-lib) proves that the netlist implements the RTL without any simulation."
+#| fig-alt: "Flow diagram: the RTL feeds an RTL simulation and, through logic synthesis with Yosys, a gate-level netlist of standard cells, which feeds a gate-level simulation. One testbench drives both simulations. The results of both simulations are connected by a double arrow labeled must match. A dashed double arrow labeled logic equivalence checking connects the RTL and the netlist."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'     # design data
+GREEN, GREEN_L = '#82b366', '#d5e8d4'   # tools
+YEL, YEL_L = '#d6b656', '#fff2cc'       # testbench
+GREY, GREY_L = '#666666', '#f5f5f5'     # results
+
+W, H = 2.9, 1.1
+c0, c1, c2, c3, c4 = 0.0, 3.6, 7.2, 10.8, 14.4
+yt, yb, ylec = 1.5, -1.5, -3.0
+
+
+def box(x, y, text, fill, edge, w=W):
+    return flow.Box(w=w, h=H).at((x, y)).anchor('center').fill(fill).color(edge).label(text, color='black')
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+
+    rtl = box(c0, 0, 'RTL\n(SystemVerilog)', BLUE_L, BLUE)
+    rsim = box(c3, yt, 'RTL simulation\n(Icarus, Verilator)', GREEN_L, GREEN)
+    syn = box(c1, yb, 'logic synthesis\n(Yosys)', GREEN_L, GREEN)
+    nl = box(c2, yb, 'gate-level netlist\n(standard cells)', BLUE_L, BLUE)
+    gsim = box(c3, yb, 'gate-level simulation\n(cell models)', GREEN_L, GREEN, w=3.1)
+    tb = box(c3, 0, 'testbench\n(SystemVerilog, cocotb)', YEL_L, YEL, w=3.1)
+    rres = box(c4, yt, 'results', GREY_L, GREY, w=1.8)
+    gres = box(c4, yb, 'results', GREY_L, GREY, w=1.8)
+
+    # the RTL goes to the RTL simulation and through synthesis to the netlist
+    xs = c0 + W/2 + 0.5
+    flow.Line().at(rtl.E).to((xs, 0))
+    flow.Line().at((xs, 0)).to((xs, yt))
+    flow.Arrow().at((xs, yt)).to(rsim.W)
+    flow.Line().at((xs, 0)).to((xs, yb))
+    flow.Arrow().at((xs, yb)).to(syn.W)
+    elm.Dot(radius=0.06).at((xs, 0))
+    flow.Arrow().at(syn.E).to(nl.W)
+    flow.Arrow().at(nl.E).to(gsim.W)
+
+    # one testbench drives both simulations
+    flow.Arrow().at(tb.N).to(rsim.S)
+    flow.Arrow().at(tb.S).to(gsim.N)
+    flow.Arrow().at(rsim.E).to(rres.W)
+    flow.Arrow().at(gsim.E).to(gres.W)
+
+    # both results must agree
+    elm.Line(arrow='<->').at(rres.S).to(gres.N).color('#b85450')
+    elm.Label().at((c4 + 0.15, 0)).label('must\nmatch', halign='left', color='#b85450')
+
+    # logic equivalence checking compares the RTL and the netlist directly
+    elm.Line().at(rtl.S).to((c0, ylec)).linestyle('--').color(GREY)
+    elm.Line().at((c0, ylec)).to((c2, ylec)).linestyle('--').color(GREY)
+    elm.Line(arrow='->').at((c2, ylec)).to(nl.S).linestyle('--').color(GREY)
+    elm.Label().at(((c0 + c2)/2 + 0.6, ylec - 0.3)).label('logic equivalence checking (EQY)', color=GREY)
+```

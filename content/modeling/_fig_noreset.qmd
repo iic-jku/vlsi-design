@@ -1,0 +1,49 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-modeling-noreset
+#| echo: false
+#| fig-cap: "The controller FSM of @sec-sv-fsm without a reset, in the first eight clock cycles after power-up (`start_i` high in cycle 2, `last_i` in cycle 4). In the RTL simulation, the state starts unknown (hatched), but the `default` branch returns it to `StIdle` at the first clock edge, and the outputs never show `x`. Icarus Verilog and Verilator give the same outputs. The gate-level simulation of the synthesized netlist shows `x` until `start_i` forces a known state. With random start values, Verilator shows what the chip can do after power-up: a run that was never started (seed 3) or a `done_o` pulse for it (seed 9)."
+#| fig-alt: "Timing diagram over eight clock cycles. start_i is high in cycle 2, last_i in cycle 4. The RTL state is unknown in cycle 0, then StIdle, StRun in cycles 3 and 4, StDone in cycle 5, and StIdle again. In the RTL, busy_o is high in cycles 3 and 4 and done_o in cycle 5, and both are low in cycle 0. In the gate-level simulation, busy_o is unknown in cycles 0 to 2 and high in cycles 3 and 4, and done_o is unknown in cycle 0 and high in cycle 5. With random start values, busy_o is high from cycle 0 to 4 for seed 3, and done_o is high in cycles 0 and 5 for seed 9."
+import schemdraw as sd
+from schemdraw import logic
+from schemdraw import elements as elm
+from schemdraw.util import Point
+sd.svgconfig.svg2 = False
+
+ncyc = 8
+waves = {'signal': [
+    {'name': 'clk_i', 'wave': '10' * ncyc, 'period': 0.5},
+    {'name': 'start_i', 'wave': '0.10....'},
+    {'name': 'last_i', 'wave': '0...10..'},
+    {'name': 'state_q (RTL)', 'wave': 'x=.=.==.', 'data': ['StIdle', 'StRun', 'StDone', 'StIdle']},
+    {'name': 'busy_o (RTL)', 'wave': '0..1.0..'},
+    {'name': 'done_o (RTL)', 'wave': '0....10.'},
+    {'name': 'busy_o (gate level)', 'wave': 'x..1.0..'},
+    {'name': 'done_o (gate level)', 'wave': 'x0...10.'},
+    {'name': 'busy_o (random, seed 3)', 'wave': '1....0..'},
+    {'name': 'done_o (random, seed 9)', 'wave': '10...10.'},
+], 'config': {'hscale': 1.5}}
+
+period, x0 = 2.1, 0.075   # one clock period in drawing units (1.4 per hscale), start of cycle 0
+with sd.Drawing(canvas='svg') as d:
+    d.config(fontsize=11, lw=1.5, bgcolor='white', margin=0.15)
+    td = logic.TimingDiagram(waves, ygap=0.45, risetime=0.15, yheight=0.7, fontsize=11, namecolor='black',
+                             grid=False)
+    for seg in td.segments:
+        if getattr(seg, 'align', None) == ('right', 'bottom'):   # signal names, onto the wave centers
+            seg.xy = Point((seg.xy[0], seg.xy[1] + 0.2))
+    ybot = 0.5 - 1.15*len(waves['signal'])   # 1.15 = yheight + ygap per row
+    # the edge markers are interrupted at the state names, which sit on the edges
+    ys = next((s.xy[1] for s in td.segments if getattr(s, 'text', None) == 'StIdle'), None)
+    spans = [(0.9, ybot)] if ys is None else [(0.9, ys + 0.42), (ys - 0.42, ybot)]
+    for k in range(1, ncyc):   # rising clock edges between the cycles
+        x = x0 + k*period
+        for y0, y1 in spans:
+            elm.Line().at((x, y0)).to((x, y1)).color('#A6A6A6').linestyle('--').linewidth(1)
+    for k in range(ncyc):      # cycle numbers
+        elm.Label().at((x0 + (k + 0.5)*period, 1.25)).label(f'cycle {k}', color='#595959')
+```
