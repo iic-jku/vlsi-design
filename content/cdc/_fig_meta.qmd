@@ -1,0 +1,36 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-cdc-meta
+#| echo: false
+#| fig-cap: "Clock-to-output delay of `sg13cmos5l_dfrbpq_1` in ngspice, typical corner, with 1.5 fF at each internal node, over the time $\\delta$ by which the rising `D` arrives before the latest arrival that the flip-flop still captures. Every decade closer to that point adds about 198 ps, i.e., $\\tau \\ln 10$ with $\\tau$ = 85.9 ps. Far from the point, the delay approaches its normal value $t_\\text{cq0}$ = 220.4 ps. The line is the fit from $10^{-17}$ to $10^{-14}$ s."
+#| fig-alt: "Line chart with a logarithmic horizontal axis from 1e-18 to 1e-11 seconds and a vertical axis of clock-to-output delay from 0 to 1800 picoseconds. Eight measured points fall on a straight line from 1617 ps at 1e-18 s to 452 ps at 1e-12 s and 297 ps at 1e-11 s, where they bend toward a dashed horizontal line at 220 ps, the normal delay. A straight fit line labeled tau = 85.9 ps runs through the points."
+import math
+import matplotlib.pyplot as plt
+
+delta = [1e-18, 1e-17, 1e-16, 1e-15, 1e-14, 1e-13, 1e-12, 1e-11]
+tcq = [1617.3, 1421.3, 1222.5, 1024.5, 828.0, 635.3, 451.5, 297.3]   # ps
+tau, t0, tw = 85.9, 220.4, 23.5e-12   # ps, ps, s
+
+plt.rcParams.update({'font.size': 10})
+fig, ax = plt.subplots(figsize=(6.5, 3.4))
+xs = [10.0 ** (e / 4) for e in range(-74, -43)]
+ax.plot(xs, [t0 + tau * math.log(tw / (2 * x)) for x in xs], color='#9ecae1',
+        linewidth=2, label=f'fit, $\\tau$ = {tau} ps')
+ax.plot(delta, tcq, 'o', color='#08306b', markersize=6, label='ngspice')
+ax.axhline(t0, color='#666666', linestyle='--', linewidth=1)
+ax.text(2e-18, t0 + 25, f'$t_\\mathrm{{cq0}}$ = {t0} ps', color='#444444')
+ax.set_xscale('log')
+ax.set_xlim(5e-19, 2e-11)
+ax.set_ylim(0, 1800)
+ax.set_xlabel('data arrival before the critical point $\\delta$ (s)')
+ax.set_ylabel('clock-to-output delay (ps)')
+ax.grid(color='#e5e5e5', linewidth=0.8)
+ax.spines[['top', 'right']].set_visible(False)
+ax.legend(frameon=False, loc='upper right')
+fig.tight_layout()
+plt.show()
+```

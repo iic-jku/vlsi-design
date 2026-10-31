@@ -5,6 +5,309 @@ SPDX-License-Identifier: Apache-2.0
 
 # Clock Domains, Metastability, and Resets {#sec-cdc}
 
+So far, every design of this course has had one clock, and static timing analysis checked every path from one register to the next. Real chips have several clocks: a processor clock, the clock of an SPI master outside the chip, 48 MHz for USB, 32.768 kHz for a real-time clock, the sample clock of an ADC. And every input pin is driven by a world that knows nothing about our clock. Wherever a signal crosses from one clock to another, the capturing flip-flop sees its data change at an arbitrary moment, and sooner or later inside its setup and hold window. This chapter measures what happens then, shows how synchronizers make it rare enough, how buses and data streams cross safely, how STA must be told about crossings, and how a reset is released safely.
+
 ::: {.callout-note}
-This chapter will be released later in the semester.
+All code of this chapter is available in the folder [`content/cdc/code`]({{< meta var.url-repo >}}/tree/main/content/cdc/code) of the course repository: the metastability measurement in `meta/`, the synchronizers and their simulation model in `sync/`, a counter that crosses two clock domains in `gray/`, the asynchronous FIFO in `fifo/`, and the reset synchronizer in `reset/`. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (ngspice 47, Yosys 0.70, OpenSTA 3.1.0, Icarus Verilog 14.0) and SG13CMOS5L, in the typical corner unless a corner is named. The script [`scripts/check_cdc.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_cdc.sh) reproduces all of them: run `bash scripts/check_cdc.sh` in the container from the root of the repository.
 :::
+
+For the exercises, clone the course repository into your designs folder once, if you have not done so yet:
+
+```bash
+cd /foss/designs
+git clone https://github.com/iic-jku/vlsi-design.git
+```
+
+In every new terminal, define the path of the typical-corner library and of the ABC constraint file of @sec-synthesis-lib-yosys:
+
+```bash
+LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib
+LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+CONSTR=/foss/designs/vlsi-design/content/synthesis_lib/code
+CONSTR=$CONSTR/synth/abc.constr
+```
+
+## Learning Objectives {#sec-cdc-objectives}
+
+After this chapter, you will be able to:
+
+- tell synchronous from asynchronous clocks, and find the clock domain crossings of a design
+- explain metastability, measure the time constant of a flip-flop, and compute the mean time between failures of a synchronizer
+- synchronize a level and a pulse into another clock domain
+- explain why a bus whose bits can change at the same time cannot cross through one synchronizer per bit, and cross it with Gray code, a handshake, or an asynchronous FIFO
+- simulate clock domain crossings with metastability injection
+- constrain clock domain crossings in SDC
+- release an asynchronous reset synchronously with a reset synchronizer
+
+## Clock Domains {#sec-cdc-domains}
+
+A **clock domain** is the set of registers that one clock drives. Two clocks are **synchronous** if they come from the same source with a known phase relation, e.g., a clock and the clock divided from it by a counter. STA knows their edges and times the paths between them like any other path (@sec-sequential-genclk). Two clocks are **asynchronous** if they come from different sources, e.g., two crystal oscillators, or if their phase relation is unknown. Their phase drifts, so a signal from domain A reaches the registers of domain B at an arbitrary moment relative to `clk_b`. An input from a pin is a crossing as well: the button, the sensor, or the chip outside run in a domain of their own.
+
+A **clock domain crossing** (CDC) is a path that starts at a register of one domain and ends at a register of another. Inside a synchronous design, the setup and hold checks of @sec-sequential-sta guarantee that no flip-flop ever sees its data change inside its window. At a crossing between asynchronous clocks, no check can guarantee that, and every crossing violates the window from time to time.
+
+## Metastability {#sec-cdc-meta}
+
+The master latch of a flip-flop stores its value in two cross-coupled inverters (@sec-sequential-elements). This loop has two stable states, 0 and 1, and an unstable balance point in between, like a ball on the top of a hill. If `D` changes just at the moment the master closes, the loop starts close to the balance point, and the flip-flop is **metastable**. The small voltage difference grows exponentially, with a time constant $\tau$ of the loop, until the loop reaches 0 or 1. The closer the data edge was to the critical moment, the smaller the start difference and the longer it takes. Meanwhile, the output may show a voltage between 0 and 1 or switch late, and two flip-flops behind it may see different values.
+
+The script `meta/dff_meta.py` measures this with ngspice on the transistor netlist of `dfrbpq_1` from the PDK (`libs.ref/sg13cmos5l_stdcell/spice/sg13cmos5l_stdcell.spice`), with a load of 5 fF and edges of 0.15 ns. It moves a rising `D` toward the rising clock edge and finds, by bisection to $10^{-19}$ s, the latest arrival that the flip-flop still captures. Then it moves the data edge away from that critical point by $\delta$, decade by decade, and measures the clock-to-output delay. The netlist of the PDK is the schematic of the cell, without the wiring capacitance of its layout, so the script adds an estimated 1.5 fF to each of its 15 internal nodes:
+
+```bash
+cd /foss/designs/vlsi-design/content/cdc/code/meta
+python3 dff_meta.py
+```
+
+{{< include /content/cdc/_fig_meta.qmd >}}
+
+@fig-cdc-meta shows the result. Without metastability, the clock-to-output delay is $t_\text{cq0}$ = 220.4 ps. Near the critical point, every decade adds about 198 ps. The delay follows
+
+$$t_\text{cq} = t_\text{cq0} + \tau \ln \frac{T_0}{2\delta},$$
+
+with $\tau$ = 85.9 ps and $T_0$ = 23.5 ps from a fit from $10^{-17}$ to $10^{-14}$ s. Farther from the point, the start difference of the latch is no longer small, and the delay approaches its normal value. How good is the estimate of the wiring capacitance? The library gives a clock-to-output delay of 0.202 ns for the same edges and load. With the estimate, $t_\text{cq0}$ is 9 % higher, and the bare schematic (`CPAR=0 python3 dff_meta.py`) gives 190.1 ps, 6 % lower, with $\tau$ = 62.0 ps and $T_0$ = 17.0 ps. The real $\tau$ lies between the two, and the estimate errs on the safe side. Only a netlist extracted from the layout of the cell would give it exactly. Data that arrives by $\delta$ after the critical point behaves about the same way, mirrored: the master latch needs about as long to resolve, but to the old value. So the flip-flop needs more than an additional time $t_r$ whenever the data edge falls into a window of width $T_0 e^{-t_r/\tau}$ around the critical point. To resolve within 1 ns more than $t_\text{cq0}$, the data edge must miss a window of only $2.1 \cdot 10^{-16}$ s, in which light travels 62 nm. But it will hit it sooner or later.
+
+How often? Data that changes $f_\text{data}$ times per second, sampled at $f_\text{clk}$, hits the window with the probability $T_0 e^{-t_r/\tau} f_\text{clk}$ per change. If the flip-flop has the time $t_r$ to resolve before the next flip-flop samples it, the **resolution time**, the **mean time between failures** is
+
+$$\text{MTBF} = \frac{e^{t_r/\tau}}{T_0 \, f_\text{clk} \, f_\text{data}}.$$
+
+$T_0$ and $\tau$ are properties of the flip-flop and its corner, which a circuit simulation or a measurement gives. $T_0$ is a parameter of the law above, not the setup time of the library. The time $t_r$ is what remains of the period after the normal clock-to-output delay, the logic behind the flip-flop, and the setup time of the next one: $t_r = T - t_\text{cq0} - t_\text{logic} - t_\text{su}$. It sits in the exponent, so a few hundred picoseconds more or less change the MTBF by orders of magnitude.
+
+## Synchronizers {#sec-cdc-sync}
+
+A **two-flip-flop synchronizer** gives the first flip-flop almost a whole period to resolve (@fig-cdc-sync). FF1 samples the signal from the other domain and may become metastable. FF2 samples FF1 one period later, and only FF2 drives the logic of the domain. Without logic between them, $t_r = T - t_\text{cq0} - t_\text{su}$. A third flip-flop gives the second one the same resolution time again and multiplies the MTBF by about $e^{(T - t_\text{cq0} - t_\text{su})/\tau}$, not by $e^{T/\tau}$, because the clock-to-output delay of the second and the setup time of the third flip-flop take their share of the period.
+
+{{< include /content/cdc/_fig_sync.qmd >}}
+
+```{.systemverilog filename="sync/rtl/sync_2ff.sv"}
+{{< include /content/cdc/code/sync/rtl/sync_2ff.sv >}}
+```
+
+A synchronizer works only under a few rules:
+
+- **The signal leaves its domain from a register.** Combinational logic in front of FF1 can glitch, and FF1 may capture the glitch.
+- **Nothing but FF2 reads FF1.** Its output, `meta_q`, may be metastable. Logic between the two flip-flops takes time away from $t_r$.
+- **Synchronize a signal once.** Two synchronizers of the same signal may resolve differently, and their outputs then disagree for a cycle.
+- **Keep a level stable long enough.** The destination must sample it at least once, so a level should last longer than a destination period plus the setup and hold window, in practice about 1.5 periods [@Cummings_CDC]. From a fast to a slow domain, a one-cycle pulse can fall between two edges of the slow clock.
+- **Keep FF1 and FF2 close together** in the layout, so that the wire between them takes as little time as possible. Some libraries offer synchronizer cells with a small $\tau$, but SG13CMOS5L does not.
+
+A **pulse synchronizer** solves the problem of the short pulse in the fourth rule. Each pulse in domain A toggles a level, the level crosses through a two-flip-flop synchronizer, and each change of the synchronized level becomes a one-cycle pulse in domain B:
+
+```{.systemverilog filename="sync/rtl/pulse_sync.sv"}
+{{< include /content/cdc/code/sync/rtl/pulse_sync.sv >}}
+```
+
+Each toggled level must then obey the level rule above, so two pulses must be more than about 1.5 destination periods apart. The testbench `sync/tb/tb_pulse_sync.sv` sends 1000 one-cycle pulses from a 10 ns into a 14.3 ns domain, five cycles apart, i.e., 50 ns, well above 1.5 periods of the destination (about 21 ns). All 1000 arrive through `pulse_sync`. A plain synchronizer of the pulse itself, with an edge detector behind it, catches only 699, about 10/14.3 of them, the chance that an edge of `clk_b` falls inside the 10 ns pulse:
+
+```bash
+cd /foss/designs/vlsi-design/content/cdc/code/sync
+iverilog -g2012 -o sim.vvp rtl/pulse_sync.sv rtl/sync_2ff.sv \
+  tb/tb_pulse_sync.sv
+vvp -n sim.vvp
+```
+
+::: {.callout-tip title="Exercise: How Long Until It Fails?"}
+All commands start in the folder `content/cdc/code/meta`.
+
+1. Run the measurement in the slow corner, `python3 dff_meta.py slow`, which takes a few minutes. Compare $t_\text{cq0}$, $\tau$, and $T_0$ with the typical corner. Why does $\tau$ change in this direction?
+2. A signal from another clock domain changes 10 million times per second and is sampled at 250 MHz. Its first flip-flop drives 3 ns of logic in front of the next flip-flop. Compute the MTBF in the typical and in the slow corner. Take $\tau$ and $T_0$ from the measurement, and the clock-to-output delay and the setup time from the library, as STA does: 0.207 ns and 0.127 ns in the typical corner (@tbl-sequential-params). For the slow corner, run `CORNER=slow_1p08V_125C sta -no_init -exit ff.tcl` in `/foss/designs/vlsi-design/content/sequential/code/ff`, and take the larger of the two values of each (`Q` and `D` rising and falling).
+3. Compute the MTBF of a two-flip-flop synchronizer under the same conditions, in both corners.
+4. Is the two-flip-flop synchronizer good enough in the slow corner? By which factor does a third flip-flop raise the MTBF in the slow corner, and to how many years? At which clock frequency would two flip-flops reach an MTBF of 100 years in the slow corner?
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: How Long Until It Fails?" collapse="true"}
+1. In the slow corner (slow transistors, 1.08 V, 125 °C), $t_\text{cq0}$ = 330.7 ps, $\tau$ = 158.7 ps, and $T_0$ = 43.4 ps, against 220.4 ps, 85.9 ps, and 23.5 ps in the typical corner. Near the critical point, each decade adds about 365 ps instead of 198 ps. $\tau$ is the capacitance of the latch loop divided by its transconductance. Slow transistors at a lower supply and a higher temperature deliver less current, so the loop amplifies more slowly.
+2. The library gives 0.305 ns and 0.208 ns in the slow corner. With 3 ns of logic, $t_r = 4 - 0.207 - 3 - 0.127 = 0.666$ ns in the typical corner. The denominator is $23.5\,\text{ps} \cdot 250\,\text{MHz} \cdot 10\,\text{MHz} = 58{,}750$ per second, and $e^{666/85.9} = 2.3 \cdot 10^3$, so the MTBF is 0.040 s. In the slow corner, $t_r = 4 - 0.305 - 3 - 0.208 = 0.487$ ns, the denominator is 108,500 per second, and the MTBF is 0.20 ms. The design fails 25 times per second, or about 5000 times per second in the slow corner.
+3. With a second flip-flop right behind the first, $t_r$ = 3.666 ns in the typical corner, and the MTBF is $5.83 \cdot 10^{13}$ s, i.e., $1.85 \cdot 10^{6}$ years. In the slow corner, $t_r$ = 3.487 ns gives $3.21 \cdot 10^{4}$ s, only 8.9 hours.
+4. No, in the slow corner, each synchronizer fails on average every 9 hours. Even the bare schematic, whose $\tau$ is too small, gives only 8.5 years. A third flip-flop gives the second one the same resolution time of 3.487 ns and multiplies the MTBF by $e^{3487/158.7} = 3.5 \cdot 10^{9}$, to $3.5 \cdot 10^{6}$ years. Two flip-flops reach 100 years only at a period of 5.767 ns, i.e., at 173 MHz instead of 250 MHz. Design synchronizers for the slow corner, where $\tau$ is largest, and for the largest $\tau$ the parasitics allow.
+:::
+
+## Crossing With Several Bits {#sec-cdc-multibit}
+
+A bus whose bits can change at the same time cannot cross through one synchronizer per bit. Each bit resolves on its own, so when several bits change at the same time, the destination can see a mix of old and new bits for a cycle, a value that the source never sent. A binary counter that steps from 7 to 8, i.e., from `0111` to `1000`, changes all four bits and may arrive as any value from 0 to 15. There are three ways out:
+
+- **Gray code** for counters and pointers. Consecutive values differ in exactly one bit, so the destination sees either the old or the new value, never a mix. The Gray code of a binary value $b$ is $g = b \oplus (b \gg 1)$, i.e., `000`, `001`, `011`, `010`, `110`, `111`, `101`, `100` for 0 to 7, and back to binary, bit $i$ is the XOR of all bits of $g$ from bit $i$ upward.
+- A **handshake** for data words that change rarely. The source puts the word on the bus, keeps it stable, and toggles a request, which crosses through a synchronizer. When the destination sees the request, the word has been stable for several cycles, and the destination captures it and toggles an acknowledge back. The source changes the word only after the acknowledge has come back. Only the two control bits cross through synchronizers, at the price of several cycles per word.
+- An **asynchronous FIFO** for data streams (@sec-cdc-fifo).
+
+An RTL simulation cannot show these problems by itself, because metastability is an analog effect that an RTL simulator does not model. The model `sync/sim/sync_2ff_meta.sv` replaces `sync/rtl/sync_2ff.sv` in a testbench. It has the same module name and ports, and it injects metastability: a bit of `d_i` that changed less than 1 ns before the clock edge resolves randomly to its old or its new value. The window is far wider than the real one, so that a crossing bug shows up within a few thousand cycles instead of years. At the end of a simulation, the model reports in how many samples at least one bit took its old value.
+
+::: {.callout-tip title="Exercise: Count Across Clock Domains"}
+All commands start in the folder `content/cdc/code/gray`. The module `rtl/cnt_cross_bin.sv` has a 4-bit counter in domain A that increments in every cycle, and reads it in domain B through one synchronizer per bit. The testbench `tb/tb_cnt_cross.sv` runs domain A at 10 ns and domain B at 13.7 ns for 5000 cycles of domain B, and it reports an error whenever the count in domain B advances by more than 2 in a cycle. The folder holds the reference solution `rtl/cnt_cross_gray.sv`, so move it out of the way first: `cd /foss/designs/vlsi-design/content/cdc/code/gray`, then `mv rtl/cnt_cross_gray.sv cnt_cross_gray_solution.sv`.
+
+1. Simulate `cnt_cross_bin` with `../sync/rtl/sync_2ff.sv` and with the model:
+
+   ```bash
+   iverilog -g2012 -DDUT=cnt_cross_bin -o sim.vvp \
+     rtl/cnt_cross_bin.sv ../sync/rtl/sync_2ff.sv tb/tb_cnt_cross.sv
+   vvp -n sim.vvp
+   iverilog -g2012 -DDUT=cnt_cross_bin -o sim.vvp \
+     rtl/cnt_cross_bin.sv ../sync/sim/sync_2ff_meta.sv \
+     tb/tb_cnt_cross.sv
+   vvp -n sim.vvp
+   ```
+
+   How many errors does each run report, and in how many samples does the model report a bit at its old value? For the first two wrong counts of the second run, find the counter step that FF1 sampled, and which bits took their old and which their new value. Hint: the count advances by 1 or 2 per cycle of domain B.
+2. Draw a block diagram of a counter that crosses in Gray code: the counter and the conversion to Gray code in domain A, the synchronizers, and the conversion back in domain B. Which signals are registers?
+3. Write `rtl/cnt_cross_gray.sv` with the ports of `cnt_cross_bin`, check it with `verilator --lint-only -Wall` on it and `../sync/rtl/sync_2ff.sv`, and simulate it with the model (`-DDUT=cnt_cross_gray`). How many errors remain?
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Count Across Clock Domains" collapse="true"}
+1. With `rtl/sync_2ff.sv`, the testbench reports `5000 cycles of domain B, 0 errors`. In an RTL simulation, every bit that changes at an edge of `clk_a` is sampled consistently by the next edge of `clk_b`, so the binary crossing looks correct. With the model, it reports 224 errors, and in 334 of 5001 samples, at least one bit took its old value. The first wrong counts are 7 after 4 at 90.0 ns, 12 after 14 at 350.4 ns, and 1 after 12 at 364.1 ns. One cycle of domain B earlier, at 335.65 ns, FF1 sampled the counter 0.65 ns after it had stepped from 15 (`1111`) to 0 (`0000`), and all four bits changed. The two upper bits resolved to their old, the two lower ones to their new value, `1100`, i.e., 12, a value the counter had four counts earlier. The count 1 at 364.1 ns is correct again, but it is flagged because it follows the wrong 12. At 90.0 ns, the step from 5 (`0101`) to 6 (`0110`) arrived as `0111`, i.e., 7.
+2. In domain A, the counter `cnt_a_q` and a register `gray_a_q` that holds its Gray code. The register is the source of the synchronizers, so the XOR gates in front of it cannot reach domain B with a glitch. In domain B, the four synchronizers and the combinational conversion back to binary behind them. The Gray register delays the count by one cycle of domain A, which does not matter for a counter that crosses domains.
+3. The reference solution:
+
+```{.systemverilog filename="gray/rtl/cnt_cross_gray.sv"}
+{{< include /content/cdc/code/gray/rtl/cnt_cross_gray.sv >}}
+```
+
+   With the model, no error remains in 5000 cycles, although a bit took its old value in 260 samples. Each of them is one bit of a Gray step, so the count is the old or the new value, which the testbench accepts.
+:::
+
+## The Asynchronous FIFO {#sec-cdc-fifo}
+
+The FIFO of @sec-verification has one clock. Its asynchronous version connects two clock domains: the producer pushes in the write domain, the consumer pops in the read domain (@fig-cdc-async-fifo). The memory is written with the write clock and read with the read clock. Each pointer exists in binary, to address the memory, and in Gray code, in a register, to cross into the other domain [@Cummings_FIFO].
+
+{{< include /content/cdc/_fig_async_fifo.qmd >}}
+
+```{.systemverilog filename="fifo/rtl/async_fifo.sv"}
+{{< include /content/cdc/code/fifo/rtl/async_fifo.sv >}}
+```
+
+As in @sec-verification, the pointers have one bit more than the address. The FIFO is empty when the read pointer equals the write pointer, and full when the write pointer is one lap of `DEPTH` entries ahead of the read pointer. In binary, one lap ahead means the same address with the wrap bit inverted. In Gray code, the codes of $n$ and $n + \text{DEPTH}$ differ in their two upper bits, e.g., `000` and `110` for 0 and 4, hence the inversion in `full_o`.
+
+Each domain computes its flag from its own pointer and the synchronized pointer of the other domain, which lags one to three cycles of its own clock behind. So `full_o` may still be high although the read domain has already freed an entry, and `empty_o` although the write domain has already filled one: the flags are pessimistic, but they are never low when the FIFO is full or empty. With Gray code, the synchronized pointer is always either the old or the new value of the pointer. A binary pointer could arrive as a mix of both for a cycle and make the fill level jump. This FIFO even survives that in simulation, because each side moves at most one entry per cycle and the wrong value lasts only one cycle, but an output with the fill level, an almost-full flag, or a read of several entries at once would fail. Gray pointers rule it out. The memory needs no synchronizer: the read domain reads an entry only after the synchronized write pointer shows that it was written, more than one read clock period after the write, so the entry is stable when it is read. Each domain resets its pointers with a reset from its own reset synchronizer (@sec-cdc-reset), and both domains must be reset together.
+
+The testbench `fifo/tb/tb_async_fifo.sv` runs the write domain at 10 ns and the read domain at 14.3 ns, pushes and pops at random, and checks every popped word against a scoreboard. With the metastability model in place of the synchronizer, it reports `9397 pushed, 9395 popped, 0 errors`, while at least one bit took its old value in 481 of 20,000 samples of the read pointer and in 367 of 13,986 samples of the write pointer:
+
+```bash
+cd /foss/designs/vlsi-design/content/cdc/code/fifo
+iverilog -g2012 -o sim.vvp rtl/async_fifo.sv \
+  ../sync/sim/sync_2ff_meta.sv tb/tb_async_fifo.sv
+vvp -n sim.vvp
+```
+
+## Constraints for Clock Domain Crossings {#sec-cdc-sdc}
+
+The constraints of `async_fifo` define one clock per domain, and the ports of each domain refer to their own clock:
+
+```{.default filename="fifo/syn/async_fifo.sdc"}
+{{< include /content/cdc/code/fifo/syn/async_fifo.sdc >}}
+```
+
+Without further constraints, STA treats two clocks as synchronous. It searches the edges of both clocks over their common period, here 1430 ns, for the tightest pair. Synthesized as in the earlier chapters (134 cells, 3979 µm²), `async_fifo` gives this report:
+
+```bash
+cd /foss/designs/vlsi-design/content/cdc/code/fifo
+yosys -p "read_verilog -sv ../sync/rtl/sync_2ff.sv \
+  rtl/async_fifo.sv; synth -top async_fifo; flatten; \
+  dfflibmap -liberty $LIB; abc -constr $CONSTR -liberty $LIB; \
+  opt_clean; stat -liberty $LIB; \
+  write_verilog -noattr async_fifo.nl.v"
+sta -no_init -exit syn/sta.tcl
+```
+
+The worst path of the group `rclk` runs from a memory flip-flop, launched by `wclk` at 100.0 ns, to `data_o[0]`, captured by `rclk` at 100.1 ns, and fails with a slack of -1.414 ns. The worst path of the group `wclk` ends at a synchronizer flip-flop of the read pointer and fails with -0.382 ns. Both are meaningless: the clocks have no fixed phase, the edges come arbitrarily close to each other anyway, and the synchronizers and the protocol of the FIFO take care of it.
+
+`set_clock_groups -asynchronous` tells STA that the clocks are unrelated, and it then times no path between them:
+
+```
+set_clock_groups -asynchronous -group wclk -group rclk
+```
+
+With `CDC=1 sta -no_init -exit syn/sta.tcl`, the script adds this line, the crossing paths disappear (`No paths found`), and the worst slacks are 12.488 ns in `rclk` and 8.171 ns in `wclk`. The constraint hides every crossing, including one without a synchronizer, so STA cannot check crossings at all. Commercial CDC tools check the structure of every crossing. In the open-source flow, design rules do the job: every crossing goes through one of a few synchronizer modules, such as `sync_2ff`. A search for their instances finds the synchronizers, but not a crossing without one. For that, list the endpoints of all crossing paths before the clock groups hide them:
+
+```
+report_checks -from [get_clocks wclk] -to [get_clocks rclk] \
+  -group_path_count 100 -endpoint_path_count 1 -format end
+```
+
+Together with the other direction, `async_fifo` has 14 such endpoints: the 8 outputs `data_o`, which the protocol of the FIFO protects, and the 6 first flip-flops of the two synchronizers. Any other endpoint would be a crossing without a synchronizer.
+
+A stricter alternative limits the delay of every crossing path instead of removing it, so that the bits of a Gray pointer arrive within one period of their source clock of each other, and the memory data within less than a read period, before the read domain can use the entry:
+
+```
+set_max_delay 10.0 -ignore_clock_latency \
+  -from [get_clocks wclk] -to [get_clocks rclk]
+set_max_delay 10.0 -ignore_clock_latency \
+  -from [get_clocks rclk] -to [get_clocks wclk]
+set_false_path -hold -from [get_clocks wclk] -to [get_clocks rclk]
+set_false_path -hold -from [get_clocks rclk] -to [get_clocks wclk]
+```
+
+The limit of 10 ns is the period of the write clock, the source of the write pointer, which is the tighter case. `-ignore_clock_latency` leaves the clock latencies out of the limit, which after clock tree synthesis differ between the two unrelated clock trees, and it changes nothing for ideal clocks. With `CDC=2 sta -no_init -exit syn/sta.tcl`, the script uses these lines instead of the clock groups. OpenSTA reports the crossing paths in the path group `path delay`, the path to `data_o[0]` with a slack of 8.586 ns against the limit of 10 ns. Without the two false paths, it would still check hold between the clocks, which means as little as the setup checks before.
+
+## Resets {#sec-cdc-reset}
+
+The asynchronous reset of our designs (@sec-sv-registers) acts at once, without a clock. Asserting it at any moment is safe: every flip-flop goes into reset. Releasing it is a crossing. The reset comes from a pin or from a power-on-reset circuit, which holds the reset low until the supply has settled, asynchronous to the clock, and when its release falls into the window of the recovery and removal checks (@sec-sequential-params), some flip-flops leave the reset at one clock edge and others one edge later. The design then starts in a state that the RTL never reaches.
+
+A **reset synchronizer** asserts the reset of a clock domain at once, asynchronously, and releases it synchronously, at a clock edge. Its output drives the reset inputs of all registers of the domain, so that they all leave the reset at the same clock edge. Every clock domain needs its own reset synchronizer. The reset input itself must be free of glitches, because even a short pulse resets the design asynchronously. A chip therefore takes it from a power-on-reset circuit or from a filtered pin, whose input stage ignores pulses shorter than a set time.
+
+::: {.callout-tip title="Exercise: Release the Reset"}
+All commands start in the folder `content/cdc/code/reset`. It holds the reference solution `rtl/rst_sync.sv`, so move it out of the way first: `cd /foss/designs/vlsi-design/content/cdc/code/reset`, then `mv rtl/rst_sync.sv rst_sync_solution.sv`.
+
+1. Draw the reset synchronizer with the ports `clk_i`, `rst_ni`, and `rst_no`, and a timing diagram of `clk_i`, `rst_ni`, the internal flip-flop, and `rst_no` for a reset that falls between two clock edges and rises shortly before a rising edge. Hint: start from `sync_2ff`. What must the first flip-flop load after the release?
+2. Write `rtl/rst_sync.sv`, check it with `verilator --lint-only -Wall rtl/rst_sync.sv`, and simulate it with the testbench:
+
+   ```bash
+   iverilog -g2012 -o sim.vvp rtl/rst_sync.sv tb/tb_rst_sync.sv
+   vvp -n sim.vvp
+   ```
+
+   When does `rst_no` rise after the release, and how many errors does the testbench report?
+3. The module `rtl/bs_reg_rs.sv` puts your synchronizer in front of the barrel shifter between two registers of @sec-sequential-opensta. Synthesize it and run the timing script with the constraints of `bs_reg` (@sec-sequential-sdc):
+
+   ```bash
+   yosys -p "read_verilog -sv \
+     ../../../verification/code/barrel_shift/rtl/barrel_shift.sv \
+     ../../../sequential/code/bs_reg/rtl/bs_reg.sv \
+     rtl/rst_sync.sv rtl/bs_reg_rs.sv; synth -top bs_reg_rs; \
+     flatten; dfflibmap -liberty $LIB; \
+     abc -constr $CONSTR -liberty $LIB; opt_clean; \
+     stat -liberty $LIB; write_verilog -noattr bs_reg_rs.nl.v"
+   sta -no_init -exit syn/sta.tcl
+   ```
+
+   What is the slack of the worst recovery path now? How long does its startpoint need to drive its load, compared with the clock-to-output delay in @tbl-sequential-params, and what does that do to the recovery time? Compare the minimum periods with those of `bs_reg` in @sec-sequential-opensta. What does `report_check_types` report, and why did synthesis not fix it?
+4. Which checks does STA still make on the input `rst_ni`, and do they mean anything? The script reports them at its end. Copy `syn/bs_reg_rs.sdc` to `syn/bs_reg_rs_rst.sdc`, add the constraint that fits, and run `SDC=syn/bs_reg_rs_rst.sdc sta -no_init -exit syn/sta.tcl`. Which checks remain in the group `asynchronous`, and does the minimum period change?
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Release the Reset" collapse="true"}
+1. The circuit (@fig-cdc-rst-sync) and its timing (@fig-cdc-rst-timing):
+
+{{< include /content/cdc/_fig_rst_sync.qmd >}}
+
+{{< include /content/cdc/_fig_rst_timing.qmd >}}
+
+2. The reference solution:
+
+```{.systemverilog filename="reset/rtl/rst_sync.sv"}
+{{< include /content/cdc/code/reset/rtl/rst_sync.sv >}}
+```
+
+The testbench prints that `rst_no` is low 0.1 ns after `rst_ni` falls at 42 ns, between two clock edges, and that after the release at 64.8 ns, 0.2 ns before the edge at 65 ns, `rst_no` rises at 75 ns, the second rising edge after the release, with 0 errors.
+
+3. `bs_reg_rs` has 927 cells, 15,343 µm², and 73 flip-flops, two more than `bs_reg`. The worst recovery path now starts at the second flip-flop of the synchronizer, whose output drives the `RESET_B` pins of all 71 registers. The flip-flop needs 1.375 ns for that, against its normal 0.207 ns. The slew of 1.721 ns raises the recovery time to 0.451 ns, and the slack is 2.074 ns. The release of the reset is now a path between two registers of the same clock, and `report_clock_min_period` includes it: $1.375 + 0.451 + 0.1 = 1.93$ ns (519 MHz), with and without the port paths. In `bs_reg`, the paths between the registers needed 1.69 ns, and the reset input with its input delay limited the block to 2.02 ns. `report_check_types` reports the output of the synchronizer flip-flop with 0.43 pF against a limit of 0.30 pF. The load lies beyond the last index of the tables, so the delay and the slew above are extrapolated (@sec-synthesis-lib-delay). ABC buffers only the logic it maps, and this net runs from a flip-flop straight to flip-flops. The layout flow buffers it like any net with a large fanout (@sec-digital-flow).
+4. STA still checks the recovery and the removal of the two synchronizer flip-flops against `rst_ni` with its input delay of 1 ns, with slacks of 2.768 and 1.007 ns. These checks mean nothing: the release of `rst_ni` is asynchronous, and violating the recovery time of the first flip-flop is exactly the case that the synchronizer handles. The second flip-flop loads the 0 of the first one at the first edge after the release, so its output is the same whether it leaves the reset at this edge or the next. The constraint is a false path:
+
+```
+set_false_path -from [get_ports rst_ni]
+```
+
+   With it, STA finds no path from `rst_ni` anymore, the remaining checks of the group `asynchronous` all start at the synchronizer, with a worst removal slack of 1.341 ns, and the minimum period stays at 1.93 ns.
+:::
+
+## Summary {#sec-cdc-summary}
+
+- Registers driven by one clock form a clock domain. Paths between asynchronous clocks, and from input pins, cross domains, and STA cannot check them.
+- A flip-flop whose data changes inside its window becomes metastable and resolves with the time constant $\tau$. In ngspice, with an estimate of its wiring capacitance, `dfrbpq_1` has $\tau$ = 85.9 ps and $T_0$ = 23.5 ps in the typical corner. The MTBF $e^{t_r/\tau}/(T_0 f_\text{clk} f_\text{data})$ depends exponentially on the resolution time, so design for the slow corner.
+- A two-flip-flop synchronizer gives the first flip-flop a period to resolve. It needs a register in the source domain, no logic between the flip-flops, and one synchronizer per signal. A third flip-flop multiplies the MTBF by about $e^{(T - t_\text{cq0} - t_\text{su})/\tau}$. A pulse crosses as a toggled level.
+- A bus whose bits can change at the same time cannot cross through one synchronizer per bit. Counters and pointers cross in Gray code, rare data words with a handshake, data streams through an asynchronous FIFO with Gray pointers, whose flags may be pessimistic but are never low when the FIFO is full or empty.
+- RTL simulation does not show metastability. A synchronizer model with metastability injection makes crossing bugs visible.
+- STA needs `set_clock_groups -asynchronous` or `set_max_delay -ignore_clock_latency` for the paths between asynchronous clocks, and the structure of the crossings must be checked by review or a CDC tool.
+- A reset synchronizer asserts the reset asynchronously and releases it synchronously, one per clock domain, and the input reset is a false path.
+
+In @sec-dft, the design gets scan chains, and the clock domains and synchronizers of this chapter need special care in test mode.

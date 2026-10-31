@@ -1,0 +1,88 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-cdc-async-fifo
+#| echo: false
+#| fig-cap: "The asynchronous FIFO. The write domain writes the memory at its binary write pointer, the read domain reads it at its binary read pointer. Each pointer also exists in Gray code, in a register, and crosses into the other domain through a two-flip-flop synchronizer. The write domain compares its own pointer with the synchronized read pointer to decide whether the FIFO is full, the read domain compares its pointer with the synchronized write pointer to decide whether it is empty."
+#| fig-alt: "Block diagram split by a vertical dashed line into the write domain on the left, clocked by wclk, and the read domain on the right, clocked by rclk. A memory block straddles the line, with data_i entering from the left and data_o leaving to the right. Below it, the write pointer block (binary and Gray) on the left drives the write address of the memory, and the read pointer block on the right drives the read address. The Gray write pointer crosses the line into a synchronizer in the read domain, whose output enters an empty comparator together with the Gray read pointer. The Gray read pointer crosses into a synchronizer in the write domain, whose output enters a full comparator together with the Gray write pointer. push_i enters the write pointer, pop_i the read pointer, full_o and empty_o leave the comparators."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+GREEN, GREEN_L = '#82b366', '#d5e8d4'
+ORANGE, ORANGE_L = '#d79b00', '#ffe6cc'
+GREY = '#666666'
+
+
+def box(x, y, w, h, text, fill=BLUE_L, color=BLUE):
+    return flow.Box(w=w, h=h).at((x, y)).anchor('center').fill(fill).color(color) \
+        .label(text, color='black')
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
+    xm = 6.0   # the domain boundary
+    mem = box(xm, 3.2, 3.0, 1.3, 'memory\nDEPTH x WIDTH', fill=GREEN_L, color=GREEN)
+    flow.Arrow().at((0.0, 3.2)).to(mem.W)
+    elm.Label().at((0.0, 3.5)).label('data_i', halign='left', color='black')
+    flow.Arrow().at(mem.E).to((12.0, 3.2))
+    elm.Label().at((12.0, 3.5)).label('data_o', halign='right', color='black')
+
+    wp = box(3.0, 0.8, 2.6, 1.2, 'write pointer\nbinary, Gray')
+    rp = box(9.0, 0.8, 2.6, 1.2, 'read pointer\nbinary, Gray')
+    flow.Arrow().at(wp.N).to((wp.N[0], 2.0)).color(GREY)
+    flow.Line().at((wp.N[0], 2.0)).to((mem.S[0] - 0.8, 2.0)).color(GREY)
+    flow.Arrow().at((mem.S[0] - 0.8, 2.0)).to((mem.S[0] - 0.8, mem.S[1])).color(GREY)
+    flow.Arrow().at(rp.N).to((rp.N[0], 2.0)).color(GREY)
+    flow.Line().at((rp.N[0], 2.0)).to((mem.S[0] + 0.8, 2.0)).color(GREY)
+    flow.Arrow().at((mem.S[0] + 0.8, 2.0)).to((mem.S[0] + 0.8, mem.S[1])).color(GREY)
+    elm.Label().at((mem.S[0] - 1.6, 2.25)).label('address', color=GREY)
+    elm.Label().at((mem.S[0] + 1.6, 2.25)).label('address', color=GREY)
+    flow.Arrow().at((0.0, 0.8)).to(wp.W)
+    elm.Label().at((0.0, 1.25)).label('push_i', halign='left', color='black')
+    flow.Arrow().at((12.0, 0.8)).to(rp.E)
+    elm.Label().at((12.0, 1.25)).label('pop_i', halign='right', color='black')
+
+    # Gray pointers cross through the synchronizers
+    sw = box(8.0, -1.2, 1.6, 0.9, 'sync_2ff', fill=ORANGE_L, color=ORANGE)
+    sr = box(4.0, -2.6, 1.6, 0.9, 'sync_2ff', fill=ORANGE_L, color=ORANGE)
+    ce = box(11.0, -2.6, 1.4, 0.9, 'empty?', fill='white', color=BLUE)
+    cf = box(1.8, -1.2, 1.4, 0.9, 'full?', fill='white', color=BLUE)
+    # write Gray pointer: to the read-domain synchronizer and to full?
+    xw = wp.S[0] + 0.6
+    flow.Line().at((xw, wp.S[1])).to((xw, -1.2)).color(BLUE)
+    flow.Arrow().at((xw, -1.2)).to(cf.E).color(BLUE)
+    elm.Dot(radius=0.06).at((xw, -0.4)).color(BLUE)
+    flow.Line().at((xw, -0.4)).to((sw.W[0] - 0.4, -0.4)).color(BLUE)
+    flow.Line().at((sw.W[0] - 0.4, -0.4)).to((sw.W[0] - 0.4, -1.2)).color(BLUE)
+    flow.Arrow().at((sw.W[0] - 0.4, -1.2)).to(sw.W).color(BLUE)
+    flow.Line().at(sw.E).to((ce.N[0], -1.2)).color(BLUE)
+    flow.Arrow().at((ce.N[0], -1.2)).to(ce.N).color(BLUE)
+    # read Gray pointer: to the write-domain synchronizer and to empty?
+    xr = rp.S[0] + 0.6
+    flow.Line().at((xr, rp.S[1])).to((xr, -2.6)).color(BLUE)
+    flow.Arrow().at((xr, -2.6)).to(ce.W).color(BLUE)
+    elm.Dot(radius=0.06).at((xr, -3.4)).color(BLUE)
+    flow.Line().at((xr, -2.6)).to((xr, -3.4)).color(BLUE)
+    flow.Line().at((xr, -3.4)).to((sr.E[0] + 0.4, -3.4)).color(BLUE)
+    flow.Line().at((sr.E[0] + 0.4, -3.4)).to((sr.E[0] + 0.4, -2.6)).color(BLUE)
+    flow.Arrow().at((sr.E[0] + 0.4, -2.6)).to(sr.E).color(BLUE)
+    flow.Line().at(sr.W).to((cf.S[0], -2.6)).color(BLUE)
+    flow.Arrow().at((cf.S[0], -2.6)).to(cf.S).color(BLUE)
+    elm.Label().at((6.15, -0.15)).label('Gray write pointer', halign='left', color=BLUE)
+    elm.Label().at((6.15, -3.15)).label('Gray read pointer', halign='left', color=BLUE)
+    flow.Arrow().at(cf.W).to((-0.6, -1.2))
+    elm.Label().at((-0.6, -0.75)).label('full_o', halign='left', color='black')
+    flow.Arrow().at(ce.E).to((13.0, -2.6))
+    elm.Label().at((13.0, -2.15)).label('empty_o', halign='right', color='black')
+
+    elm.Line().at((xm, 4.6)).to((xm, mem.N[1])).color(GREY).linestyle('--').linewidth(1)
+    elm.Line().at((xm, mem.S[1])).to((xm, -4.0)).color(GREY).linestyle('--').linewidth(1)
+    elm.Label().at((xm - 1.6, 4.5)).label('write domain, wclk', color=GREY)
+    elm.Label().at((xm + 1.6, 4.5)).label('read domain, rclk', color=GREY)
+```

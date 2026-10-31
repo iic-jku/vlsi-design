@@ -1,0 +1,60 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-cdc-rst-sync
+#| echo: false
+#| fig-cap: "The reset synchronizer: two flip-flops with an asynchronous reset. `rst_ni` resets both at once. After its release, the first flip-flop loads the constant 1 at the next rising edge of `clk_i`, possibly metastable, and the second one passes it on one period later, as `rst_no` for all registers of the clock domain."
+#| fig-alt: "Circuit with two flip-flops in a row. The D input of the first flip-flop is tied to 1, and its output meta_q drives D of the second, whose output is rst_no. clk_i drives both clock inputs, and rst_ni drives both asynchronous reset inputs from below."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+ORANGE = '#d79b00'
+RED, GREY = '#b85450', '#666666'
+W, H = 1.4, 2.0
+
+
+def register(xl, name, fill=BLUE_L, color=BLUE):
+    ''' Flip-flop with asynchronous reset, left edge at xl: (D, Q, CLK, RESET_B) '''
+    flow.Box(w=W, h=H).at((xl + W/2, 0)).anchor('center').fill(fill).color(color)
+    yd, yc = 0.45, -0.45
+    flow.Line().at((xl, yc + 0.2)).to((xl + 0.3, yc)).color('black')
+    flow.Line().at((xl + 0.3, yc)).to((xl, yc - 0.2)).color('black')
+    elm.Label().at((xl + 0.25, yd)).label('D', color='black')
+    elm.Label().at((xl + W - 0.25, yd)).label('Q', color='black')
+    elm.Label().at((xl + W/2, -H/2 + 0.3)).label('R', color='black')
+    elm.Dot(radius=0.08, open=True).at((xl + W/2, -H/2 - 0.08))
+    elm.Label().at((xl + W/2, H/2 + 0.35)).label(name, color='black')
+    return (xl, yd), (xl + W, yd), (xl, yc), (xl + W/2, -H/2 - 0.16)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
+    d1, q1, c1, r1 = register(1.6, 'FF1', fill='#ffe6cc', color=ORANGE)
+    d2, q2, c2, r2 = register(5.0, 'FF2')
+    elm.Label().at((0.3, d1[1])).label("1'b1", halign='left', color='black')
+    flow.Arrow().at((0.9, d1[1])).to(d1)
+    flow.Arrow().at(q1).to(d2)
+    elm.Label().at(((q1[0] + d2[0])/2, q1[1] + 0.3)).label('meta_q', color=ORANGE)
+    flow.Arrow().at(q2).to((8.4, q2[1]))
+    elm.Label().at((8.5, q2[1])).label('rst_no', halign='left', color='black')
+    yk = -1.9
+    elm.Label().at((0.0, yk + 0.3)).label('clk_i', halign='left', color='black')
+    flow.Line().at((0.0, yk)).to((4.4, yk)).color(RED)
+    flow.Line().at((1.0, yk)).to((1.0, c1[1])).color(RED)
+    flow.Arrow().at((1.0, c1[1])).to(c1).color(RED)
+    elm.Dot(radius=0.06).at((1.0, yk)).color(RED)
+    flow.Line().at((4.4, yk)).to((4.4, c2[1])).color(RED)
+    flow.Arrow().at((4.4, c2[1])).to(c2).color(RED)
+    yr = -2.7
+    elm.Label().at((0.0, yr + 0.3)).label('rst_ni', halign='left', color='black')
+    flow.Line().at((0.0, yr)).to((r2[0], yr))
+    flow.Arrow().at((r1[0], yr)).to(r1)
+    elm.Dot(radius=0.06).at((r1[0], yr))
+    flow.Arrow().at((r2[0], yr)).to(r2)
+```

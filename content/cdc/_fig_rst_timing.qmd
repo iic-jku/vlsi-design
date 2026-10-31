@@ -1,0 +1,52 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-cdc-rst-timing
+#| echo: false
+#| fig-cap: "Timing of the reset synchronizer. `rst_ni` falls between two clock edges, and `meta_q` and `rst_no` fall at once. `rst_ni` rises within the recovery time before a rising edge (dashed), so `meta_q` may become metastable (crossed). Here it settles to 1, and `rst_no` rises one period later. If it settled to 0, `rst_no` would rise one period later still, again at a clock edge for all registers of the domain."
+#| fig-alt: "Timing diagram over six clock periods with four rows: clk_i, rst_ni, meta_q and rst_no. rst_ni falls in the middle of the second period, and meta_q and rst_no fall at the same moment. rst_ni rises just before the fifth rising edge. meta_q is unknown right after that edge and then high. rst_no rises at the sixth rising edge."
+import schemdraw as sd
+from schemdraw import logic
+from schemdraw import elements as elm
+from schemdraw.util import Point
+sd.svgconfig.svg2 = False
+
+E = 8   # time steps per clock period
+T = 6*E
+rst = [0 if 10 <= t < 31 else 1 for t in range(T)]
+meta = ['1' if t < 10 else '0' if t < 32 else 'x' if t < 34 else '1' for t in range(T)]
+out = [1 if t < 10 else 0 if t < 40 else 1 for t in range(T)]
+
+
+def wave(values):
+    ''' One wavedrom character per time step, '.' while the value stays '''
+    s, prev = '', None
+    for v in values:
+        s += '.' if str(v) == prev else str(v)
+        prev = str(v)
+    return s
+
+
+waves = {'signal': [
+    {'name': 'clk_i', 'wave': 'P.....'},
+    {'name': 'rst_ni', 'wave': wave(rst), 'period': 1/E},
+    {'name': 'meta_q', 'wave': wave(meta), 'period': 1/E},
+    {'name': 'rst_no', 'wave': wave(out), 'period': 1/E},
+], 'config': {'hscale': 2}}
+
+period, x0 = 3.2, 0.075   # one clock period in drawing units, first rising edge
+
+with sd.Drawing(canvas='svg') as dr:
+    dr.config(fontsize=11, lw=1.5, bgcolor='white', margin=0.15)
+    td = logic.TimingDiagram(waves, ygap=0.5, risetime=0.1, yheight=0.8, fontsize=11, namecolor='black',
+                             grid=False)
+    for seg in td.segments:
+        if getattr(seg, 'align', None) == ('right', 'bottom'):   # signal names, onto the wave centers
+            seg.xy = Point((seg.xy[0], seg.xy[1] + 0.2))
+    for k in (4, 5):   # the edges that release the reset
+        x = x0 + k*period
+        elm.Line().at((x, 1.0)).to((x, -4.1)).color('#A6A6A6').linestyle('--').linewidth(1)
+```

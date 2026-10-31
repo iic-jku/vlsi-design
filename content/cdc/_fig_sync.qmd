@@ -1,0 +1,69 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-cdc-sync
+#| echo: false
+#| fig-cap: "A two-flip-flop synchronizer. The signal leaves domain A from a register, so it is free of glitches. In domain B, FF1 samples it at an arbitrary moment and may become metastable. FF2 samples FF1 one period of `clk_b` later, so FF1 has almost a whole period to resolve. Only the output of FF2 reaches the logic of domain B."
+#| fig-alt: "Block diagram split by a vertical dashed line into domain A on the left and domain B on the right. In domain A, a register clocked by clk_a drives a wire across the line to flip-flop FF1, clocked by clk_b, whose output is labeled may be metastable. FF1 drives flip-flop FF2, also clocked by clk_b, and FF2 drives a logic block of domain B. A bracket between FF1 and FF2 says one period to resolve."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+GREEN, GREEN_L = '#82b366', '#d5e8d4'
+RED, ORANGE, GREY = '#b85450', '#d79b00', '#666666'
+W, H = 1.3, 1.8   # register box
+
+
+def register(xl, name, fill=BLUE_L, color=BLUE):
+    ''' Register box with its left edge at xl, returns (D, Q, clock pin) '''
+    flow.Box(w=W, h=H).at((xl + W/2, 0)).anchor('center').fill(fill).color(color)
+    yd, yc = 0.4, -0.5
+    flow.Line().at((xl, yc + 0.2)).to((xl + 0.3, yc)).color('black')
+    flow.Line().at((xl + 0.3, yc)).to((xl, yc - 0.2)).color('black')
+    elm.Label().at((xl + 0.25, yd)).label('D', color='black')
+    elm.Label().at((xl + W - 0.25, yd)).label('Q', color='black')
+    elm.Label().at((xl + W/2, H/2 + 0.35)).label(name, color='black')
+    return (xl, yd), (xl + W, yd), (xl, yc)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
+    da, qa, ca = register(0.8, 'register')
+    d1, q1, c1 = register(5.0, 'FF1', fill='#ffe6cc', color=ORANGE)
+    d2, q2, c2 = register(8.4, 'FF2')
+    flow.Arrow().at((0.0, da[1])).to(da)
+    flow.Arrow().at(qa).to(d1)
+    flow.Arrow().at(q1).to(d2)
+    lg = flow.Box(w=2.0, h=1.2).at((13.0, q2[1])).anchor('center').fill(GREEN_L).color(GREEN) \
+        .label('logic of\ndomain B', color='black')
+    flow.Arrow().at(q2).to(lg.W)
+    elm.Label().at(((q1[0] + d2[0])/2, q1[1] + 0.95)).label('may be\nmetastable', color=ORANGE)
+    # the domain boundary
+    elm.Line().at((3.6, 2.1)).to((3.6, -2.6)).color(GREY).linestyle('--').linewidth(1)
+    elm.Label().at((1.9, 2.0)).label('domain A', color=GREY)
+    elm.Label().at((5.6, 2.0)).label('domain B', color=GREY)
+    # clocks
+    yk = -2.0
+    elm.Label().at((0.0, yk - 0.3)).label('clk_a', halign='left', color='black')
+    flow.Line().at((0.0, yk)).to((0.4, yk)).color(RED)
+    flow.Line().at((0.4, yk)).to((0.4, ca[1])).color(RED)
+    flow.Arrow().at((0.4, ca[1])).to(ca).color(RED)
+    elm.Label().at((3.8, yk - 0.3)).label('clk_b', halign='left', color='black')
+    flow.Line().at((4.0, yk)).to((8.0, yk)).color(RED)
+    flow.Line().at((4.6, yk)).to((4.6, c1[1])).color(RED)
+    flow.Arrow().at((4.6, c1[1])).to(c1).color(RED)
+    elm.Dot(radius=0.06).at((4.6, yk)).color(RED)
+    flow.Line().at((8.0, yk)).to((8.0, c2[1])).color(RED)
+    flow.Arrow().at((8.0, c2[1])).to(c2).color(RED)
+    # one period to resolve
+    yb = -2.6
+    elm.Line().at((q1[0], yb + 0.15)).to((q1[0], yb - 0.15)).color(GREY)
+    elm.Line().at((d2[0], yb + 0.15)).to((d2[0], yb - 0.15)).color(GREY)
+    elm.Line().at((q1[0], yb)).to((d2[0], yb)).color(GREY)
+    elm.Label().at(((q1[0] + d2[0])/2, yb - 0.5)).label('one period to resolve', color=GREY)
+```
