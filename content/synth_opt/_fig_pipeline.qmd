@@ -1,0 +1,102 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-synth-opt-pipeline
+#| echo: false
+#| fig-cap: "(a) Pipelining: a register in the middle of the logic halves the longest path between two registers, and the operand `x`, which enters the second half, needs a pipeline register as well. The result appears one clock cycle later. (b) Retiming: the register R2 moves backwards across the logic block B, and the longest path shrinks from 3 to 2 ns, while the function at the outputs stays the same. The delays are examples, without the clock-to-output delay and the setup time."
+#| fig-alt: "Four rows of block diagrams with registers as narrow blue boxes and logic as green boxes. Row a, before: register R1 drives logic A (2 ns) and logic B (2 ns) in series into register R2, and an operand x from a second input register enters B, longest path 4 ns. Row a, after: a pipeline register sits between A and B, and x passes through its own pipeline register before B, longest path 2 ns, one more cycle of latency. Row b, before: R1, logic A (2 ns), logic B (1 ns), register R2, logic C (1 ns), register R3, longest path 3 ns. Row b, after: R1, logic A (2 ns), register R2, logic B (1 ns), logic C (1 ns), register R3, longest path 2 ns."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+GREEN, GREEN_L = '#82b366', '#d5e8d4'
+RW, RH = 0.45, 1.3    # register box
+LH = 0.9              # logic box height
+
+
+def reg(x, y, name='', color=BLUE, fill=BLUE_L):
+    ''' Register centered at (x, y), returns (input, output) '''
+    flow.Box(w=RW, h=RH).at((x, y)).anchor('center').fill(fill).color(color)
+    xl, yb = x - RW/2, y - RH/2
+    flow.Line().at((xl, yb + 0.35)).to((xl + 0.15, yb + 0.25)).color('black')
+    flow.Line().at((xl + 0.15, yb + 0.25)).to((xl, yb + 0.15)).color('black')
+    if name:
+        elm.Label().at((x, y + RH/2 + 0.38)).label(name, color='black')
+    return (xl, y), (x + RW/2, y)
+
+
+def logic(x, y, w, text):
+    ''' Logic block with its left edge at x, returns (input, output) '''
+    flow.Box(w=w, h=LH).at((x + w/2, y)).anchor('center').fill(GREEN_L).color(GREEN) \
+        .label(text, color='black')
+    return (x, y), (x + w, y)
+
+
+def chain(y, items):
+    ''' Draw registers ('R', name) and logic ('L', width, text) left to right '''
+    x, prev = 0.6, None
+    for it in items:
+        if it[0] == 'R':
+            x += RW/2
+            i, o = reg(x, y, it[1], *(it[2:] if len(it) > 2 else ()))
+            x += RW/2
+        else:
+            i, o = logic(x, y, it[1], it[2])
+            x += it[1]
+        if prev is None:
+            flow.Arrow().at((0, y)).to(i)
+        else:
+            flow.Arrow().at(prev).to(i)
+        prev = o
+        x += 0.6
+    flow.Arrow().at(prev).to((prev[0] + 0.5, y))
+    return x
+
+
+def side(y, text):
+    elm.Label().at((12.2, y)).label(text, halign='left', color='black')
+
+
+PIPE = ('#b85450', '#f8cecc')   # pipeline register, red
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    elm.Label().at((-0.5, 1.4)).label('(a)', halign='left', color='black')
+    y = 0
+    chain(y, [('R', 'R1'), ('L', 2.6, 'A\n2 ns'), ('L', 2.6, 'B\n2 ns'), ('R', 'R2')])
+    i, o = reg(0.6 + RW/2, y - 1.8)
+    flow.Arrow().at((0, y - 1.8)).to(i)
+    elm.Label().at((-0.25, y - 1.8)).label('x', color='black')
+    xb = 0.6 + RW + 0.6 + 2.6 + 0.6 + 1.3
+    flow.Line().at(o).to((xb, y - 1.8))
+    flow.Arrow().at((xb, y - 1.8)).to((xb, y - LH/2))
+    side(y, 'longest path 4 ns')
+
+    y = -4.2
+    chain(y, [('R', 'R1'), ('L', 2.6, 'A\n2 ns'), ('R', '', *PIPE), ('L', 2.6, 'B\n2 ns'),
+              ('R', 'R2')])
+    i, o = reg(0.6 + RW/2, y - 1.8)
+    flow.Arrow().at((0, y - 1.8)).to(i)
+    elm.Label().at((-0.25, y - 1.8)).label('x', color='black')
+    xp = 0.6 + RW + 0.6 + 2.6 + 0.6 + RW/2
+    i2, o2 = reg(xp, y - 1.8, '', *PIPE)
+    flow.Arrow().at(o).to(i2)
+    xb = xp + RW/2 + 0.6 + 1.3
+    flow.Line().at(o2).to((xb, y - 1.8))
+    flow.Arrow().at((xb, y - 1.8)).to((xb, y - LH/2))
+    side(y, 'longest path 2 ns,\none cycle more latency')
+
+    elm.Label().at((-0.5, -7.4)).label('(b)', halign='left', color='black')
+    y = -8.8
+    chain(y, [('R', 'R1'), ('L', 2.6, 'A\n2 ns'), ('L', 1.6, 'B\n1 ns'), ('R', 'R2'),
+              ('L', 1.6, 'C\n1 ns'), ('R', 'R3')])
+    side(y, 'longest path 3 ns')
+    y = -11.0
+    chain(y, [('R', 'R1'), ('L', 2.6, 'A\n2 ns'), ('R', 'R2'), ('L', 1.6, 'B\n1 ns'),
+              ('L', 1.6, 'C\n1 ns'), ('R', 'R3')])
+    side(y, 'longest path 2 ns')
+```

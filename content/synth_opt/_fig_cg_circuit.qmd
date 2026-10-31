@@ -1,0 +1,105 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-synth-opt-cg-circuit
+#| echo: false
+#| fig-cap: "Two ways to build a register with an enable, shown for one bit. (a) A multiplexer in front of each flip-flop feeds back `Q` while `en` is low, and the flip-flop is clocked in every cycle. (b) An integrated clock gate (ICG), here `sg13cmos5l_lgcp_1`, switches off the clock of the whole register while `en` is low. Its latch is transparent while `clk` is low, so a change of `en` reaches the AND gate only while `clk` is low, and `gclk` has only complete pulses."
+#| fig-alt: "Two circuit diagrams. (a) The input d enters the 1-input of a multiplexer, whose output drives D of a flip-flop. The output Q of the flip-flop is the output q and also feeds back into the 0-input of the multiplexer. The signal en drives the select input of the multiplexer, and clk drives the clock input of the flip-flop. (b) A dashed box labeled lgcp_1 contains a latch and an AND gate. en drives D of the latch, whose gate input with an inversion bubble is driven by clk. The latch output and clk drive the AND gate, whose output gclk drives the clock input of the flip-flop. d drives D of the flip-flop directly."
+import schemdraw as sd
+from schemdraw import flow, logic
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+GREEN, GREEN_L = '#82b366', '#d5e8d4'
+RED, GREY = '#b85450', '#666666'
+W, H = 1.4, 2.0   # flip-flop and latch box
+
+
+def box(xl, name, y=0, clk_bubble=False, gate='clk'):
+    ''' Flip-flop or latch with its left edge at xl, returns (D, Q, clock pin) '''
+    flow.Box(w=W, h=H).at((xl + W/2, y)).anchor('center').fill(BLUE_L).color(BLUE)
+    yd, yc = y + 0.45, y - 0.55
+    if clk_bubble:   # level-sensitive gate, active low: a bubble, no triangle
+        elm.Dot(radius=0.09, open=True).at((xl - 0.09, yc)).color('black')
+        elm.Label().at((xl + 0.25, yc)).label('G', color='black')
+        pin = (xl - 0.18, yc)
+    else:            # edge-triggered clock
+        flow.Line().at((xl, yc + 0.2)).to((xl + 0.3, yc)).color('black')
+        flow.Line().at((xl + 0.3, yc)).to((xl, yc - 0.2)).color('black')
+        pin = (xl, yc)
+    elm.Label().at((xl + 0.25, yd)).label('D', color='black')
+    elm.Label().at((xl + W - 0.3, yd)).label('Q', color='black')
+    elm.Label().at((xl + W/2, y + H/2 + 0.4)).label(name, color='black')
+    return (xl, yd), (xl + W, yd), pin
+
+
+def mux(xl, yc):
+    ''' Multiplexer with its left edge at xl and center yc, returns (in1, in0, sel, out) '''
+    h, w = 1.8, 0.8
+    pts = [(xl, yc + h/2), (xl + w, yc + h/2 - 0.35), (xl + w, yc - h/2 + 0.35), (xl, yc - h/2)]
+    for a, b in zip(pts, pts[1:] + pts[:1]):
+        flow.Line().at(a).to(b).color(GREEN)
+    elm.Label().at((xl + 0.3, yc + 0.45)).label('1', color='black')
+    elm.Label().at((xl + 0.3, yc - 0.45)).label('0', color='black')
+    return (xl, yc + 0.45), (xl, yc - 0.45), (xl + w/2, yc - h/2 + 0.17), (xl + w, yc)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
+
+    # (a) multiplexer feedback
+    elm.Label().at((-0.6, 1.6)).label('(a)', halign='left', color='black')
+    dq, qq, cq = box(4.0, 'flip-flop')
+    i1, i0, sel, mo = mux(1.8, dq[1])
+    elm.Label().at((0.0, i1[1] + 0.3)).label('d', halign='left', color='black')
+    flow.Arrow().at((0.0, i1[1])).to(i1)
+    flow.Arrow().at(mo).to(dq)
+    flow.Line().at(qq).to((7.2, qq[1]))
+    elm.Label().at((7.25, qq[1])).label('q', halign='left', color='black')
+    elm.Dot(radius=0.06).at((6.4, qq[1]))
+    flow.Line().at((6.4, qq[1])).to((6.4, 1.85))
+    flow.Line().at((6.4, 1.85)).to((1.2, 1.85))
+    flow.Line().at((1.2, 1.85)).to((1.2, i0[1]))
+    flow.Arrow().at((1.2, i0[1])).to(i0)
+    elm.Label().at((0.0, -1.4 + 0.3)).label('en', halign='left', color='black')
+    flow.Line().at((0.0, -1.4)).to((sel[0], -1.4))
+    flow.Arrow().at((sel[0], -1.4)).to(sel)
+    elm.Label().at((0.0, cq[1] - 1.9 + 0.3)).label('clk', halign='left', color='black')
+    flow.Line().at((0.0, cq[1] - 1.9)).to((3.4, cq[1] - 1.9)).color(RED)
+    flow.Line().at((3.4, cq[1] - 1.9)).to((3.4, cq[1])).color(RED)
+    flow.Arrow().at((3.4, cq[1])).to(cq).color(RED)
+
+    # (b) integrated clock gate
+    y0 = -6.0
+    elm.Label().at((-0.6, y0 + 1.6)).label('(b)', halign='left', color='black')
+    dl, ql, gl = box(1.6, 'latch', y=y0, clk_bubble=True)
+    elm.Label().at((0.0, dl[1] + 0.3)).label('en', halign='left', color='black')
+    flow.Arrow().at((0.0, dl[1])).to(dl)
+    a = logic.And(inputs=2).right().scale(0.8).anchor('in1').at((4.2, ql[1]))
+    flow.Line().at(ql).to(a.in1)
+    yk = y0 - 1.9
+    elm.Label().at((0.0, yk + 0.3)).label('clk', halign='left', color='black')
+    flow.Line().at((0.0, yk)).to((3.6, yk)).color(RED)
+    elm.Dot(radius=0.06).at((0.9, yk)).color(RED)
+    flow.Line().at((0.9, yk)).to((0.9, gl[1])).color(RED)
+    flow.Line().at((0.9, gl[1])).to(gl).color(RED)
+    flow.Line().at((3.6, yk)).to((3.6, a.in2[1])).color(RED)
+    flow.Line().at((3.6, a.in2[1])).to(a.in2).color(RED)
+    df, qf, cf = box(8.2, 'flip-flop', y=y0)
+    flow.Line().at(a.out).to((7.4, a.out[1])).color(RED)
+    flow.Line().at((7.4, a.out[1])).to((7.4, cf[1])).color(RED)
+    flow.Arrow().at((7.4, cf[1])).to(cf).color(RED)
+    elm.Label().at((6.1, a.out[1] + 0.3)).label('gclk', color=RED)
+    elm.Label().at((6.6, df[1] + 0.75)).label('d', halign='left', color='black')
+    flow.Line().at((6.6, df[1] + 0.45)).to((7.8, df[1] + 0.45))
+    flow.Line().at((7.8, df[1] + 0.45)).to((7.8, df[1]))
+    flow.Arrow().at((7.8, df[1])).to(df)
+    flow.Line().at(qf).to((10.4, qf[1]))
+    elm.Label().at((10.45, qf[1])).label('q', halign='left', color='black')
+    elm.Rect(corner1=(0.55, y0 + 1.75), corner2=(5.75, y0 - 1.3), lw=1).at((0, 0)).linestyle('--').color(GREY)
+    elm.Label().at((3.15, y0 + 2.1)).label('ICG lgcp_1', color=GREY)
+```

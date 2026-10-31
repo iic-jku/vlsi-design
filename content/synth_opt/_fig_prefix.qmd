@@ -1,0 +1,44 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-synth-opt-prefix
+#| echo: false
+#| fig-cap: "The carry networks of three 8-bit adders. Each column is one bit, bit 0 on the right, and the signals flow from top to bottom. A black dot is a prefix operator, which combines the group generate and propagate of its column with those of the column that the diagonal line comes from. After the last operator, column $i$ holds the carry out of bits 0 to $i$. The ripple-carry adder needs 7 operators on 7 levels, Brent-Kung 11 operators on 5 levels, and Kogge-Stone 17 operators on 3 levels."
+#| fig-alt: "Three prefix graphs side by side, each with eight columns labeled 7 to 0 from left to right and vertical lines from top to bottom. Ripple-carry: seven levels, on level k one dot in column k connected diagonally to column k minus 1, so the carry runs along a staircase from right to left. Brent-Kung: five levels. Level 1 has dots in columns 1, 3, 5, 7 combining with their right neighbors, level 2 dots in columns 3 and 7 from columns 1 and 5, level 3 a dot in column 7 from column 3, level 4 a dot in column 5 from column 3, and level 5 dots in columns 2, 4, 6 from columns 1, 3, 5. Kogge-Stone: three levels. Level 1 has dots in columns 1 to 7 from the column one to the right, level 2 dots in columns 2 to 7 from two to the right, and level 3 dots in columns 4 to 7 from four to the right."
+import matplotlib.pyplot as plt
+
+N = 8
+ripple = [[(k, k - 1)] for k in range(1, N)]
+brent_kung = [[(1, 0), (3, 2), (5, 4), (7, 6)], [(3, 1), (7, 5)], [(7, 3)],
+              [(5, 3)], [(2, 1), (4, 3), (6, 5)]]
+kogge_stone = [[(i, i - d) for i in range(d, N)] for d in (1, 2, 4)]
+graphs = [('ripple-carry', ripple), ('Brent-Kung', brent_kung),
+          ('Kogge-Stone', kogge_stone)]
+BLUE, GREY = '#1f5f9e', '#9e9e9e'
+
+plt.rcParams.update({'font.size': 10})
+fig, axes = plt.subplots(1, 3, figsize=(7.2, 3.4),
+                         gridspec_kw={'width_ratios': [1, 1, 1]})
+for ax, (name, levels) in zip(axes, graphs):
+    depth = len(levels)
+    x = lambda i: N - 1 - i            # bit 0 on the right
+    y = lambda lv: -lv * 7 / depth     # all graphs equally tall
+    for i in range(N):
+        ax.plot([x(i), x(i)], [0.6, y(depth) - 0.6], color=GREY, lw=1, zorder=1)
+        ax.text(x(i), 1.0, str(i), ha='center', va='bottom')
+    ops = 0
+    for lv, pairs in enumerate(levels, start=1):
+        for i, j in pairs:
+            ax.plot([x(j), x(i)], [y(lv - 1), y(lv)], color=BLUE, lw=1.4, zorder=2)
+            ax.plot(x(i), y(lv), 'o', color='black', markersize=6, zorder=3)
+            ops += 1
+    ax.set_title(f'{name}\n{ops} operators, {depth} levels', fontsize=10)
+    ax.set_xlim(-0.6, N - 0.4)
+    ax.set_ylim(-7.9, 2.1)
+    ax.axis('off')
+fig.tight_layout()
+plt.show()
+```

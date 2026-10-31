@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 Simon Dorrer
+# SPDX-License-Identifier: Apache-2.0
+# Description: The ABC script of abc -constr without its first steps
+# (&fraig -x, scorr, dc2, dretime), which rewrite the logic for area
+# and do not keep its depth. Usage in Yosys, after synth -noabc:
+# abc -script keep.abc -constr <file> -liberty <file>
+strash
+&get -n
+&dch -f
+&nf
+&put
+buffer
+upsize
+dnsize
+stime -p

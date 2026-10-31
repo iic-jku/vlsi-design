@@ -5,6 +5,332 @@ SPDX-License-Identifier: Apache-2.0
 
 # Synthesis Optimizations and Low-Power Design {#sec-synth-opt}
 
+In @sec-synthesis-lib, Yosys and ABC mapped RTL onto the cells of the library, and @sec-sequential measured how fast the result runs. This chapter asks how a design becomes faster, smaller, and less power-hungry, and who does the work. Synthesis does part of it on its own: it picks an adder architecture, shares operators, restructures and sizes the logic, and it can even switch off clocks. The rest is the job of the designer: the architecture, the pipeline, and the decision which registers may sleep. We measure every step with the tools of the earlier chapters and add a new one, the power analysis of OpenSTA.
+
 ::: {.callout-note}
-This chapter will be released later in the semester.
+All code of this chapter is available in the folder [`content/synth_opt/code`]({{< meta var.url-repo >}}/tree/main/content/synth_opt/code) of the course repository: adders between registers in `adder/`, two multipliers in `share/`, a register with an enable in `clock_gate/`, and the constraints and scripts that all of them use in `syn/`. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (Yosys 0.70, OpenSTA 3.1.0, Icarus Verilog 14.0) and the standard-cell library of SG13CMOS5L, in the typical corner unless a corner is named. The script [`scripts/check_synth_opt.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_synth_opt.sh) reproduces all of them: run `bash scripts/check_synth_opt.sh` in the container from the root of the repository.
 :::
+
+For the exercises, clone the course repository into your designs folder once, if you have not done so yet:
+
+```bash
+cd /foss/designs
+git clone https://github.com/iic-jku/vlsi-design.git
+```
+
+In every new terminal, define the path of the typical-corner library and of the ABC constraint file of @sec-synthesis-lib-yosys:
+
+```bash
+LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib
+LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+CONSTR=/foss/designs/vlsi-design/content/synthesis_lib/code
+CONSTR=$CONSTR/synth/abc.constr
+```
+
+## Learning Objectives {#sec-synth-opt-objectives}
+
+After this chapter, you will be able to:
+
+- tell which optimizations logic synthesis performs on the operators and on the gates, and which ones remain the job of the designer
+- compare the ripple-carry adder with parallel-prefix adders, and select the adder architecture in Yosys
+- explain resource sharing, and check whether synthesis has shared an operator
+- shorten the critical path with a pipeline register, and explain retiming
+- name the components of the power consumption of a CMOS circuit and the levers that reduce them
+- estimate the power of a netlist with OpenSTA, with and without the activity of a simulation
+- explain why clock gating needs an integrated clock gate, and insert one with Yosys
+
+## What Synthesis Optimizes {#sec-synth-opt-levels}
+
+An optimization can act on three levels:
+
+- **The architecture.** The algorithm, how many operations run in parallel, how many clock cycles a result takes, the number of pipeline stages, the memories, and the number formats are decisions of the designer. Synthesis keeps the registers of the RTL, apart from re-encoding state machines, removing unused or duplicate registers (@sec-synthesis-lib-lec), and retiming, which runs only on request (@sec-synth-opt-pipeline). A design that computes its result in one clock cycle still does so after synthesis, and a serial design stays serial. No synthesis tool turns a bubble sort into a quicksort.
+- **The operators.** Yosys works on the operators of the RTL first. It folds constants and removes unused logic (`opt`, `opt_clean`), extracts state machines and may re-encode them (`fsm`), shrinks operators to the widths that are really used (`wreduce`), merges identical cells (`opt_merge`), collects additions and multiplications into arithmetic cells (`alumacc`), shares operators (`share`, `opt_share`), and finally builds every operator from gates with one of the templates of its library (`techmap`).
+- **The gates.** ABC restructures the gates of each combinational block between the registers, maps them onto the cells of the library, and sizes and buffers them (@sec-synthesis-lib-yosys). It runs twice in the commands of this course: `synth` ends with an `abc` pass that maps onto generic gates, and the command `abc -liberty` maps onto the library. Only the Boolean function of the block counts, so in principle ABC may rebuild a block completely. Its algorithms work on small windows of the logic, though, and they start from the structure that Yosys hands over.
+
+Several of these steps have switches, both in Yosys and in LibreLane, the RTL-to-GDSII flow of @sec-digital-flow (@tbl-synth-opt-switches).
+
+| Optimization | Yosys | LibreLane variable |
+|:----------------------------|:--------------------------------|:----------------------------|
+| adder architecture | `synth -extra-map` | none |
+| carry-save adder trees | always, `synth -arith_tree` | `SYNTH_ARITH_TREE` |
+| Booth multipliers | `synth -booth` | `SYNTH_MUL_BOOTH` |
+| resource sharing | `share`, `opt_share` | always on |
+| mapping, sizing, buffering | `abc` and its options | `SYNTH_STRATEGY` |
+| retiming | `abc -dff` | `SYNTH_ABC_DFF` |
+| clock gating | `clockgate` | `SYNTH_CLOCKGATE_MIN_WIDTH` |
+
+: Synthesis optimizations and their switches in Yosys 0.70 and LibreLane {#tbl-synth-opt-switches}
+
+The `synth` command of Yosys runs the passes `arith_tree` and `booth` only on request, while LibreLane runs both by default. LibreLane maps with the strategy `AREA 0` by default, and the counter of the AMS chip template uses `DELAY 4`. The following sections go through the optimizations one by one.
+
+## Adders {#sec-synth-opt-adders}
+
+An adder computes for every bit $i$ a **generate** $g_i = a_i b_i$, which is 1 if the bit produces a carry by itself, and a **propagate** $p_i = a_i \oplus b_i$, which is 1 if the bit passes an incoming carry on. The sum bit is $s_i = p_i \oplus c_i$, with the carry $c_{i+1} = g_i + p_i c_i$ into the next bit. Adders differ only in how they compute the carries.
+
+The **ripple-carry adder** computes $c_{i+1}$ from $c_i$, one bit after the other. It is the smallest adder, one full adder per bit, but the carry passes through all $n$ bits, so its delay grows linearly with $n$. Written out bit by bit, it looks like this (`adder/rtl/add_ripple.sv`):
+
+```systemverilog
+assign c[0] = 1'b0;
+for (genvar i = 0; i < WIDTH; i++) begin : g_fa
+  assign s[i]   = a_q[i] ^ b_q[i] ^ c[i];
+  assign c[i+1] = (a_q[i] & b_q[i]) | (c[i] & (a_q[i] ^ b_q[i]));
+end
+```
+
+A **parallel-prefix adder** combines the bits into groups. A group generates a carry if its upper part generates one, or if its upper part propagates and its lower part generates one. It propagates a carry if both parts propagate. For the generate $G$ and the propagate $P$ of two adjacent groups, the **prefix operator** $\circ$ gives those of the combined group:
+
+$$(G_h, P_h) \circ (G_l, P_l) = (G_h + P_h G_l,\ P_h P_l)$$
+
+The carry out of bit $i$ is the generate of the group of bits 0 to $i$. Since the operator is associative, the groups can be combined in any grouping, e.g., in a tree with $\log_2 n$ levels instead of a chain of $n - 1$. @fig-synth-opt-prefix compares three carry networks for 8 bits.
+
+{{< include /content/synth_opt/_fig_prefix.qmd >}}
+
+The prefix trees trade the number of operators, the wiring, and the fanout against the number of levels:
+
+- **Kogge-Stone**: $\log_2 n$ levels with $n \log_2 n - n + 1$ operators. Every operator drives at most two others, but the network has many long wires.
+- **Brent-Kung**: $2 \log_2 n - 1$ levels with only $2n - 2 - \log_2 n$ operators.
+- **Sklansky**: $\log_2 n$ levels with $\frac{n}{2} \log_2 n$ operators, but the fanout doubles from level to level, up to $n/2$ on the last level.
+- **Han-Carlson**: Kogge-Stone on every second bit and one more level for the bits in between, i.e., $\log_2 n + 1$ levels with fewer operators than Kogge-Stone.
+
+For 32 bits, the ripple-carry adder has 31 operators on 31 levels, Brent-Kung 57 operators on 9 levels, and Kogge-Stone 129 operators on 5 levels. Weste and Harris treat these and further adder architectures in depth [@Weste_Harris_2010].
+
+Yosys turns `+` and `-` into an `$alu` cell, and `techmap` builds its carries with a lookahead carry unit `$lcu`, by default as a Brent-Kung tree (the module `_90_lcu_brent_kung` in `techmap.v`). The folder `choices` of Yosys holds three alternatives, which `synth -extra-map` selects: `synth -extra-map +/choices/kogge-stone.v`, and in the same way `sklansky.v` and `han-carlson.v`, where `+/` stands for the data folder of Yosys. LibreLane has no switch for these prefix adders: its variable `SYNTH_ADDER_TYPE` only selects full-adder, ripple-carry, or carry-select adders from mapping files that the PDK must provide, and SG13CMOS5L provides none.
+
+A sum of more than two operands, e.g., `a + b + c + d`, needs no chain of adders. A row of full adders adds three numbers into two, a sum and a carry vector, without passing a carry from bit to bit. A tree of such **carry-save adders** reduces any number of operands to two, and one final adder adds them. A multiplier works the same way: it sums its partial products, one per bit of one operand, in such a tree. **Booth encoding** halves the number of partial products. Yosys builds a carry-save tree for every `$macc_v2` cell, i.e., for a sum of more than two operands and for the partial products of a multiplier (the pass `maccmap`). `synth -arith_tree` replaces these trees by trees of 4:2 compressors and also merges chains of separate adders, and `synth -booth` builds Booth multipliers.
+
+::: {.callout-tip title="Exercise: Ripple or Prefix?"}
+All commands start in the folder `content/synth_opt/code/adder`. The modules `add_reg` and `add_ripple` add two 32-bit numbers between an input and an output register, `add_reg` with `+` and `add_ripple` with the full adders written out.
+
+1. Draw the prefix graphs of a 16-bit Brent-Kung and a 16-bit Kogge-Stone adder in the style of @fig-synth-opt-prefix. Count their operators and levels, and check your counts with the formulas.
+2. Synthesize `add_ripple` with the buffering and sizing of @sec-synthesis-lib-yosys, and run the timing script:
+
+   ```bash
+   cd /foss/designs/vlsi-design/content/synth_opt/code/adder
+   yosys -p "read_verilog -sv rtl/add_ripple.sv; \
+     synth -top add_ripple; dfflibmap -liberty $LIB; \
+     abc -constr $CONSTR -liberty $LIB; opt_clean; \
+     stat -liberty $LIB; write_verilog -noattr add_ripple.nl.v"
+   TOP=add_ripple sta -no_init -exit ../syn/sta.tcl
+   ```
+
+   Repeat it for `add_reg` with the default adder of Yosys and with the Kogge-Stone adder, i.e., with `synth -top add_reg -extra-map +/choices/kogge-stone.v`. For each adder, note the area, the minimum period between the registers, and the number of cells on the worst path between the two flip-flops. Which adder is the fastest, and what does it cost? In each design, the 97 flip-flops take 4752 µm² of the area.
+3. Find out where the trees go. Print the longest path through the generic gates of `add_reg` after `synth`:
+
+   ```bash
+   yosys -p "read_verilog -sv rtl/add_reg.sv; \
+     synth -top add_reg; ltp -noff"
+   ```
+
+   Repeat it with `synth -top add_reg -noabc`, which skips the `abc` pass at the end of `synth`. Then map all three adders without that pass and with the script `../syn/keep.abc`, i.e., the script of `abc -constr` without its first steps `&fraig -x`, `scorr`, `dc2`, and `dretime`: use `synth -noabc` and replace `abc -constr $CONSTR` by `abc -script ../syn/keep.abc -constr $CONSTR`. What do you see?
+4. Repeat step 2 with the delay-oriented ABC script `../syn/delay.abc`, the strategy `DELAY 4` of LibreLane that the counter of the AMS chip template uses: replace `abc -constr $CONSTR` by `abc -script ../syn/delay.abc -constr $CONSTR`. What changes?
+5. Does the adder architecture of the RTL survive synthesis? What follows for writing arithmetic in RTL?
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Ripple or Prefix?" collapse="true"}
+1. The Brent-Kung adder has $2 \cdot 16 - 2 - 4 = 26$ operators on $2 \cdot 4 - 1 = 7$ levels: 8, 4, 2, and 1 operators on the way up to bit 15, then 1, 3, and 7 on the way back down to the bits in between. The Kogge-Stone adder has $16 \cdot 4 - 16 + 1 = 49$ operators on 4 levels: 15, 14, 12, and 8 operators, which combine each bit with the bit 1, 2, 4, and 8 positions to the right.
+2. The results of steps 2 to 4:
+
+   | Adder | Mapping | Cells | Area (µm²) | Period | Cells on path |
+   |:-------------|:--------------|-----:|-----------:|--------:|-----:|
+   | ripple-carry | `-constr` | 254 | 6462.9 | 4.74 ns | 32 |
+   | Brent-Kung | `-constr` | 264 | 6448.4 | 3.83 ns | 32 |
+   | Kogge-Stone | `-constr` | 293 | 6753.0 | 3.30 ns | 27 |
+   | ripple-carry | `keep.abc` | 239 | 6372.2 | 4.78 ns | 32 |
+   | Brent-Kung | `keep.abc` | 294 | 6809.4 | 2.11 ns | 10 |
+   | Kogge-Stone | `keep.abc` | 413 | 7923.4 | 1.45 ns | 7 |
+   | ripple-carry | `delay.abc` | 370 | 7580.3 | 2.03 ns | 10 |
+   | Brent-Kung | `delay.abc` | 379 | 7741.7 | 2.78 ns | 17 |
+   | Kogge-Stone | `delay.abc` | 363 | 7516.9 | 2.06 ns | 12 |
+
+   With the mapping of @sec-synthesis-lib-yosys (step 2), the Kogge-Stone adder is the fastest, with 3.30 ns. Without the flip-flops, it needs 2001 µm², 18 % more than Brent-Kung with 1696 µm². The ripple-carry adder needs about the same area as Brent-Kung and is 24 % slower. Its worst path passes a `nand2_2` and then 31 alternating `a21oi_2` and `o21ai_1` cells, one per bit, i.e., the carry chain $c_{i+1} = g_i + p_i c_i$ in inverting form. The worst paths of the prefix adders pass 32 and 27 cells, many more than the levels of their trees.
+3. After `synth -noabc`, the longest path of `add_reg` passes 18 generic gates, after `synth` 62, almost as many as the 63 of the ripple-carry adder (Kogge-Stone: 11 and 42). The `abc` pass at the end of `synth` flattens the trees: its default script contains `dc2`, which rewrites the logic for fewer gates and does not keep its depth. The script of `abc -constr` runs the same steps again, so `synth -noabc` alone does not help: with `abc -constr`, the prefix adders still need 3.73 and 3.45 ns. Without these steps, the trees survive, and the textbook order appears: ripple-carry 4.78 ns with 32 cells on its path, Brent-Kung 2.11 ns with 10, and Kogge-Stone 1.45 ns with 7. Kogge-Stone is now 3.3 times as fast as the ripple-carry adder, and its logic twice as large (3172 against 1620 µm²).
+4. With the delay-oriented script, all three adders become faster and larger than with `-constr`. The ripple-carry adder is now about as fast as Kogge-Stone (2.03 against 2.06 ns), with 10 cells on its worst path, among them wide gates such as `nor4_1` and `or4_1`, and Brent-Kung is now the slowest. The script collapses the carry chain into a few levels of wide gates. The adder logic grows by 38 to 76 %, e.g., from 1711 to 2828 µm² for the ripple-carry adder. The result depends on the starting point, though: from the netlists of `synth -noabc`, the same script gives 2.21, 1.86, and 2.00 ns.
+5. Only if no step throws it away. The default scripts of ABC rewrite the logic for area and flatten the prefix trees. A script that keeps the structure keeps the architecture and gives the fastest adder of all, and a delay-oriented script rebuilds the arithmetic in a way that depends on where it starts. So write arithmetic with its operators, `+` instead of full adders, select the architecture and the script with the options of the tools, and compare the results with STA. In this flow, ABC never moves logic across a register: it only sees the logic between the flip-flops (@sec-synth-opt-pipeline). For more speed than the best mapping gives, the adder needs a pipeline.
+:::
+
+## Resource Sharing {#sec-synth-opt-share}
+
+Two operations that are never needed in the same clock cycle can share one operator. Multiplexers in front of the operator then select its operands. The module `share/rtl/mul_sel.sv` registers four 16-bit operands and computes one of two products:
+
+```systemverilog
+p_o <= sel_q ? a_q * b_q : c_q * d_q;
+```
+
+As written, this line describes two multipliers with a multiplexer behind them. The module `share/rtl/mul_sel_shared.sv` selects the operands first and multiplies them in a single multiplier:
+
+```systemverilog
+p_o <= x * y;
+...
+assign x = sel_q ? a_q : c_q;
+assign y = sel_q ? b_q : d_q;
+```
+
+Synthesized as in step 2 of the exercise above, i.e., with `abc -constr $CONSTR`, `mul_sel` needs 35,237 µm² and a minimum period of 5.25 ns, `mul_sel_shared` 20,282 µm² and 5.38 ns. Sharing saves 42 % of the area, and the multiplexers in front of the multiplier add 0.13 ns to the path.
+
+Why did Yosys not share the multipliers of `mul_sel` itself? The command `synth` runs the pass `share`, which proves with a formal solver (a SAT solver) that two operations are never active in the same cycle and then merges them. In Yosys 0.70, however, `alumacc` runs before `share` and turns each multiplication into a `$macc_v2` cell, which `share` does not consider. `synth -top mul_sel -run :fine` followed by `stat` shows the two `$macc_v2` cells. With `synth -noalumacc`, the two `$mul` cells reach `share`, which merges them into one, with 20,251 µm² and 5.40 ns. For adders, `share` considers `$alu` cells only with its option `-aggressive`. One special case works without help: `opt_share` merges two operators with a common operand, e.g., `sel ? a + b : a + c` becomes `a + (sel ? b : c)`.
+
+The lesson is to write the sharing into the RTL where it matters, and to check with `stat` what synthesis built. Sharing costs multiplexers and their delay, and it only works for operations that are really never needed at the same time. The opposite, duplicating an operator or a register to shorten a path or to reduce a large fanout, is a common timing fix.
+
+## Pipelining and Retiming {#sec-synth-opt-pipeline}
+
+The setup condition of @sec-sequential-path gives a register-to-register path the minimum period $T_\text{min} = t_\text{cq} + t_\text{logic,max} + t_\text{su} - t_\text{skew} + t_\text{unc}$. ABC can only shorten the logic between the registers. A **pipeline register** splits the logic into stages, each of which has a full clock period (@fig-synth-opt-pipeline (a)). With $k$ stages of equal delay,
+
+$$T_\text{min} = t_\text{cq} + \frac{t_\text{logic,max}}{k} + t_\text{su} - t_\text{skew} + t_\text{unc}.$$
+
+The pipeline delivers one result per clock cycle at a higher clock frequency, i.e., a higher **throughput**, but every result appears $k - 1$ cycles later than without the pipeline, i.e., the **latency** grows. The price is the pipeline registers, their area and their clock power (@sec-synth-opt-power). The overhead $t_\text{cq} + t_\text{su} + t_\text{unc}$ of each stage limits the gain: with the values of @tbl-sequential-params and an uncertainty of 0.1 ns, no stage can be clocked with a period below about 0.43 ns.
+
+{{< include /content/synth_opt/_fig_pipeline.qmd >}}
+
+The work of pipelining is in the details. Every signal that belongs to the same operation must pass the same number of registers, also an operand that is only used in a later stage, such as `x` in the figure, and the control signals that travel along, such as a valid flag. Every testbench and every block that uses the result must expect it later.
+
+**Retiming** moves registers across combinational logic without changing the behavior at the outputs (@fig-synth-opt-pipeline (b)), e.g., to balance the stages of a pipeline that is cut at the wrong place. Retiming can change the number of registers, it must compute new reset or initial values for the registers it moves, and it breaks the matching of the registers by name in equivalence checking (@sec-synthesis-lib-lec). Commercial synthesis tools retime on request. In the open-source flow, Yosys passes flip-flops to ABC only with `abc -dff` (in LibreLane `SYNTH_ABC_DFF`, off by default), and only flip-flops without a reset: `yosys -h abc` lists `$_DFF_?_` and `$_DFFE_??_`. Every default script of ABC then runs `dretime`, which by default retimes for minimum area, i.e., it moves registers to reduce their number, not the delay. Only with a delay target, `abc -dff -D <ps>`, does ABC add a delay-oriented `retime`. And `abc -dff` must run before `dfflibmap`, while the flip-flops are still generic cells. The designs of this course use flip-flops with an asynchronous reset and place their pipeline registers in the RTL.
+
+::: {.callout-tip title="Exercise: Pipeline the Adder"}
+All commands start in the folder `content/synth_opt/code/adder`. It holds the reference solution `rtl/add_pipe.sv`, so move it out of the way first: `cd /foss/designs/vlsi-design/content/synth_opt/code/adder`, then `mv rtl/add_pipe.sv add_pipe_solution.sv`.
+
+1. Draw `add_reg` as a pipeline with two stages: the first stage adds the lower 16 bits of the operands, the second stage the upper 16 bits with the carry of the first stage. Which signals need a pipeline register between the stages? How many flip-flops does the design have in total?
+2. Write `rtl/add_pipe.sv` with the ports of `add_reg`. Check it with `verilator --lint-only -Wall rtl/add_pipe.sv`, and simulate it with the testbench:
+
+   ```bash
+   iverilog -g2012 -o sim.vvp rtl/add_pipe.sv tb/tb_add_pipe.sv
+   vvp -n sim.vvp
+   ```
+
+   The testbench applies new random operands in every clock cycle and expects each sum three clock edges later. Its first operands, `32'hffffffff` and 1, need the carry from the first into the second stage.
+3. Synthesize `add_pipe` with the commands of the previous exercise, i.e., with `abc -constr $CONSTR`, and run `TOP=add_pipe sta -no_init -exit ../syn/sta.tcl`. Compare the cells, the area, the flip-flops, and the minimum period between the registers with `add_reg`. Estimate the period of `add_pipe` from the one of `add_reg` with the formula for $k$ stages and the overhead of 0.43 ns, and compare it with the measured period. Where is the worst path, and what explains the difference?
+4. `report_clock_min_period -include_port_paths` reports a longer period for `add_pipe`, but not for `add_reg`. Which path sets it, and why does it matter only after pipelining? Hint: copy `../syn/sta.tcl` to `../syn/all.tcl`, so that it still finds `block.sdc`, and replace its `report_checks` command by `report_checks -path_delay max -fields {fanout} -digits 3`, which reports the worst path of every path group.
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Pipeline the Adder" collapse="true"}
+1. Between the stages, the lower sum with its carry (17 bits) and the upper halves of both operands (2 × 16 bits) need a pipeline register, 49 flip-flops in addition to the 97 of `add_reg`, 146 in total. The upper halves wait one cycle, so that they meet the carry of their own lower halves. The lower sum waits for the upper sum in the pipeline register.
+2. The module of the reference solution:
+
+```{.systemverilog filename="adder/rtl/add_pipe.sv"}
+{{< include /content/synth_opt/code/adder/rtl/add_pipe.sv >}}
+```
+
+The testbench prints `1000 sums, 0 errors`. Without the carry `lo_q[H]` in the sum of the upper halves, it reports 489 errors. The width of `hi` matters: as the target of an assignment, the 17-bit `hi` makes the addition 17 bits wide, so its carry is kept. Inside a concatenation such as `{a_hi_q + b_hi_q + lo_q[H], lo_q[H-1:0]}`, the sum would only be 16 bits wide.
+
+3. `add_pipe` has 303 cells, 8852 µm², and 146 flip-flops, against 264 cells, 6448 µm², and 97 flip-flops of `add_reg`. Its minimum period is 2.34 ns (427 MHz) instead of 3.83 ns (261 MHz), i.e., it is 1.6 times faster for 37 % more area. The formula predicts $(3.83 - 0.43)/2 + 0.43 = 2.13$ ns. The worst path ends at `lo_q[16]`, the carry out of the first stage, after 17 cells and 2.127 ns, while the 32-bit adder of `add_reg` needs 32 cells and 3.629 ns. The second stage ends after 2.102 ns, so both stages are about equally long. But each half of the adder needs more than half of the logic delay of the whole adder: 1.90 ns instead of 1.70 ns.
+4. With the port paths, `add_pipe` needs 2.78 ns. The path is the release of the reset: the driving cell `buf_2` of `block.sdc` needs 1.225 ns to drive the 146 `RESET_B` pins of `rst_ni`, and the large slew raises the recovery time to 0.458 ns. With the input delay of 1 ns and the uncertainty, this adds up to 2.78 ns. In `add_reg`, the same path needs only about 2.3 ns, less than the 3.83 ns between the registers, so it does not show. Pipelining shortened the paths between the registers below the reset path and added 49 loads to the reset net. In the layout flow, the reset net gets a buffer tree (@sec-sequential-opensta, @sec-digital-flow).
+:::
+
+## Power Consumption {#sec-synth-opt-power}
+
+A CMOS circuit consumes power in three ways:
+
+- **Switching power.** A transition from 0 to 1 at a net charges its capacitance $C$, i.e., the inputs of the cells that the net drives and its wire, from the supply, and a transition from 1 to 0 discharges it to ground. On average, each transition dissipates $\frac{1}{2} C V^2$. With the **activity** $a$, the average number of transitions per clock cycle, a net dissipates $P_\text{sw} = \frac{1}{2} a C V^2 f$ at the supply voltage $V$ and the clock frequency $f$. The clock toggles twice per cycle, $a = 2$, more than any data net without glitches.
+- **Internal power.** Inside a cell, internal nodes switch as well, and during an edge, the pull-up and the pull-down network both conduct for a short time. The Liberty file gives the energy of each transition at a pin, the `internal_power` of @sec-synthesis-lib-liberty: for an output as a table over the slew and the load, for an input over the slew, often depending on the state of the other pins. A flip-flop consumes internal power at every clock edge, even when its value does not change, because the clock switches its internal inverters and latches.
+- **Leakage power.** A transistor that is off still conducts a small current. The Liberty file gives the leakage of each cell, `cell_leakage_power`, and the leakage per input state (@sec-synthesis-lib-liberty). Leakage flows as long as the supply is on, whatever the circuit does.
+
+Switching and internal power together form the **dynamic power**, the leakage is the **static power**. The levers follow from the formula:
+
+- **The supply voltage** enters squared, but at a lower voltage, the cells are slower.
+- **The clock frequency** enters linearly. The energy per operation stays the same, though: a slower clock lowers the power, but not the energy of a computation. It saves energy only together with a lower supply voltage, which the longer period allows.
+- **The activity** drops when the clock of idle registers is switched off (**clock gating**, @sec-synth-opt-cg), when the operands of an unused operator are held constant (**operand isolation**), and when there are fewer **glitches**, the short pulses that unequal path delays produce at the output of a gate before it settles.
+- **The capacitance** drops with smaller cells, shorter wires, and fewer buffers, so area and power go together.
+- **The leakage** of an idle block disappears when switches cut off its supply (**power gating**). This needs isolation cells at the outputs of the block, a way to keep or restore its state, and a power-aware flow, which goes beyond this course. Libraries of advanced technologies also offer each cell with several threshold voltages, so that a path with slack can use slower cells that leak less.
+
+### Power Analysis with OpenSTA {#sec-synth-opt-sta-power}
+
+OpenSTA computes the power of a netlist from the Liberty file, i.e., the pin capacitances, the internal power tables, and the leakage, and from the activity of every net. Without a simulation, it assumes by default that every input toggles in 10 % of the clock cycles, i.e., with an activity of 0.1 and a duty of 0.5, i.e., the input is 1 half of the time, and it propagates these activities through the logic. With a VCD file from a simulation of the netlist, `read_vcd` annotates the real activity of every net instead. The script `syn/power.tcl` does both:
+
+```{.default filename="syn/power.tcl"}
+{{< include /content/synth_opt/code/syn/power.tcl >}}
+```
+
+Without a simulation, the script keeps the reset inactive, since a reset that toggles in every tenth cycle would not be realistic. Here is the barrel shifter between two registers of @sec-sequential-opensta, synthesized with the commands of that section:
+
+```bash
+cd /foss/designs/vlsi-design/content/sequential/code/bs_reg
+TOP=bs_reg sta -no_init -exit ../../../synth_opt/code/syn/power.tcl
+```
+
+`report_power` sorts the cells into groups (@tbl-synth-opt-bs-power): the flip-flops into `Sequential`, the logic into `Combinational`, the cells of the clock network, such as clock buffers and clock gates, into `Clock`, and the macros and pads into groups of their own, which are empty here. The switching power of a net counts for the cell that drives it.
+
+| Group | Internal | Switching | Leakage | Total |
+|:---------------|---------:|---------:|---------:|---------:|
+| `Sequential` (71 flip-flops) | 1.126 mW | 0.030 mW | 0.04 µW | 1.156 mW |
+| `Combinational` | 0.329 mW | 0.234 mW | 0.15 µW | 0.563 mW |
+| `Total` | 1.455 mW | 0.264 mW | 0.19 µW | 1.719 mW |
+
+: Power of `bs_reg` at 1.2 V and 250 MHz in the typical corner, with the default activity of 0.1 at its inputs {#tbl-synth-opt-bs-power}
+
+The block consumes 1.72 mW, and 67 % of it in the flip-flops, 16.3 µW in each of them, although its inputs change in only one of ten cycles: the clock reaches every flip-flop in every cycle. Internal power dominates, and leakage is negligible at 25 °C. The group `Clock` is empty, because the netlist has no clock buffers before the layout, so a power analysis before clock tree synthesis misses the power of the clock tree.
+
+The library of SG13CMOS5L is also characterized at 1.5 V. With `CORNER=typ_1p50V_25C`, the same netlist consumes 2.78 mW, 1.62 times as much, close to $(1.5/1.2)^2 = 1.56$, and the leakage rises from 0.19 to 0.56 µW. In return, the timing script of @sec-sequential-opensta reports a minimum period of 1.17 ns instead of 1.69 ns with `CORNER=typ_1p50V_25C sta -no_init -exit syn/sta.tcl`. The supply voltage trades speed against power.
+
+## Clock Gating {#sec-synth-opt-cg}
+
+A register that keeps its value most of the time still consumes clock power in every cycle. SG13CMOS5L has no flip-flop with an enable (@sec-modeling-memory), so synthesis builds a register with an enable from a multiplexer in front of each flip-flop, which feeds back `Q` while the enable is low (@fig-synth-opt-cg-circuit (a)). **Clock gating** switches off the clock of the whole register instead, with one gate for all its flip-flops and without multiplexers (@fig-synth-opt-cg-circuit (b)).
+
+{{< include /content/synth_opt/_fig_cg_circuit.qmd >}}
+
+A plain AND gate of clock and enable does not work (@fig-synth-opt-cg-timing). The enable comes from a register on the same clock, so it changes shortly after the rising edge, while the clock is high, and the AND gate passes the change at once. A rising enable produces a late clock edge, a falling one a short pulse, which clocks the register at the wrong time or violates the minimum pulse width of its flip-flops (@sec-sequential-params).
+
+{{< include /content/synth_opt/_fig_cg_timing.qmd >}}
+
+An **integrated clock gate** (ICG) puts a latch, transparent while the clock is low, in front of the AND gate. The enable reaches the AND gate only during the low phase and stays stable while the clock is high, so the gated clock has only complete pulses. A flip-flop on the falling edge in place of the latch would give clean pulses as well, but the enable would have to arrive by the falling edge, i.e., within half a period. The latch accepts it until the rising edge. In SG13CMOS5L, the ICG is `lgcp_1` with the pins `GATE`, `CLK`, and `GCLK` and an area of 27.2 µm², and its Liberty file marks it with `clock_gating_integrated_cell : "latch_posedge"`. Its sibling `slgcp_1` has an additional input `SCE`, which switches the clock on during the scan test (@sec-dft).
+
+The clock passes through the ICG from `CLK` to `GCLK`, so STA times the gated flip-flops with the clock of the ICG. The path of the enable ends at the pin `GATE`, where the library defines a **clock gating check**, a setup and a hold check against the rising edge of `CLK`. Like the data input of a flip-flop, the enable must be stable shortly before the rising edge. The ICG also delays the clock of the gated flip-flops, which clock tree synthesis balances against the other flip-flops (@sec-digital-flow).
+
+Yosys inserts the ICGs with the pass `clockgate`, between `synth` and `dfflibmap`. It replaces each group of flip-flops that share a clock and an enable by one ICG and flip-flops without enable:
+
+```
+clockgate -pos sg13cmos5l_lgcp_1 GATE:CLK:GCLK -min_net_size 4
+```
+
+`-pos` names the ICG for flip-flops on the rising edge and its pins for the enable, the clock, and the gated clock. `-min_net_size` sets the smallest group that gets an ICG, since an ICG is clocked in every cycle and costs area and power of its own. LibreLane runs the same pass when `SYNTH_CLOCKGATE_MIN_WIDTH` is set, and it inserts ICGs when `SYNTH_CLOCKGATE_POSEDGE_ICG` names the cell, e.g., `sg13cmos5l_lgcp_1/GATE/CLK/GCLK`. The configuration of SG13CMOS5L sets neither and even excludes `lgcp_1` and `slgcp_1` from synthesis, so LibreLane gates no clocks unless a design configures it.
+
+::: {.callout-tip title="Exercise: Gate the Clock"}
+All commands start in the folder `content/synth_opt/code/clock_gate`. The module `rtl/cg_reg.sv` is a 32-bit register with the enable `en_i`. The testbench `tb/tb_cg_reg.sv` simulates its netlist for 1600 clock cycles at 250 MHz, applies new random data in every cycle, sets `en_i` high in one of `EVERY` cycles (default 16), compares the output with a model, and writes the activity of every net into `cg_reg.vcd`.
+
+1. Draw `clk`, `en_i`, the latched enable, and `GCLK` of the ICG in the style of @fig-synth-opt-cg-timing, for an enable that a flip-flop on `clk` sets high for exactly one cycle. At which rising edge do the gated flip-flops load `data_i`, and is it the same edge as in the version with multiplexers?
+2. Synthesize `cg_reg` without clock gating:
+
+   ```bash
+   cd /foss/designs/vlsi-design/content/synth_opt/code/clock_gate
+   yosys -p "read_verilog -sv rtl/cg_reg.sv; synth -top cg_reg; \
+     dfflibmap -liberty $LIB; abc -constr $CONSTR -liberty $LIB; \
+     opt_clean; stat -liberty $LIB; write_verilog -noattr cg_reg.nl.v"
+   ```
+
+   Which cells does the netlist have? Simulate the netlist with the models of the cells, and run the power analysis with the activity of the simulation:
+
+   ```bash
+   CELLS=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/verilog
+   iverilog -g2012 -gno-specify -o sim.vvp $CELLS/sg13cmos5l_udp.v \
+     $CELLS/sg13cmos5l_stdcell.v cg_reg.nl.v tb/tb_cg_reg.sv
+   vvp -n sim.vvp
+   TOP=cg_reg VCD=cg_reg.vcd sta -no_init -exit ../syn/power.tcl
+   ```
+
+   Icarus Verilog prints the 68 `sorry` messages of @sec-verification-gl-sdf, which do not matter without delays. How much power does the register consume? Is the share of the flip-flops larger or smaller than in `bs_reg`, and why? Which cells besides the flip-flops and the multiplexers does the netlist have, and why?
+3. Insert `clockgate -pos sg13cmos5l_lgcp_1 GATE:CLK:GCLK -min_net_size 4;` after `synth -top cg_reg;` and repeat step 2. Compare the cells, the area, and the power. What consumes the power that remains?
+4. Repeat steps 2 and 3 with the enable high in every cycle, i.e., with `-P tb_cg_reg.EVERY=1` added to the `iverilog` command. Compare again. Which entry of the reports makes the comparison unfair, and by how much?
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Gate the Clock" collapse="true"}
+1. The flip-flop sets `en_i` shortly after a rising edge, call it edge 1, and clears it shortly after edge 2. The latch passes the high enable during the low phase after edge 1 and holds it while `clk` is high after edge 2, so `GCLK` has exactly one complete pulse, at edge 2. During the low phase after edge 2, the latch passes the low enable, and the pulse at edge 3 is suppressed. The gated flip-flops load `data_i` at edge 2, the same edge at which the version with multiplexers loads it, since its flip-flops sample `en_i` = 1 at edge 2.
+2. The netlist has 67 cells and 2223 µm²: 32 `dfrbpq_1`, 32 multiplexers (30 `mux2_1`, 2 `mux2_2`), and 3 `buf_8`, which drive the enable to the 32 select inputs. The simulation reports `1600 cycles, en_i in 1 of 16, 0 errors`, and OpenSTA annotates the activity of all 329 pins. The register consumes 490 µW, 474 µW of it in the flip-flops (97 %, almost all internal power) and 16 µW in the multiplexers and buffers. The share of the flip-flops is larger than the 67 % in `bs_reg`, because the register has no logic besides the multiplexers. It changes in only one of 16 cycles, but its flip-flops are clocked in every cycle.
+3. With `clockgate`, the netlist has 33 cells and 1595 µm², 28 % less: 32 `dfrbpq_1` and one `lgcp_1`, and no multiplexers. The simulation passes again. The power drops to 89.6 µW, 82 % less: 82.5 µW in the flip-flops and 7.1 µW in the group `Clock`, i.e., 4.8 µW of internal power in the ICG and 2.3 µW for switching the gated clock net. Of the power in the flip-flops, the clock edges in one of 16 cycles cause only a part. Without the multiplexers, the new random data reaches the `D` pins in every cycle, which costs internal power in the flip-flops even without a clock edge: the Liberty file gives the pin `D` of `dfrbpq_1` an internal power of its own. With data that changes only together with the enable, i.e., with `data = $urandom` only in the cycles in which the testbench sets `en`, the flip-flops of the gated register consume 39.6 µW.
+4. With the enable high in every cycle, the register without clock gating consumes 673 µW (631 µW in the flip-flops, 41 µW in the multiplexers), and the one with clock gating 665 µW (621 µW in the flip-flops, 43.9 µW in the group `Clock`). The group `Clock` of the gated register includes 36.4 µW for switching the gated clock net with its 32 clock pins. The register without clock gating has the same net, but its driver is the input port `clk_i`, which belongs to no cell, so OpenSTA charges its power nowhere. The gated register has such a net as well, from `clk_i` to the pin `CLK` of the ICG, but with its 4.9 fF, it costs only about 1.8 µW. Compared fairly, the register without clock gating needs about 709 µW and the one with clock gating about 667 µW, so the ICG still saves about 6 %, because it replaces the multiplexers. With the enable in one of 16 cycles, the fair comparison is 527 µW against 91 µW. For a register of a few bits, however, an ICG that is clocked in every cycle may cost more than it saves, which is what `-min_net_size` is for.
+:::
+
+## Summary {#sec-synth-opt-summary}
+
+- Synthesis optimizes the operators (Yosys) and the gates (ABC) of a design, but not its architecture: it keeps the latency and the algorithm of the RTL, and, apart from retiming on request, its registers. Pipelines, parallelism, and the choice of the algorithm remain the job of the designer.
+- A ripple-carry adder is small and slow, a parallel-prefix adder computes the carries in a tree of $\log_2 n$ to $2 \log_2 n - 1$ levels. Yosys builds a Brent-Kung adder by default and others on request. The default scripts of ABC rewrite for area and flatten the prefix trees. A script that keeps the structure keeps the architecture, and a delay-oriented script restructures even a ripple-carry adder into a few levels of wide gates, at the price of area.
+- Operations that are never needed in the same cycle can share an operator. Yosys 0.70 shares multipliers only without `alumacc`, so write the sharing into the RTL where it matters, and check the result with `stat`.
+- A pipeline register shortens the critical path and raises the throughput, at the cost of latency, registers, and a fixed overhead per stage. Retiming moves registers across logic, but in the open-source flow only flip-flops without reset.
+- CMOS circuits consume switching, internal, and leakage power. Dynamic power grows with $a C V^2 f$, so the supply voltage is the strongest lever, and the activity the one that the design controls. In synchronous designs, the flip-flops and the clock take a large share, and a power analysis before clock tree synthesis does not see the clock tree.
+- OpenSTA estimates power from the Liberty file and the activity of every net, which comes from a default assumption or from the VCD file of a simulation.
+- Clock gating switches off the clock of idle registers. It needs an integrated clock gate whose latch keeps the enable stable while the clock is high. Yosys inserts it with `clockgate`, and on a 32-bit register with an enable in one of 16 cycles, it saves more than 80 % of the power and 28 % of the area.
+
+In @sec-cdc, the designs get more than one clock, and we see how signals cross safely from one clock domain to another.

@@ -1,0 +1,63 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-synth-opt-cg-timing
+#| echo: false
+#| fig-cap: "Gating the clock with a plain AND gate and with an integrated clock gate. The enable `en` comes from a register on the same clock, so it changes shortly after the rising edges (dashed), while `clk` is high. The AND gate passes these changes to its output: a late edge in the second period and a short pulse in the fourth. The latch of the ICG passes `en` only while `clk` is low, so the gated clock has only complete pulses, at the third and the fourth edge."
+#| fig-alt: "Timing diagram over four clock periods with five rows: clk, en, gclk of an AND gate, the latched enable, and gclk of the ICG. en rises shortly after the second rising edge and falls shortly after the fourth. The AND output rises late inside the high phase of the second period, has a complete pulse in the third, and only a short pulse at the start of the fourth, marked late edge and short pulse. The latched enable rises at the falling edge of the second period and falls at the falling edge of the fourth. The ICG output has complete clock pulses in the third and the fourth period only."
+import schemdraw as sd
+from schemdraw import logic
+from schemdraw import elements as elm
+from schemdraw.util import Point
+sd.svgconfig.svg2 = False
+
+E = 8   # time steps per clock period
+T = 4*E
+clk = [1 if (t % E) < E//2 else 0 for t in range(T)]
+en = [1 if 9 <= t < 25 else 0 for t in range(T)]   # one step after the edges
+g_and = [c & e for c, e in zip(clk, en)]
+en_l, v = [], 0
+for t in range(T):             # the latch is transparent while clk is low
+    if not clk[t]:
+        v = en[t]
+    en_l.append(v)
+g_icg = [c & e for c, e in zip(clk, en_l)]
+
+
+def wave(values):
+    ''' One wavedrom character per time step, '.' while the value stays '''
+    s, prev = '', None
+    for v in values:
+        s += '.' if v == prev else str(v)
+        prev = v
+    return s
+
+
+waves = {'signal': [
+    {'name': 'clk', 'wave': 'P...'},
+    {'name': 'en', 'wave': wave(en), 'period': 1/E},
+    {'name': 'gclk, AND', 'wave': wave(g_and), 'period': 1/E},
+    {'name': 'en, latched', 'wave': wave(en_l), 'period': 1/E},
+    {'name': 'gclk, ICG', 'wave': wave(g_icg), 'period': 1/E},
+], 'config': {'hscale': 2}}
+
+period, x0 = 3.2, 0.075   # one clock period in drawing units, first rising edge
+RED = '#b85450'
+
+with sd.Drawing(canvas='svg') as dr:
+    dr.config(fontsize=11, lw=1.5, bgcolor='white', margin=0.15)
+    td = logic.TimingDiagram(waves, ygap=0.5, risetime=0.1, yheight=0.8, fontsize=11, namecolor='black',
+                             grid=False)
+    for seg in td.segments:
+        if getattr(seg, 'align', None) == ('right', 'bottom'):   # signal names, onto the wave centers
+            seg.xy = Point((seg.xy[0], seg.xy[1] + 0.2))
+    for k in range(4):   # rising edges
+        x = x0 + k*period
+        elm.Line().at((x, 1.0)).to((x, -5.4)).color('#A6A6A6').linestyle('--').linewidth(1)
+    yg = -1.55   # above the pulses of the AND output
+    elm.Label().at((x0 + 10.5*period/E, yg)).label('late edge', color=RED)
+    elm.Label().at((x0 + 26.5*period/E, yg)).label('short pulse', color=RED)
+```

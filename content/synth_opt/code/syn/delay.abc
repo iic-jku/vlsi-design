@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 Simon Dorrer
+# SPDX-License-Identifier: Apache-2.0
+# Description: A delay-oriented ABC script, the strategy DELAY 4 of
+# LibreLane with a maximum fanout of 10. Usage in Yosys:
+# abc -script delay.abc -constr <file> -liberty <file>
+&get -n
+&st
+&dch
+&nf
+&st
+&syn2
+&if -g -K 6
+&synch2
+&nf
+&st
+&syn2
+&if -g -K 6
+&synch2
+&nf
+&st
+&syn2
+&if -g -K 6
+&synch2
+&nf
+&st
+&syn2
+&if -g -K 6
+&synch2
+&nf
+&st
+&syn2
+&if -g -K 6
+&synch2
+&nf
+&put
+buffer -c -N 10
+topo
+stime -c
+upsize -c
+dnsize -c
