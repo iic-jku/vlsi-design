@@ -1,0 +1,59 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-dft-bs-scan
+#| echo: false
+#| fig-cap: "The 8-bit `bs_reg` after scan insertion. Top: its registers in normal operation. Bottom: the same 21 flip-flops as one scan chain (orange), from `scan_in_0` through `mode_q`, `shamt_q`, `out_q`, and `data_q`, each from its highest bit to its lowest, to `scan_out_0`, the output of `data_q[0]`. `scan_enable_0` drives all 21 `SCE` pins (not drawn)."
+#| fig-alt: "Two block diagrams. Top: three registers data_q with 8 bits, shamt_q with 3 bits and mode_q with 2 bits receive data_i, shamt_i and mode_i and drive a green block barrel shifter, which drives the 8-bit register out_q, whose output is data_o. Bottom: an orange chain of four boxes, mode_q bits 1 to 0, shamt_q bits 2 to 0, out_q bits 7 to 0 and data_q bits 7 to 0, connected by arrows from the input scan_in_0 on the left to the output scan_out_0 on the right."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+GREEN, GREEN_L = '#82b366', '#d5e8d4'
+ORANGE, ORANGE_L = '#d79b00', '#ffe6cc'
+
+
+def reg(x, y, name, w=2.0, fill=BLUE_L, color=BLUE):
+    b = flow.Box(w=w, h=1.2).at((x, y)).anchor('center').fill(fill) \
+        .color(color).label(name, color='black')
+    return b.W, b.E
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
+
+    # normal operation
+    regs = [reg(3.2, y, n) for y, n in ((2.0, 'data_q\n8 bits'),
+                                          (0.4, 'shamt_q\n3 bits'),
+                                          (-1.2, 'mode_q\n2 bits'))]
+    bs = flow.Box(w=2.4, h=4.4).at((7.4, 0.4)).anchor('center') \
+        .fill(GREEN_L).color(GREEN).label('barrel\nshifter',
+                                          color='black')
+    out = reg(11.6, 0.4, 'out_q\n8 bits')
+    for name, (w, e) in zip(('data_i', 'shamt_i', 'mode_i'), regs):
+        elm.Label().at((0.4, w[1] + 0.25)).label(name, halign='left')
+        flow.Arrow().at((0.4, w[1])).to(w)
+        flow.Arrow().at(e).to((bs.W[0], e[1]))
+    flow.Arrow().at(bs.E).to(out[0])
+    flow.Arrow().at(out[1]).to((14.2, 0.4))
+    elm.Label().at((14.3, 0.4)).label('data_o', halign='left')
+
+    # the scan chain
+    y = -3.6
+    chain = [reg(x, y, n, w=2.4, fill=ORANGE_L, color=ORANGE)
+             for x, n in ((3.2, 'mode_q\n[1:0]'), (6.2, 'shamt_q\n[2:0]'),
+                          (9.2, 'out_q\n[7:0]'), (12.2, 'data_q\n[7:0]'))]
+    elm.Label().at((0.4, y + 0.25)).label('scan_in_0', halign='left',
+                                          color=ORANGE)
+    flow.Arrow().at((0.4, y)).to(chain[0][0]).color(ORANGE)
+    for (_, e), (w, _) in zip(chain, chain[1:]):
+        flow.Arrow().at(e).to(w).color(ORANGE)
+    flow.Arrow().at(chain[-1][1]).to((15.0, y)).color(ORANGE)
+    elm.Label().at((15.1, y)).label('scan_out_0', halign='left',
+                                    color=ORANGE)
+```

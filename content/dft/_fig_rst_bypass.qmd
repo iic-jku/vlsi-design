@@ -1,0 +1,83 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-dft-rst-bypass
+#| echo: false
+#| fig-cap: "A reset synchronizer with a test mode. In normal operation (`test_mode_i` = 0), the registers get the synchronized reset `rst_sync_n`. In test mode, the multiplexer passes `rst_ni` from the pin, so the tester holds the reset inactive while the chain shifts, whatever the two synchronizer flip-flops in the chain contain."
+#| fig-alt: "Circuit. Two flip-flops in a row form the reset synchronizer: the first has its D input tied to 1, the second drives the net rst_sync_n. rst_ni from the pin drives the reset inputs of both and the 1-input of a multiplexer, whose 0-input is rst_sync_n and whose select input is test_mode_i. The multiplexer output rst_n drives the reset inputs of a block labeled 21 registers of bs_reg."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+GREEN = '#82b366'
+RED = '#b85450'
+W, H = 1.4, 2.0
+
+
+def register(xl, name):
+    ''' Flip-flop with asynchronous reset, left edge at xl: (D, Q, R) '''
+    flow.Box(w=W, h=H).at((xl + W/2, 0)).anchor('center').fill(BLUE_L) \
+        .color(BLUE)
+    yd, yc = 0.45, -0.45
+    flow.Line().at((xl, yc + 0.2)).to((xl + 0.3, yc)).color('black')
+    flow.Line().at((xl + 0.3, yc)).to((xl, yc - 0.2)).color('black')
+    elm.Label().at((xl + 0.25, yd)).label('D')
+    elm.Label().at((xl + W - 0.25, yd)).label('Q')
+    elm.Label().at((xl + W/2, -H/2 + 0.3)).label('R')
+    elm.Dot(radius=0.08, open=True).at((xl + W/2, -H/2 - 0.08))
+    elm.Label().at((xl + W/2, H/2 + 0.35)).label(name)
+    return (xl, yd), (xl + W, yd), (xl, yc), (xl + W/2, -H/2 - 0.16)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
+    d1, q1, c1, r1 = register(1.4, 'meta_q')
+    d2, q2, c2, r2 = register(4.2, 'rst_no')
+    elm.Label().at((0.4, d1[1])).label("1'b1", halign='right')
+    flow.Arrow().at((0.5, d1[1])).to(d1)
+    flow.Arrow().at(q1).to(d2)
+
+    # the test-mode multiplexer
+    xm, ym = 8.4, 0.0
+    pts = [(xm, ym + 0.9), (xm + 0.8, ym + 0.55), (xm + 0.8, ym - 0.55),
+           (xm, ym - 0.9)]
+    for a, b in zip(pts, pts[1:] + pts[:1]):
+        flow.Line().at(a).to(b).color(GREEN)
+    elm.Label().at((xm + 0.25, ym + 0.45)).label('0')
+    elm.Label().at((xm + 0.25, ym - 0.45)).label('1')
+    flow.Line().at(q2).to((7.4, q2[1]))
+    elm.Label().at((6.6, q2[1] + 0.3)).label('rst_sync_n')
+    flow.Arrow().at((7.4, q2[1])).to((xm, ym + 0.45))
+    elm.Label().at((xm + 0.4, -2.6)).label('test_mode_i', halign='left')
+    flow.Arrow().at((xm + 0.4, -2.3)).to((xm + 0.4, ym - 0.73))
+
+    # rst_ni: both synchronizer resets and the 1-input
+    yr = -1.8
+    elm.Label().at((0.4, yr)).label('rst_ni', halign='right')
+    flow.Line().at((0.5, yr)).to((7.6, yr))
+    for r in (r1, r2):
+        elm.Dot(radius=0.06).at((r[0], yr))
+        flow.Line().at((r[0], yr)).to(r)
+    flow.Line().at((7.6, yr)).to((7.6, ym - 0.45))
+    flow.Arrow().at((7.6, ym - 0.45)).to((xm, ym - 0.45))
+
+    # the registers of the design
+    flow.Arrow().at((xm + 0.8, ym)).to((10.4, ym))
+    elm.Label().at((9.8, ym + 0.3)).label('rst_n')
+    flow.Box(w=2.2, h=1.4).at((11.5, ym)).anchor('center').fill(BLUE_L) \
+        .color(BLUE).label('21 registers\nof bs_reg', color='black')
+
+    # the clock
+    yk = -2.6
+    elm.Label().at((0.4, yk)).label('clk_i', halign='right')
+    flow.Line().at((0.5, yk)).to((3.9, yk)).color(RED)
+    for c in (c1, c2):
+        flow.Line().at((c[0] - 0.3, yk)).to((c[0] - 0.3, c[1])).color(RED)
+        flow.Arrow().at((c[0] - 0.3, c[1])).to(c).color(RED)
+        elm.Dot(radius=0.06).at((c[0] - 0.3, yk)).color(RED)
+```

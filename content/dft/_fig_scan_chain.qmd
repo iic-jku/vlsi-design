@@ -1,0 +1,127 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-dft-scan-chain
+#| echo: false
+#| fig-cap: "Scan design. (a) A scan flip-flop such as `sdfrbpq_1` is a flip-flop with a multiplexer in front: with `SCE` = 0, it loads the functional input `D`, with `SCE` = 1 the scan input `SCD`. (b) The scan flip-flops of a design form a shift register, the scan chain (orange), from `scan_in` through every flip-flop to `scan_out`. One `scan_enable` switches all of them between shifting and normal operation."
+#| fig-alt: "Two diagrams. (a) A multiplexer with inputs D at 0 and SCD at 1 and select input SCE drives the D input of a flip-flop clocked by CLK, whose output is Q. A dashed box around both is labeled sdfrbpq_1. (b) A wide green box labeled combinational logic sits above three scan flip-flops FF1, FF2 and FF3. Each flip-flop gets its D input from the logic and returns its output Q to the logic. An orange path runs from the input scan_in into the SCD input of FF1, from the output of FF1 into SCD of FF2, from FF2 into SCD of FF3, and from FF3 to the output scan_out. An orange line scan_enable reaches the SCE inputs of all three, and a red line clk their clock inputs."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+GREEN, GREEN_L = '#82b366', '#d5e8d4'
+RED, ORANGE, GREY = '#b85450', '#d79b00', '#666666'
+
+
+def flop(xl, y, name, pins=('D', 'SCD', 'SCE')):
+    ''' Box with three inputs at the left edge xl, returns pins and Q '''
+    w, h = 1.8, 2.4
+    flow.Box(w=w, h=h).at((xl + w/2, y)).anchor('center').fill(BLUE_L) \
+        .color(BLUE)
+    ys = [y + 0.75, y + 0.15, y - 0.45]
+    for p, yp in zip(pins, ys):
+        elm.Label().at((xl + 0.15, yp)).label(p, halign='left', fontsize=9)
+    yc = y - 0.95
+    flow.Line().at((xl, yc + 0.2)).to((xl + 0.3, yc)).color('black')
+    flow.Line().at((xl + 0.3, yc)).to((xl, yc - 0.2)).color('black')
+    elm.Label().at((xl + w - 0.2, y + 0.75)).label('Q', halign='right',
+                                                   fontsize=9)
+    elm.Label().at((xl + w/2, y + h/2 + 0.3)).label(name)
+    return [(xl, yp) for yp in ys], (xl, yc), (xl + w, y + 0.75)
+
+
+def mux(xl, yc):
+    ''' Multiplexer with its left edge at xl, returns (in0, in1, sel, out) '''
+    h, w = 1.8, 0.8
+    pts = [(xl, yc + h/2), (xl + w, yc + h/2 - 0.35),
+           (xl + w, yc - h/2 + 0.35), (xl, yc - h/2)]
+    for a, b in zip(pts, pts[1:] + pts[:1]):
+        flow.Line().at(a).to(b).color(GREEN)
+    elm.Label().at((xl + 0.25, yc + 0.45)).label('0', fontsize=9)
+    elm.Label().at((xl + 0.25, yc - 0.45)).label('1', fontsize=9)
+    return (xl, yc + 0.45), (xl, yc - 0.45), (xl + w/2, yc - h/2 + 0.17), \
+        (xl + w, yc)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
+
+    # (a) the scan flip-flop
+    elm.Label().at((-0.6, 2.0)).label('(a)', halign='left')
+    i0, i1, sel, mo = mux(1.4, 0.0)
+    flow.Box(w=1.4, h=2.0).at((3.6 + 0.7, 0.0)).anchor('center') \
+        .fill(BLUE_L).color(BLUE)
+    elm.Label().at((3.85, 0.45)).label('D', fontsize=9)
+    elm.Label().at((4.75, 0.45)).label('Q', fontsize=9)
+    flow.Line().at((3.6, -0.35)).to((3.9, -0.55)).color('black')
+    flow.Line().at((3.9, -0.55)).to((3.6, -0.75)).color('black')
+    flow.Line().at(mo).to((3.0, mo[1]))
+    flow.Line().at((3.0, mo[1])).to((3.0, 0.45))
+    flow.Arrow().at((3.0, 0.45)).to((3.6, 0.45))
+    for name, pin in (('D', i0), ('SCD', i1)):
+        elm.Label().at((0.0, pin[1])).label(name, halign='right')
+        flow.Arrow().at((0.1, pin[1])).to(pin)
+    elm.Label().at((0.0, -1.5)).label('SCE', halign='right')
+    flow.Line().at((0.1, -1.5)).to((sel[0], -1.5))
+    flow.Arrow().at((sel[0], -1.5)).to(sel)
+    elm.Label().at((0.0, -2.1)).label('CLK', halign='right')
+    flow.Line().at((0.1, -2.1)).to((3.3, -2.1)).color(RED)
+    flow.Line().at((3.3, -2.1)).to((3.3, -0.55)).color(RED)
+    flow.Arrow().at((3.3, -0.55)).to((3.6, -0.55)).color(RED)
+    flow.Arrow().at((5.0, 0.45)).to((5.8, 0.45))
+    elm.Label().at((5.9, 0.45)).label('Q', halign='left')
+    flow.Box(w=5.0, h=3.6).at((3.25, -0.2)).anchor('center') \
+        .color(GREY).linestyle('--').linewidth(1)
+    elm.Label().at((3.25, 1.95)).label('sdfrbpq_1', color=GREY)
+
+    # (b) the scan chain
+    x0, y0 = 9.0, -0.6
+    elm.Label().at((x0 - 1.4, 2.0)).label('(b)', halign='left')
+    flow.Box(w=11.6, h=1.0).at((x0 + 6.6, 2.3)).anchor('center') \
+        .fill(GREEN_L).color(GREEN).label('combinational logic',
+                                          color='black')
+    xs = [x0 + 1.4, x0 + 5.4, x0 + 9.4]
+    flops = [flop(x, y0, f'FF{k + 1}') for k, x in enumerate(xs)]
+    prev = None
+    for k, ((pd, ps, pe), pc, q) in enumerate(flops):
+        # D from the logic, Q back to the logic
+        flow.Line().at((pd[0] - 0.5, 1.8)).to((pd[0] - 0.5, pd[1]))
+        flow.Arrow().at((pd[0] - 0.5, pd[1])).to(pd)
+        flow.Line().at(q).to((q[0] + 0.5, q[1]))
+        flow.Arrow().at((q[0] + 0.5, q[1])).to((q[0] + 0.5, 1.8))
+        # the chain
+        src = (x0 - 0.2, ps[1]) if prev is None else (prev[0] + 0.5, prev[1])
+        if prev is None:
+            elm.Label().at((x0 - 0.3, ps[1])).label('scan_in', halign='right',
+                                                    color=ORANGE)
+            flow.Arrow().at(src).to(ps).color(ORANGE)
+        else:
+            flow.Line().at(src).to((src[0], ps[1])).color(ORANGE)
+            flow.Arrow().at((src[0], ps[1])).to(ps).color(ORANGE)
+        prev = q
+        # scan enable and clock
+        flow.Line().at((pe[0] - 0.5, -2.5)).to((pe[0] - 0.5, pe[1])) \
+            .color(ORANGE)
+        flow.Arrow().at((pe[0] - 0.5, pe[1])).to(pe).color(ORANGE)
+        elm.Dot(radius=0.06).at((pe[0] - 0.5, -2.5)).color(ORANGE)
+        flow.Line().at((pc[0] - 0.2, -3.1)).to((pc[0] - 0.2, pc[1])) \
+            .color(RED)
+        flow.Arrow().at((pc[0] - 0.2, pc[1])).to(pc).color(RED)
+        elm.Dot(radius=0.06).at((pc[0] - 0.2, -3.1)).color(RED)
+    flow.Line().at((prev[0] + 0.5, prev[1])).to((prev[0] + 0.5, -1.9)) \
+        .color(ORANGE)
+    flow.Arrow().at((prev[0] + 0.5, -1.9)).to((prev[0] + 1.6, -1.9)) \
+        .color(ORANGE)
+    elm.Label().at((prev[0] + 1.7, -1.9)).label('scan_out', halign='left',
+                                                color=ORANGE)
+    elm.Label().at((x0 - 0.3, -2.5)).label('scan_enable', halign='right',
+                                           color=ORANGE)
+    flow.Line().at((x0 - 0.2, -2.5)).to((xs[2] - 0.5, -2.5)).color(ORANGE)
+    elm.Label().at((x0 - 0.3, -3.1)).label('clk', halign='right')
+    flow.Line().at((x0 - 0.2, -3.1)).to((xs[2] - 0.2, -3.1)).color(RED)
+```

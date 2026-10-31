@@ -1,0 +1,45 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-dft-scan-timing
+#| echo: false
+#| fig-cap: "A scan test with a chain of four flip-flops. While `scan_enable` is high, every rising clock edge shifts the chain by one position, so four edges load pattern 1 from `scan_in`. In the capture cycle, `scan_enable` is low, and the edge at its end (dashed) captures the response of the logic to the pattern and to the primary inputs. The next four shift edges unload the response at `scan_out` and load pattern 2 at the same time."
+#| fig-alt: "Timing diagram over eleven clock periods with five rows: clk, scan_enable, scan_in, primary inputs and scan_out. scan_enable is high for four periods, low for one, high for four, low for one and high again. scan_in carries pattern 1 during the first four periods and pattern 2 during periods six to nine. The primary inputs carry in 1 in period five and in 2 in period ten. scan_out carries response 1 during periods six to nine. Labels above the diagram mark the phases shift, capture, shift and capture, and dashed lines mark the clock edges at the end of the two capture periods."
+import schemdraw as sd
+from schemdraw import logic
+from schemdraw import elements as elm
+from schemdraw.util import Point
+sd.svgconfig.svg2 = False
+
+waves = {'signal': [
+    {'name': 'clk', 'wave': 'P..........'},
+    {'name': 'scan_enable', 'wave': '1...01...01'},
+    {'name': 'scan_in', 'wave': '3...x3...x.', 'data': ['pattern 1',
+                                                        'pattern 2']},
+    {'name': 'primary inputs', 'wave': 'x...5x...5x', 'data': ['in 1',
+                                                               'in 2']},
+    {'name': 'scan_out', 'wave': 'x....4...x.', 'data': ['response 1']},
+], 'config': {'hscale': 1.5}}
+
+period, x0 = 2.4, 0.075   # one clock period in drawing units, first edge
+
+with sd.Drawing(canvas='svg') as dr:
+    dr.config(fontsize=11, lw=1.5, bgcolor='white', margin=0.15)
+    td = logic.TimingDiagram(waves, ygap=0.5, risetime=0.1, yheight=0.8,
+                             fontsize=11, namecolor='black', grid=False)
+    for seg in td.segments:   # signal names onto the wave centers
+        if getattr(seg, 'align', None) == ('right', 'bottom'):
+            seg.xy = Point((seg.xy[0], seg.xy[1] + 0.2))
+    for k, text in ((0, 'shift'), (4, 'capture'), (5, 'shift'),
+                    (9, 'capture')):
+        n = 4 if text == 'shift' else 1
+        elm.Label().at((x0 + (k + n / 2) * period, 1.25)).label(
+            text, color='#666666')
+    for k in (5, 10):   # the capture edges
+        x = x0 + k * period
+        elm.Line().at((x, 1.0)).to((x, -5.4)).color('#A6A6A6') \
+            .linestyle('--').linewidth(1)
+```

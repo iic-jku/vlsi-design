@@ -1,0 +1,37 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-dft-williams
+#| echo: false
+#| fig-cap: "Defect level $DL = 1 - Y^{1-T}$, the fraction of shipped dies that are defective, over the fault coverage $T$ of the test from 95 to 100 %, for four values of the yield $Y$. At 80 % yield and 99 % coverage, 0.22 % of the shipped dies are defective (dot), one in 449."
+#| fig-alt: "Line chart with fault coverage from 95 to 100 percent on the horizontal axis and defect level from 0 to 3.6 percent on the vertical axis. Four falling lines for yields of 50, 70, 80 and 90 percent start at 3.4, 1.8, 1.1 and 0.5 percent at 95 percent coverage and all reach 0 at 100 percent. Lower yield gives a higher line. A dot marks 0.22 percent at 99 percent coverage on the 80 percent line."
+import matplotlib.pyplot as plt
+
+yields = [0.5, 0.7, 0.8, 0.9]
+colors = ['#08306b', '#2171b5', '#6baed6', '#9ecae1']
+ts = [95 + k / 20 for k in range(101)]   # fault coverage in %
+
+plt.rcParams.update({'font.size': 10})
+fig, ax = plt.subplots(figsize=(6.5, 3.4))
+for y, c in zip(yields, colors):
+    dl = [100 * (1 - y ** (1 - t / 100)) for t in ts]
+    ax.plot(ts, dl, color=c, linewidth=2, label=f'Y = {y:.0%}')
+    ax.text(94.9, dl[0], f'{y:.0%}', color='#333333', ha='right',
+            va='center')
+dl = 100 * (1 - 0.8 ** 0.01)
+ax.plot([99], [dl], 'o', color='#b85450', markersize=6)
+ax.annotate(f'{dl:.2f} %', (99, dl), xytext=(99.1, 0.95), color='#b85450',
+            arrowprops={'arrowstyle': '-', 'color': '#b85450'})
+ax.set_xlim(94.4, 100)
+ax.set_ylim(0, 3.6)
+ax.set_xlabel('fault coverage $T$ (%)')
+ax.set_ylabel('defect level $DL$ (%)')
+ax.grid(color='#e5e5e5', linewidth=0.8)
+ax.spines[['top', 'right']].set_visible(False)
+ax.legend(frameon=False, loc='upper right', title='yield')
+fig.tight_layout()
+plt.show()
+```

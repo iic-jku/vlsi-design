@@ -1,0 +1,59 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-dft-sensitize
+#| echo: false
+#| fig-cap: "A test for the stuck-at-0 fault at the output of the inverter. `c` = 0 excites the fault: the net is 1 in the good circuit and 0 in the faulty one (1/0). `d` = 1 lets the NAND gate pass the difference, and `a` = `b` = 0 let the NOR gate pass it. The test vector (`a`, `b`, `c`, `d`) = (0, 0, 0, 1) gives `y` = 1 in the good and `y` = 0 in the faulty circuit."
+#| fig-alt: "Gate-level circuit. Input c drives an inverter whose output, marked with a red cross and s-a-0, drives one input of a NAND gate. Input d drives the other NAND input. Inputs b and a drive an OR gate. The NAND and OR outputs drive a NOR gate with output y. Values are written on the wires: c 0, inverter output 1/0, d 1, NAND output 0/1, a 0, b 0, OR output 0, y 1/0. The values with a slash are red and mark the path of the fault."
+import schemdraw as sd
+from schemdraw import logic
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+RED = '#b85450'
+S = 1.6   # gate scale: inputs 0.8 apart
+
+
+def value(xy, text, color='black', dy=0.25):
+    elm.Label().at((xy[0], xy[1] + dy)).label(text, color=color)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
+    nand = logic.Nand(inputs=2).scale(S).at((3.6, 0.8)).anchor('in1')
+    inv = logic.Not().scale(S).at((1.0, 0.0)).anchor('in1')
+    orb = logic.Or(inputs=2).scale(S).at((3.6, -1.6)).anchor('in1')
+    nor = logic.Nor(inputs=2).scale(S).at((8.6, -0.4)).anchor('in1')
+
+    # inputs
+    for name, y in (('d', 0.8), ('c', 0.0), ('b', -1.6), ('a', -2.4)):
+        elm.Label().at((-0.1, y)).label(name, halign='right', color='black')
+    elm.Line().at((0, 0.8)).to(nand.in1)
+    elm.Line().at((0, 0.0)).to(inv.in1)
+    elm.Line().at(inv.out).to(nand.in2)
+    elm.Line().at((0, -1.6)).to(orb.in1)
+    elm.Line().at((0, -2.4)).to(orb.in2)
+    elm.Wire('-|').at(nand.out).to((7.4, nor.in1[1]))
+    elm.Line().at((7.4, nor.in1[1])).to(nor.in1)
+    elm.Wire('-|').at(orb.out).to((7.8, nor.in2[1]))
+    elm.Line().at((7.8, nor.in2[1])).to(nor.in2)
+    elm.Line().at(nor.out).to((nor.out[0] + 1.0, nor.out[1]))
+    elm.Label().at((nor.out[0] + 1.1, nor.out[1])).label('y', halign='left',
+                                                          color='black')
+
+    # the fault and the values: good/faulty
+    xf = (inv.out[0] + nand.in2[0]) / 2
+    elm.Label().at((xf, 0.0)).label('×', color=RED, fontsize=20)
+    elm.Label().at((xf, -0.45)).label('s-a-0', color=RED)
+    value((0.5, 0.8), '1')
+    value((0.5, 0.0), '0')
+    value((xf + 0.55, 0.0), '1/0', RED)
+    value((0.5, -1.6), '0')
+    value((0.5, -2.4), '0')
+    value((nand.out[0] + 0.5, nand.out[1]), '0/1', RED)
+    value((orb.out[0] + 0.5, orb.out[1]), '0')
+    value((nor.out[0] + 0.5, nor.out[1]), '1/0', RED)
+```
