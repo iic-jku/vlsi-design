@@ -1,0 +1,69 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-sequential-path
+#| echo: false
+#| fig-cap: "A path between two registers. FF1 launches the data at a clock edge, and after the clock-to-output delay $t_\\text{cq}$ and the delay $t_\\text{logic}$ of the combinational logic, it reaches FF2, which needs it at least the setup time $t_\\text{su}$ before the next edge. The clock reaches FF1 after the latency $L_1$ and FF2 after the latency $L_2$ of the clock tree. Their difference is the clock skew."
+#| fig-alt: "Block diagram. A register FF1 on the left drives a combinational logic block, which drives the D input of a register FF2 on the right. Labels mark t_cq at the output of FF1, t_logic above the logic block, and t_su at the input of FF2. Below, the clock clk runs from the left through a shared buffer to the clock pin of FF1, labeled L1, and through the shared buffer and two more buffers to the clock pin of FF2, labeled L2. A note says t_skew = L2 - L1."
+import schemdraw as sd
+from schemdraw import flow, logic
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+GREEN, GREEN_L = '#82b366', '#d5e8d4'
+RED, GREY = '#b85450', '#666666'
+W, H = 1.4, 2.0   # register box
+
+
+def register(xl, name):
+    ''' Register box with its left edge at xl, returns (D, Q, clock pin) '''
+    flow.Box(w=W, h=H).at((xl + W/2, 0)).anchor('center').fill(BLUE_L).color(BLUE)
+    yd, yc = 0.45, -0.55
+    flow.Line().at((xl, yc + 0.2)).to((xl + 0.3, yc)).color('black')   # clock triangle
+    flow.Line().at((xl + 0.3, yc)).to((xl, yc - 0.2)).color('black')
+    elm.Label().at((xl + 0.25, yd)).label('D', color='black')
+    elm.Label().at((xl + W - 0.25, yd)).label('Q', color='black')
+    elm.Label().at((xl + W/2, H/2 + 0.3)).label(name, color='black')
+    return (xl, yd), (xl + W, yd), (xl, yc)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    d1, q1, c1 = register(1.6, 'FF1')
+    d2, q2, c2 = register(10.0, 'FF2')
+    flow.Arrow().at((0.2, d1[1])).to(d1)
+    flow.Line().at(q2).to((12.2, q2[1]))
+    cl = flow.Box(w=3.6, h=1.4).at((6.6, d1[1])).anchor('center').fill(GREEN_L).color(GREEN) \
+        .label('combinational\nlogic', color='black')
+    flow.Arrow().at(q1).to(cl.W)
+    flow.Arrow().at(cl.E).to(d2)
+    elm.Label().at(((q1[0] + cl.W[0])/2, q1[1] + 0.35)).label('$t_\\mathrm{cq}$', color=BLUE)
+    elm.Label().at((6.6, d1[1] + 1.0)).label('$t_\\mathrm{logic}$', color=BLUE)
+    elm.Label().at(((cl.E[0] + d2[0])/2, d2[1] + 0.35)).label('$t_\\mathrm{su}$', color=BLUE)
+
+    # clock tree: a shared buffer to FF1, two more buffers to FF2
+    yk = -2.4
+    elm.Label().at((-1.2, yk + 0.3)).label('clk', halign='left', color='black')
+    flow.Line().at((-1.2, yk)).to((-0.8, yk)).color(RED)
+    b0 = logic.Buf().right().scale(0.7).at((-0.8, yk)).color(RED)
+    xa = 0.8
+    flow.Line().at(b0.end).to((xa, yk)).color(RED)
+    elm.Dot(radius=0.06).at((xa, yk)).color(RED)
+    flow.Line().at((xa, yk)).to((xa, c1[1])).color(RED)
+    flow.Arrow().at((xa, c1[1])).to(c1).color(RED)
+    elm.Label().at((xa - 0.15, (yk + c1[1])/2)).label('$L_1$', halign='right', color=RED)
+    xb = 9.4
+    flow.Line().at((xa, yk)).to((5.0, yk)).color(RED)
+    g1 = logic.Buf().right().scale(0.7).at((5.0, yk)).color(RED)
+    flow.Line().at(g1.end).to((6.8, yk)).color(RED)
+    g2 = logic.Buf().right().scale(0.7).at((6.8, yk)).color(RED)
+    flow.Line().at(g2.end).to((xb, yk)).color(RED)
+    flow.Line().at((xb, yk)).to((xb, c2[1])).color(RED)
+    flow.Arrow().at((xb, c2[1])).to(c2).color(RED)
+    elm.Label().at((xb - 0.15, (yk + c2[1])/2)).label('$L_2$', halign='right', color=RED)
+    elm.Label().at((6.6, yk - 0.95)).label('clock skew $t_\\mathrm{skew} = L_2 - L_1$', color=RED)
+```

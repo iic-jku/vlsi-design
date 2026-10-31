@@ -1,0 +1,60 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-sequential-latch-ff
+#| echo: false
+#| fig-cap: "A latch and a flip-flop with the same input `D`. The latch is transparent while `clk` is high (shaded): its output follows `D`, including the short pulse, and holds its value while `clk` is low. The flip-flop samples `D` only at the rising edges (dashed) and ignores every change in between."
+#| fig-alt: "Timing diagram over four clock periods with four rows: clk, D, Q of a latch that is transparent while clk is high, and Q of a flip-flop. The phases where clk is high are shaded. D rises while clk is low, falls in the next high phase, shows a short pulse in the third high phase, and rises again in the following low phase. The latch output rises at the second rising edge, falls together with D, repeats the short pulse, and rises at the fourth rising edge. The flip-flop output changes only at the rising edges: high from the second, low from the third, and high from the fourth edge on."
+import schemdraw as sd
+from schemdraw import logic
+from schemdraw import elements as elm
+from schemdraw.util import Point
+sd.svgconfig.svg2 = False
+
+E = 8   # time steps per clock period
+d   = [0]*6 + [1]*4 + [0]*8 + [1] + [0]*3 + [1]*10
+clk = [1 if (t % E) < E//2 else 0 for t in range(4*E)]
+ff, latch, q = [], [], 0
+for t in range(4*E):
+    if t % E == 0:
+        q = d[t]                       # the flip-flop samples at the rising edge
+    ff.append(q)
+for t in range(4*E):                   # the latch follows D while clk is high
+    latch.append(d[t] if clk[t] else (latch[-1] if latch else 0))
+
+
+def wave(values):
+    ''' One wavedrom character per time step, '.' while the value stays '''
+    s, prev = '', None
+    for v in values:
+        s += '.' if v == prev else str(v)
+        prev = v
+    return s
+
+
+waves = {'signal': [
+    {'name': 'clk', 'wave': 'P...'},
+    {'name': 'D', 'wave': wave(d), 'period': 1/E},
+    {'name': 'Q latch', 'wave': wave(latch), 'period': 1/E},
+    {'name': 'Q flip-flop', 'wave': wave(ff), 'period': 1/E},
+], 'config': {'hscale': 2}}
+
+period, x0 = 3.2, 0.075   # one clock period in drawing units, first rising edge
+
+with sd.Drawing(canvas='svg') as dr:
+    dr.config(fontsize=11, lw=1.5, bgcolor='white', margin=0.15)
+    for k in range(4):   # transparent phases of the latch
+        xa = x0 + k*period
+        elm.Rect(corner1=(xa, 0.85), corner2=(xa + period/2, -3.95), fill='#eaf1fb', lw=0).color('#eaf1fb')
+    td = logic.TimingDiagram(waves, ygap=0.5, risetime=0.1, yheight=0.8, fontsize=11, namecolor='black',
+                             grid=False)
+    for seg in td.segments:
+        if getattr(seg, 'align', None) == ('right', 'bottom'):   # signal names, onto the wave centers
+            seg.xy = Point((seg.xy[0], seg.xy[1] + 0.2))
+    for k in range(4):   # rising edges
+        x = x0 + k*period
+        elm.Line().at((x, 1.0)).to((x, -4.1)).color('#A6A6A6').linestyle('--').linewidth(1)
+```

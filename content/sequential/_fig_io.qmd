@@ -1,0 +1,87 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-sequential-io
+#| echo: false
+#| fig-cap: "The four kinds of timing paths of a block (dashed outline), all registers on the same clock: (1) from an input to a register, (2) from register to register, (3) from a register to an output, and (4) from an input straight through to an output. Outside the block, the inputs come from registers and the outputs go to registers. The input delay is the part of the period that the outside path to an input uses, the output delay the part that the outside path from an output needs."
+#| fig-alt: "Block diagram. A dashed rectangle is the block. On the left outside, an external register drives logic that enters the block at an input port. Inside, logic leads to register A, more logic to register B, and more logic to an output port. Outside on the right, logic leads to a second external register. A second row inside the block connects a second input port through logic straight to a second output port. Labels 1 to 4 mark the path from the input to register A, from register A to register B, from register B to the output, and from the second input to the second output. Arrows above the outside parts are labeled input delay and output delay."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+GREEN, GREEN_L = '#82b366', '#d5e8d4'
+GREY = '#666666'
+RED = '#b85450'
+FW, FH = 1.0, 1.4      # register box
+XL, XR = 3.3, 11.7     # block boundary
+
+
+def register(xl, y, name, fill=BLUE_L, edge=BLUE):
+    ''' Register box with its left edge at xl, returns (D, Q) '''
+    flow.Box(w=FW, h=FH).at((xl + FW/2, y)).anchor('center').fill(fill).color(edge)
+    yc = y - 0.35
+    flow.Line().at((xl, yc + 0.15)).to((xl + 0.22, yc)).color('black')   # clock triangle
+    flow.Line().at((xl + 0.22, yc)).to((xl, yc - 0.15)).color('black')
+    elm.Label().at((xl + FW/2, y + FH/2 + 0.4)).label(name, fontsize=10, color='black')
+    return (xl, y + 0.25), (xl + FW, y + 0.25)
+
+
+def logic(xc, y):
+    return flow.Box(w=1.1, h=0.7).at((xc, y)).anchor('center').fill(GREEN_L).color(GREEN) \
+        .label('logic', fontsize=10, color='black')
+
+
+def number(x, y, n):
+    flow.Circle(r=0.22).at((x, y)).anchor('center').fill('white').color(RED).label(str(n), fontsize=10, color=RED)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.4, bgcolor='white')
+    y1, y2 = 0.25, -2.0
+    elm.Rect(corner1=(XL, 1.9), corner2=(XR, -2.9)).linestyle('--').color(GREY)
+    elm.Label().at((XL + 0.15, 1.65)).label('block', halign='left', fontsize=10, color=GREY)
+
+    # row 1: external register, input, A, B, output, external register
+    _, qx = register(0.0, 0.0, 'outside', GREEN_L, GREEN)
+    lx = logic(2.0, y1)
+    flow.Line().at(qx).to(lx.W)
+    la = logic(4.5, y1)
+    flow.Arrow().at(lx.E).to(la.W)
+    elm.Dot(radius=0.07).at((XL, y1))
+    da, qa = register(5.6, 0.0, 'A')
+    flow.Arrow().at(la.E).to(da)
+    lb = logic(7.7, y1)
+    flow.Line().at(qa).to(lb.W)
+    db, qb = register(8.8, 0.0, 'B')
+    flow.Arrow().at(lb.E).to(db)
+    lc = logic(10.9, y1)
+    flow.Line().at(qb).to(lc.W)
+    ly = logic(13.0, y1)
+    flow.Line().at(lc.E).to(ly.W)
+    elm.Dot(radius=0.07).at((XR, y1))
+    dy, _ = register(14.1, 0.0, 'outside', GREEN_L, GREEN)
+    flow.Arrow().at(ly.E).to(dy)
+
+    # row 2: input straight through to output
+    ld = logic(7.5, y2)
+    flow.Arrow().at((2.4, y2)).to(ld.W)
+    flow.Arrow().at(ld.E).to((12.6, y2))
+    elm.Dot(radius=0.07).at((XL, y2))
+    elm.Dot(radius=0.07).at((XR, y2))
+
+    number(4.5, y1 + 0.75, 1)
+    number(7.7, y1 + 0.75, 2)
+    number(10.9, y1 + 0.75, 3)
+    number(7.5, y2 + 0.75, 4)
+
+    # the parts of the period outside the block
+    elm.Line(arrow='<->').at((0.0, 2.45)).to((XL, 2.45)).color(BLUE).linewidth(1.2)
+    elm.Label().at((XL/2, 2.8)).label('input delay', fontsize=10, color=BLUE)
+    elm.Line(arrow='<->').at((XR, 2.45)).to((15.1, 2.45)).color(BLUE).linewidth(1.2)
+    elm.Label().at(((XR + 15.1)/2, 2.8)).label('output delay', fontsize=10, color=BLUE)
+```

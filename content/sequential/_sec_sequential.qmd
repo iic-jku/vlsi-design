@@ -5,6 +5,338 @@ SPDX-License-Identifier: Apache-2.0
 
 # Sequential Elements and Static Timing Analysis {#sec-sequential}
 
+In @sec-synthesis-lib, we computed the delay of single cells from the tables of the Liberty file. This chapter puts these delays together. Three questions guide it. What does a flip-flop require from its data and its clock? How fast can a synchronous design run? And how does a tool check every path of a netlist with millions of cells, without simulating it, and what must we tell it for that? The answers are the timing parameters of sequential cells, the setup and the hold condition of a path between two registers, and static timing analysis with OpenSTA, driven by timing constraints in the SDC format.
+
 ::: {.callout-note}
-This chapter will be released later in the semester.
+All code of this chapter is available in the folder [`content/sequential/code`]({{< meta var.url-repo >}}/tree/main/content/sequential/code) of the course repository: a single flip-flop in `ff/`, the barrel shifter of @sec-verification between two registers in `bs_reg/` with its constraints and its timing script in `bs_reg/syn/`, the constraints of the LED blinker of @sec-modeling-clken in `gen_clk/`, a shift register with an unbalanced clock in `hold/`, and a latch in `borrow/`. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (Yosys 0.70, OpenSTA 3.1.0) and the standard-cell library of SG13CMOS5L, in the typical corner unless a corner is named. The script [`scripts/check_sequential.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_sequential.sh) reproduces all of them: run `bash scripts/check_sequential.sh` in the container from the root of the repository.
 :::
+
+For the exercises, clone the course repository into your designs folder once, if you have not done so yet:
+
+```bash
+cd /foss/designs
+git clone https://github.com/iic-jku/vlsi-design.git
+```
+
+Define the path of the typical-corner library in every new terminal:
+
+```bash
+LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib
+LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+```
+
+## Learning Objectives {#sec-sequential-objectives}
+
+After this chapter, you will be able to:
+
+- explain how a latch and a flip-flop store a value, and why synchronous designs use flip-flops
+- name the timing parameters of a flip-flop, i.e., the clock-to-output delay, the setup and the hold time, the recovery and the removal time, and the minimum pulse width, and read them from the library
+- write the setup and the hold condition of a path between two registers, including clock skew and uncertainty, and compute its slack and the maximum clock frequency
+- explain how static timing analysis checks every path of a design, and what it cannot check
+- write timing constraints in SDC: clocks, generated clocks, input and output delays, loads, and timing exceptions
+- run OpenSTA, read its timing reports, and find and fix setup and hold violations
+- explain how a latch borrows time from the next stage
+
+## Latches and Flip-Flops {#sec-sequential-elements}
+
+A **latch** is level-sensitive. While its enable, called the gate, is active, the latch is **transparent**: its output `Q` follows its input `D`. When the gate becomes inactive, the latch holds the last value of `D`. A **flip-flop** is edge-triggered. It samples `D` at the active edge of its clock and holds the value until the next active edge, whatever `D` does in between (@fig-sequential-latch-ff).
+
+{{< include /content/sequential/_fig_latch_ff.qmd >}}
+
+A flip-flop is built from two latches in series with opposite gates, the **master** and the **slave**. While the clock is low, the master is transparent and follows `D`, and the slave holds `Q`. At the rising edge, the master closes and holds the value of `D` at that moment, and the slave opens and passes it to `Q`. So the value that `D` has at the edge is the one that appears at `Q`.
+
+Synchronous designs use flip-flops (@sec-sv-sync-design). Their state changes only at the clock edges, so every path from one register to the next has exactly one clock period, and a tool can check each path on its own. A latch passes every change of `D` while it is transparent, including glitches, so a path through a latch continues into the next phase of the clock (@sec-sequential-borrow). In SG13CMOS5L, the latch `dlhq_1`, transparent while its gate is high, has an area of 30.84 µm², and the flip-flop `dfrbpq_1`, which has an asynchronous reset, 48.99 µm². In synchronous designs, latches mostly appear inside cells, e.g., in the clock gate `lgcp_1` (@sec-synth-opt).
+
+## Timing Parameters of a Flip-Flop {#sec-sequential-params}
+
+A flip-flop needs time to sample `D` and to drive the new value to `Q`. The library describes this with a few parameters (@fig-sequential-ff-timing):
+
+- The **clock-to-output delay** $t_\text{cq}$ runs from the active clock edge to the change at `Q`. Like the delay of a gate, it is a table over the slew of the clock and the load at `Q` (the arc `rising_edge` of @sec-synthesis-lib-liberty).
+- The **setup time** $t_\text{su}$ is how long `D` must be stable before the clock edge.
+- The **hold time** $t_\text{hold}$ is how long `D` must stay stable after the clock edge.
+
+{{< include /content/sequential/_fig_ff_timing.qmd >}}
+
+Setup and hold time together form a window around the clock edge in which `D` must not change. Both are timing checks in the library, 4×4 tables over the slews of `D` and of the clock (@sec-synthesis-lib-liberty). A hold time can be **negative**: then the window ends before the clock edge, and `D` may already change shortly before the edge. This happens when the data takes longer than the clock to reach the master latch inside the cell, so a change at `D` arrives there only after the master has closed.
+
+The asynchronous reset has two checks of its own. The **recovery time** is how long before the clock edge `RESET_B` must be released, so that the flip-flop leaves the reset at this edge. The **removal time** is the minimum time between the clock edge and a later release, so that the flip-flop leaves the reset only at the next edge. They are the setup and hold time of the reset release. A negative removal time, as in @tbl-sequential-params below, means that the release may even come shortly before the edge and still count only for the next edge. With a recovery time of 0.133 ns and a removal time of -0.114 ns, a release between 0.133 ns and 0.114 ns before the edge is forbidden. If the checks are violated, some flip-flops leave the reset one clock cycle later than others, and the design starts in a state that the RTL never reaches. @sec-cdc shows how a reset synchronizer prevents this. Finally, the clock and the reset need a **minimum pulse width**, so that the latches inside the cell can switch at all.
+
+The script `ff/ff.tcl` reads these parameters of `dfrbpq_1` from the tables of the library, with `report_dcalc` on each arc of the cell (@tbl-sequential-params):
+
+```bash
+cd /foss/designs/vlsi-design/content/sequential/code/ff
+sta -no_init -exit ff.tcl
+```
+
+| Parameter | Arc | Value |
+|:----------------------------------|:-------------------------------|-------------------:|
+| clock-to-output delay, `Q` rising | `CLK` rising to `Q` rising | 0.207 ns |
+| clock-to-output delay, `Q` falling | `CLK` rising to `Q` falling | 0.203 ns |
+| setup time, `D` rising / falling | `CLK` rising to `D` | 0.127 / 0.121 ns |
+| hold time, `D` rising / falling | `CLK` rising to `D` | -0.072 / -0.043 ns |
+| recovery time | `CLK` rising to `RESET_B` rising | 0.133 ns |
+| removal time | `CLK` rising to `RESET_B` rising | -0.114 ns |
+| reset to output | `RESET_B` falling to `Q` falling | 0.276 ns |
+| minimum pulse width, `CLK` high / low | `CLK` | 0.064 / 0.104 ns |
+| minimum pulse width, `RESET_B` low | `RESET_B` | 0.233 ns |
+
+: Timing parameters of `sg13cmos5l_dfrbpq_1` in the typical corner, with clock and data slews of 0.1 ns and a load of 5 fF {#tbl-sequential-params}
+
+What happens when `D` changes inside the window? The master latch may then capture a voltage between 0 and 1, and the flip-flop can become **metastable**: its output hangs at an invalid level for an unpredictable time before it settles to 0 or 1. Inside a synchronous design, the timing checks of @sec-sequential-sta rule this out. For signals from other clock domains and for asynchronous inputs, it can happen, and @sec-cdc treats it.
+
+## Timing of a Register-to-Register Path {#sec-sequential-path}
+
+@fig-sequential-path shows a path from FF1, which **launches** the data at a clock edge, to FF2, which **captures** it at the next edge. The clock reaches FF1 after a **clock latency** $L_1$ and FF2 after a latency $L_2$, through the buffers of the clock tree. Their difference $t_\text{skew} = L_2 - L_1$ is the **clock skew**. The **clock uncertainty** $t_\text{unc}$ is a margin for the **jitter** of the clock source, i.e., the variation of its period from cycle to cycle, and, before the clock tree exists, for its skew.
+
+{{< include /content/sequential/_fig_path.qmd >}}
+
+**The setup condition.** FF1 launches a new value at the clock edge at time 0. It appears at `Q` after $t_\text{cq}$ and reaches `D` of FF2 after the delay $t_\text{logic}$ of the combinational logic. FF2 captures it at the next edge, one clock period $T$ later, and the value must arrive $t_\text{su}$ before that edge. With the latencies, the **arrival time** is $L_1 + t_\text{cq} + t_\text{logic}$, and the **required time** is $T + L_2 - t_\text{su} - t_\text{unc}$. The longest path through the logic counts:
+
+$$t_\text{cq} + t_\text{logic,max} + t_\text{su} \le T + t_\text{skew} - t_\text{unc}$$
+
+**The hold condition.** The same edge at time 0 also reaches FF2, which captures the old value of FF1 there. The new value of FF1 must not arrive at FF2 before the hold window of this edge closes. Now the shortest path through the logic counts:
+
+$$t_\text{cq} + t_\text{logic,min} \ge t_\text{hold} + t_\text{skew} + t_\text{unc}$$
+
+The uncertainty makes both checks harder. The hold check compares the same clock edge at both registers, so the jitter of the source cancels there, and its uncertainty only needs to cover the skew. `set_clock_uncertainty` with `-setup` or `-hold` sets the two margins separately. The **slack** is the margin of a check: the required time minus the arrival time for setup, and the arrival time minus the required time for hold. A slack of zero or more means that the check is met.
+
+Three consequences follow from the two conditions:
+
+- **The setup condition sets the clock frequency.** The minimum period of a path is $T_\text{min} = t_\text{cq} + t_\text{logic,max} + t_\text{su} - t_\text{skew} + t_\text{unc}$, and the slowest path of the design sets the maximum frequency $f_\text{max} = 1/T_\text{min}$. With the values of @tbl-sequential-params, logic of 1 ns, no skew, and no uncertainty, $T_\text{min} = 0.207 + 1 + 0.127 = 1.334$ ns.
+- **The hold condition does not contain the clock period.** For a path between two flip-flops on the same clock edge, a hold violation fails at every clock frequency, even at a slow one. It cannot be fixed by lowering the clock frequency, and a chip with such a violation may not work at all.
+- **Skew helps one check and hurts the other.** A capturing clock that arrives later gives the setup check more time and takes the same time away from the hold check. Hold violations therefore appear on short paths, e.g., between registers without logic in between, as in shift registers and scan chains (@sec-dft), when the clock reaches the capturing register late.
+
+## Static Timing Analysis {#sec-sequential-sta}
+
+**Static timing analysis** (STA) checks these conditions for every path of a design, without simulating it. It splits the netlist into **timing paths**. A path starts at a **startpoint**, an input port or the clock pin of a register, and it ends at an **endpoint**, an output port or a data pin of a register. That gives four kinds of paths (@fig-sequential-io): from an input to a register, from register to register, from a register to an output, and from an input straight through to an output.
+
+{{< include /content/sequential/_fig_io.qmd >}}
+
+The tool builds a **timing graph** from the cells and nets of the netlist. Starting at the startpoints, it propagates the arrival times of a rising and of a falling transition through the graph: the latest arrival for the setup checks, the earliest for the hold checks. Each cell adds its delay, computed from its tables with the slew at its input and the load at its output (@sec-synthesis-lib-delay), and the timing sense of each arc tells which edge follows which. At every endpoint, the tool computes the required time from the capturing clock edge and the setup or hold time of the cell, and from it the slack. A design meets its timing when no slack is negative. The **worst negative slack** (WNS) is the smallest slack of all endpoints, the **total negative slack** (TNS) the sum of all negative slacks, a measure of how much work is left.
+
+Compared with a timing simulation (@sec-verification-gl-sdf), STA needs no stimuli, checks every path, and runs in a time that grows only linearly with the size of the design. It has its limits, though. STA does not know the function of the design: it also times paths that can never be activated, and it cannot tell whether a design works. And it checks exactly what the constraints describe: a clock it does not know, or a wrong input delay, gives a report full of positive slacks for a chip that fails. OpenSTA analyzes one corner per run here. Setup is usually hardest in the slow corner and hold in the fast one, but the sign-off checks both in all corners (@sec-synthesis-lib-corners).
+
+## Timing Constraints {#sec-sequential-sdc}
+
+The constraints describe the clocks and the environment of a design. They are written in SDC (Synopsys Design Constraints), a set of Tcl commands that most timing and layout tools read, among them OpenSTA, OpenROAD, and LibreLane (@sec-digital-flow). Here are the constraints of the barrel shifter between two registers, `bs_reg`:
+
+```{.default filename="bs_reg/syn/bs_reg.sdc"}
+{{< include /content/sequential/code/bs_reg/syn/bs_reg.sdc >}}
+```
+
+**The clock.** `create_clock` defines a clock with a name and a period at a port, here 4 ns, i.e., 250 MHz, with a duty cycle of 50 %. Before the layout, the clock tree does not exist yet, so the clock is **ideal**: it arrives at all registers at the same time, with the slew of `set_clock_transition`. `set_clock_uncertainty` adds the margin $t_\text{unc}$ for jitter and for the skew of the future clock tree. After clock tree synthesis, `set_propagated_clock` makes the tool compute the real latency of every register through the buffers of the clock tree (@sec-sequential-hold).
+
+**The environment.** An input of the block is driven by a register outside, which launches its data at the same clock edge. `set_input_delay` says how much of the period the outside path already uses, i.e., the clock-to-output delay of the external register and the logic behind it. The path from the input to the first register inside then has $T$ minus the input delay. In the same way, `set_output_delay` says how much time the logic and the register behind an output need before the next clock edge. `set_driving_cell` tells which cell drives the inputs, so that the first cells see a realistic slew and the delay of the driver counts, and `set_load` sets the capacitance at the outputs. When nothing is known about the environment, a common choice is to give the inside and the outside of each port path a share of the period, as here 1 ns of 4 ns for the outside.
+
+The timing scripts of the earlier chapters used the same commands. In @sec-modeling-excl, the inputs change at the clock edge and the outputs are sampled at the next edge, i.e., both delays are 0, which gives the paths through the ports the whole period. The FIFO of @sec-verification-gl-sdf gives its inputs and outputs half a period each, because its testbench changes the inputs and samples the outputs at the falling edge.
+
+## Static Timing Analysis with OpenSTA {#sec-sequential-opensta}
+
+OpenSTA [@OpenSTA] is the timing analyzer of the open-source flow, and OpenROAD and LibreLane run it internally. Synthesize `bs_reg` with the buffering and sizing of @sec-synthesis-lib-yosys, and run its timing script:
+
+```bash
+cd /foss/designs/vlsi-design/content/sequential/code/bs_reg
+yosys -p "read_verilog -sv \
+  ../../../verification/code/barrel_shift/rtl/barrel_shift.sv \
+  rtl/bs_reg.sv; synth -top bs_reg; flatten; \
+  dfflibmap -liberty $LIB; \
+  abc -constr ../../../synthesis_lib/code/synth/abc.constr \
+  -liberty $LIB; opt_clean; \
+  stat -liberty $LIB; write_verilog -noattr bs_reg.nl.v"
+sta -no_init -exit syn/sta.tcl
+```
+
+```{.default filename="bs_reg/syn/sta.tcl"}
+{{< include /content/sequential/code/bs_reg/syn/sta.tcl >}}
+```
+
+- `read_liberty`, `read_verilog`, and `link_design` read the library and the netlist and connect them, and `read_sdc` reads the constraints.
+- `check_setup -verbose` reports registers without a clock and endpoints without a constraint. Run it first: a path that no constraint covers does not appear in any report.
+- STA sorts the endpoints into **path groups**, one for each capturing clock and one, called `asynchronous`, for the checks of the asynchronous reset. `report_checks -path_delay max` reports the path with the worst setup slack of each group, `-path_delay min` the one with the worst hold slack. `-fields {fanout}` adds the number of pins that each net drives.
+- `report_clock_min_period` reports the minimum period of each clock from the paths between registers. With `-include_port_paths`, it also takes the paths from the inputs and to the outputs into account. `report_wns` and `report_tns` the WNS and the TNS, which OpenSTA prints as 0 when no slack is negative.
+- `report_check_types -max_slew -max_capacitance -violators` lists the pins whose slew or load exceeds the limits of the library (@sec-synthesis-lib-delay).
+
+The netlist has 915 cells and 15,276 µm², and `check_setup` finds nothing. Here is the worst setup path of the clock `clk`, from the flip-flop of `shamt_q[1]` to the one of `out_q[30]`:
+
+```
+Startpoint: _1719_ (rising edge-triggered flip-flop clocked by clk)
+Endpoint: _1716_ (rising edge-triggered flip-flop clocked by clk)
+Path Group: clk
+Path Type: max
+
+Fanout    Delay     Time   Description
+-----------------------------------------------------------------
+          0.000    0.000   clock clk (rise edge)
+          0.000    0.000   clock network delay (ideal)
+          0.000    0.000 ^ _1719_/CLK (sg13cmos5l_dfrbpq_1)
+     1    0.204    0.204 ^ _1719_/Q (sg13cmos5l_dfrbpq_1)
+     9    0.111    0.314 ^ _0812_/X (sg13cmos5l_buf_4)
+    10    0.163    0.477 ^ _1279_/X (sg13cmos5l_buf_4)
+    10    0.190    0.668 ^ _1556_/X (sg13cmos5l_buf_2)
+    10    0.203    0.871 ^ _0906_/X (sg13cmos5l_buf_2)
+     3    0.276    1.147 v _0984_/X (sg13cmos5l_mux4_1)
+     2    0.132    1.279 v _1249_/X (sg13cmos5l_mux2_1)
+     1    0.154    1.433 ^ _1261_/Y (sg13cmos5l_a221oi_1)
+     1    0.059    1.491 v _1262_/Y (sg13cmos5l_o21ai_1)
+          0.000    1.491 v _1716_/D (sg13cmos5l_dfrbpq_1)
+                   1.491   data arrival time
+
+          4.000    4.000   clock clk (rise edge)
+          0.000    4.000   clock network delay (ideal)
+         -0.100    3.900   clock uncertainty
+          0.000    3.900   clock reconvergence pessimism
+                   3.900 ^ _1716_/CLK (sg13cmos5l_dfrbpq_1)
+         -0.100    3.800   library setup time
+                   3.800   data required time
+-----------------------------------------------------------------
+                   3.800   data required time
+                  -1.491   data arrival time
+-----------------------------------------------------------------
+                   2.308   slack (MET)
+```
+
+The report has two halves. The upper half follows the data: the clock edge at 0, the ideal clock network with a delay of 0, the clock-to-output delay of 0.204 ns, and then every cell of the path with its delay and the arrival time after it. `^` marks a rising, `v` a falling transition. This path passes four buffers, each of which drives nine or ten pins. The lower half computes the required time from the next clock edge at 4 ns, minus the uncertainty of 0.1 ns and the setup time of FF2 of 0.100 ns. The setup time is smaller than in @tbl-sequential-params, because the slew at `D` is smaller here. The difference of 2.308 ns is the slack. The **clock reconvergence pessimism** gives back the margin that is lost when the shared part of the launching and the capturing clock path is counted once slow and once fast. For an ideal clock, it is 0.
+
+`report_clock_min_period` reports 1.69 ns, i.e., 591 MHz, for the paths between the registers: the arrival time of 1.491 ns plus the setup time and the uncertainty. The worst hold path runs from the input register of `data_i[0]` to the output register of `out_q[16]`, with an arrival time of 0.328 ns, a required time of 0.081 ns (the uncertainty of 0.100 ns plus a hold time of -0.019 ns), and a slack of 0.247 ns.
+
+The group `asynchronous` holds the recovery and removal checks of the reset. The input `rst_ni` drives the `RESET_B` pins of all 71 flip-flops through one net. The driving `buf_2` needs 0.599 ns for that, and the large slew of 0.87 ns raises the recovery time to 0.323 ns. The recovery slack is still 1.977 ns. But this path limits the block: with the input delay of 1 ns, the release of the reset needs 1.0 + 0.599 + 0.323 + 0.1 = 2.022 ns, and `report_clock_min_period -include_port_paths` reports 2.02 ns, i.e., 494 MHz. In the layout flow, the reset net is buffered like any net with a large fanout (@sec-digital-flow), and @sec-cdc explains how its release is made synchronous to the clock.
+
+::: {.callout-tip title="Exercise: How Fast Is the Barrel Shifter?"}
+All commands start in the folder `content/sequential/code/bs_reg`. The text synthesized `bs_reg` with the buffering and sizing of ABC. Here, you compare it with the default mapping.
+
+1. Synthesize `bs_reg` with the default mapping, i.e., with `abc -liberty $LIB` instead of the `abc -constr ...` command of the text, and run `sta -no_init -exit syn/sta.tcl`. How many cells does the netlist have? What are the worst negative slack, the total negative slack, and the minimum clock period?
+2. Follow the worst setup path of the clock `clk`. Where does the time go? Look up the net that the start point drives in `bs_reg.nl.v`, and explain what happened. What does `report_check_types` report?
+3. Compute the minimum period from the report of the worst path by hand, and compare it with `report_clock_min_period`.
+4. Run the netlist of step 1 also in the slow corner: `CORNER=slow_1p08V_125C sta -no_init -exit syn/sta.tcl`. Then synthesize the netlist of the text again, since `sta.tcl` always reads `bs_reg.nl.v`, and run it in both corners. Which netlist runs at 250 MHz in both corners? What did the `abc -constr` command add to the netlist? Compare the cell lists of `stat`.
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: How Fast Is the Barrel Shifter?" collapse="true"}
+1. The default mapping gives 811 cells and 14,398 µm². The worst negative slack is -2.507 ns, the total negative slack -76.407 ns, and the minimum period 6.51 ns, i.e., 154 MHz.
+2. The worst path starts at `_1510_`, whose output `Q` drives the net `shamt_q[0]`, the lowest bit of the registered shift amount. It drives 116 pins, and its clock-to-output delay alone is 1.971 ns. Behind it, an `o21ai_1` drives 35 pins (1.779 ns) and a `nand2_1` 48 pins (1.758 ns): these three cells take 5.5 ns of the arrival time of 6.308 ns. Every bit of the shift amount selects in many multiplexers, and without `-constr`, ABC maps the logic without buffering, with the weakest cells. `report_check_types` reports 208 pins whose slew, between 2.63 and 3.50 ns, exceeds the limit of 2.51 ns, and two flip-flop outputs above their maximum load of 0.30 pF: `_1510_/Q` with 0.87 pF and `_1511_/Q` with 0.65 pF. These delays lie beyond the tables and are extrapolated (@sec-synthesis-lib-delay).
+3. The arrival time of 6.308 ns, plus the setup time of 0.099 ns and the uncertainty of 0.100 ns, gives 6.507 ns, which `report_clock_min_period` rounds to 6.51 ns.
+4. In the slow corner, the minimum period is 2.58 ns for the netlist of the text and 10.14 ns for the default mapping. Only the netlist of the text runs at 250 MHz in both corners, with a setup slack of 1.42 ns between the registers in the slow corner. The default mapping misses 250 MHz even in the typical corner. `abc -constr` added 104 buffers (74 `buf_1`, 21 `buf_2`, 8 `buf_4`, 1 `buf_8`), which cost 6 % more area. In @sec-synthesis-lib-yosys, the purely combinational block with ideal inputs needed 3.87 ns in the slow corner with the default mapping. Driven by real flip-flops, the missing buffers make it about two and a half times slower.
+:::
+
+## Generated Clocks {#sec-sequential-genclk}
+
+A clock propagates through buffers, inverters, and gates, e.g., through a clock gate, but not through a flip-flop. When a register output clocks other registers, as `slow_clk_q` in the FPGA version of the LED blinker in @sec-modeling-clken, STA does not know this clock unless the constraints define it. `create_generated_clock` defines a **generated clock**, a clock that is derived from another one, with its source, the ratio, e.g., `-divide_by 2`, and the pin where it appears. The tool then knows the edges of the new clock, times the paths it clocks, and also the paths between it and its source clock, which are synchronous to each other.
+
+::: {.callout-tip title="Exercise: A Clock That STA Does Not See"}
+All commands start in the folder `content/sequential/code/gen_clk`. It holds the reference solution `led_blink_fpga.sdc`, so move it out of the way first: `mv led_blink_fpga.sdc led_blink_fpga_solution.sdc`.
+
+1. Sketch the clock network of `led_blink_fpga` in `content/modeling/code/led_blink/exercise/led_blink_fpga.sv`: which registers does `clk_i` clock, and which ones `slow_clk_q`?
+2. Synthesize the design into this folder:
+
+   ```bash
+   yosys -p "read_verilog -sv \
+     ../../../modeling/code/led_blink/exercise/led_blink_fpga.sv; \
+     synth -top led_blink_fpga; dfflibmap -liberty $LIB; \
+     abc -liberty $LIB; opt_clean; \
+     write_verilog -noattr led_blink_fpga.nl.v"
+   ```
+
+3. Write a file `clk.sdc` with a clock of 20 ns at `clk_i`, an output delay of 0, and a load of 10 fF at `led_o`. Run `TOP=led_blink_fpga SDC=clk.sdc sta -no_init -exit sta.tcl`. What does `check_setup` report, and what does it mean for the analysis?
+4. Write `led_blink_fpga.sdc`: add a generated clock for `slow_clk_q` to the constraints of step 3. Which ratio does it need? Hint: the pin of the generated clock is the output of the flip-flop that drives the net `slow_clk_q`, which `get_pins -of_objects [get_nets slow_clk_q] -filter "direction == output"` finds. Run the analysis again. Which period does `report_clock_properties` show, and which new path group appears?
+5. Synthesize the ASIC version `../../../modeling/code/led_blink/rtl/led_blink.sv` of @sec-modeling-clken in the same way and constrain it. Which constraints does it need?
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: A Clock That STA Does Not See" collapse="true"}
+1. `clk_i` clocks the counter `count_q` and the divider `slow_clk_q`, i.e., 25 flip-flops. `slow_clk_q` clocks only `led_q`.
+2. Yosys maps the 26 flip-flops onto `dfrbpq_1` cells with their reset tied inactive. The netlist has no initial values (@sec-modeling-init).
+3. `check_setup` reports one unclocked register pin, `_175_/CLK`, the clock pin of `led_q`, and two unconstrained endpoints, `_175_/D` and `led_o`. STA does not check these paths at all: the report shows only the group `clk`, and a violation behind the divider would go unnoticed.
+4. `slow_clk_q` toggles every `DIV` = 12,500,000 cycles, so the generated clock divides `clk` by 25,000,000 (the file below). `check_setup` reports nothing anymore. `report_clock_properties` shows `slow_clk` with a period of 500,000,000 ns, i.e., 0.5 s, and its edges at 0 and 250,000,000 ns. The new path group `slow_clk` holds the path to `_175_/D`. The generated clock is ideal here. In the layout, it also arrives later than `clk` by the clock-to-output delay of the divider and its own clock tree (@sec-modeling-clken).
+
+```{.default filename="gen_clk/led_blink_fpga.sdc"}
+{{< include /content/sequential/code/gen_clk/led_blink_fpga.sdc >}}
+```
+
+5. The ASIC version has one clock, so it needs no generated clock: `create_clock` at `clk_i`, an input delay for `rst_ni`, and the output delay and the load of `led_o`. Without the input delay, `check_setup` reports `rst_ni` as an input without input delay, and the reset paths are not timed. With it, `check_setup` reports nothing, all 26 flip-flops are in the group `clk`, and their `RESET_B` pins in the group `asynchronous`.
+:::
+
+## Timing Exceptions {#sec-sequential-exceptions}
+
+By default, STA assumes that every path between two registers has one clock period. **Timing exceptions** change this for selected paths:
+
+- A **false path**, set with `set_false_path`, is removed from the analysis, e.g., a path from a configuration register that is written once and stays constant during operation. Paths between two unrelated clocks also need special treatment (@sec-cdc).
+- A **multicycle path**, set with `set_multicycle_path`, gets several clock periods, for logic whose result is only used every few cycles.
+- `set_max_delay` and `set_min_delay` set a limit for a path directly, e.g., for a combinational path from an input to an output.
+
+A multicycle path needs care. Run `bs_reg` with a period of 1.2 ns instead of 4 ns, and the worst setup slack between the registers becomes -0.492 ns. Suppose the RTL loads the input and the output register only every second cycle, with an enable, so that the barrel shifter has two periods. The exception for the setup check is:
+
+```
+set_multicycle_path 2 -setup \
+  -from [all_registers] -to [all_registers]
+```
+
+The setup slack becomes 0.708 ns, but the hold check now fails with -0.953 ns. By default, the hold check uses the edge one period before the setup capture edge. Moving the setup edge by one period also moves the hold edge, so the new data must not reach FF2 until one period after the launch edge. The second exception moves the hold edge back to the launch edge:
+
+```
+set_multicycle_path 1 -hold \
+  -from [all_registers] -to [all_registers]
+```
+
+The hold slack is back at 0.247 ns. The rule is to set `-hold` to one less than `-setup`. Every exception is a promise that the tool cannot check: if the RTL does not really wait for the second cycle, the chip fails while the timing report is clean. So keep exceptions few, and check with assertions in the RTL simulation that the design really waits (@sec-verification-assertions).
+
+## Hold Violations {#sec-sequential-hold}
+
+Before the layout, the clock is ideal, and the uncertainty is the only margin that the hold check keeps for the skew of the future clock tree. After clock tree synthesis, `set_propagated_clock` makes STA compute the latency of every register through the buffers of the clock tree. A short path between two registers whose clocks arrive at different times can then fail the hold check. The layout flow repairs such paths after clock tree synthesis by inserting delay into the data path (@sec-digital-flow). SG13CMOS5L has three delay cells for that, `dlygate4sd1_1` to `dlygate4sd3_1`, with increasing delay.
+
+A setup violation and a hold violation are fixed in opposite ways. A setup violation needs a shorter path: stronger cells, different logic, a pipeline register (@sec-synth-opt), or a slower clock. A hold violation needs a longer shortest path or less skew, and the added delay must not break the setup check of the same path.
+
+::: {.callout-tip title="Exercise: Fix a Hold Violation"}
+All commands start in the folder `content/sequential/code/hold`. The netlist `shift.v` holds two flip-flops in a row, as in a shift register. The clock reaches `ff1` directly and `ff2` through four `buf_1` cells. The script `hold.tcl` propagates the clock through them and reports the hold and the setup check of the path from `ff1` to `ff2`.
+
+1. Draw the circuit with its clock path, and mark the clock edges that the hold check compares. Write the hold condition of this path with the delay of the four buffers. How large may their sum be before the check fails?
+2. Run the analysis in the fast, the typical, and the slow corner: `CORNER=fast_1p32V_m40C sta -no_init -exit hold.tcl`, then with `typ_1p20V_25C` and `slow_1p08V_125C`. Which corner has the worst hold slack? Explain it with the numbers of the report.
+3. Run the slow corner with a clock period of 40 ns instead of 4 ns: `PERIOD=40 CORNER=slow_1p08V_125C sta -no_init -exit hold.tcl`. What changes?
+4. Fix the violation: copy `shift.v` to `shift_orig.v`, and insert a `sg13cmos5l_dlygate4sd1_1` with the pins `A` and `X` between `ff1` and `ff2`. Run all three corners again. Is the hold check met everywhere, and what does the delay cell cost the setup check?
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Fix a Hold Violation" collapse="true"}
+1. The hold check compares the launch of `ff1` at a clock edge with the capture of `ff2` at the same edge, which reaches `ff2` later by the delay $t_\text{buf}$ of the four buffers, the skew. The data path is only the clock-to-output delay of `ff1`, and `hold.tcl` sets no uncertainty, so the hold condition is $t_\text{cq} \ge t_\text{hold} + t_\text{buf}$. The buffers may delay the clock by at most $t_\text{cq} - t_\text{hold}$. The setup check gains the same skew and has almost the whole period.
+2. The hold slack is -0.022 ns in the fast, -0.030 ns in the typical, and -0.054 ns in the slow corner, so the slow corner is the worst. In the fast corner, the four buffers delay the clock by 0.179 ns and `ff1` switches after 0.137 ns, in the slow corner after 0.388 ns and 0.288 ns. Both delays roughly double, but the skew is the larger one, so the difference grows from 0.042 to 0.100 ns. The hold time, -0.021 ns in the fast and -0.047 ns in the slow corner, makes up only part of that. The deficit consists of delays, so it grows with the delays of the corner. A hold check in the fast corner alone would have missed the worst case. With a balanced clock tree, where a fixed margin such as the uncertainty dominates, the fast corner is usually the worst.
+3. The hold slack stays at -0.054 ns, and only the setup slack grows from 3.897 ns to 39.897 ns. The clock period does not appear in the hold condition.
+4. The netlist with the delay cell:
+
+   ```verilog
+   wire q1d;
+   sg13cmos5l_dlygate4sd1_1 dly (.A(q1), .X(q1d));
+   sg13cmos5l_dfrbpq_1 ff2 (.CLK(ck4), .D(q1d), .RESET_B(1'b1),
+     .Q(q_o));
+   ```
+
+   The hold check is now met in all three corners, with a slack of 0.067 ns in the fast, 0.105 ns in the typical, and 0.161 ns in the slow corner. The setup slack drops from 3.962, 3.941, and 3.897 ns to 3.881, 3.809, and 3.697 ns, i.e., by 0.08 to 0.20 ns, which a path with four nanoseconds to spare can easily afford.
+:::
+
+## Latches and Time Borrowing {#sec-sequential-borrow}
+
+A latch in a path does not cut it at a fixed time, as a flip-flop does. The netlist `borrow/borrow_latch.v` has a latch `dllrq_1` in the middle of a path from `ff1` to `ff2`, transparent while the clock is low. Six delay cells stand for the logic in front of it, two for the logic behind it. The latch opens at the falling edge, in the middle of the period of 4 ns, and closes at the next rising edge. Data that arrives while the latch is open passes through at once. The time that the first stage uses after the opening edge is **borrowed** from the second stage. In `borrow/borrow_ff.v`, a flip-flop on the falling edge of the clock takes the place of the latch:
+
+```bash
+cd /foss/designs/vlsi-design/content/sequential/code/borrow
+TOP=borrow_ff sta -no_init -exit borrow.tcl
+TOP=borrow_latch sta -no_init -exit borrow.tcl
+```
+
+With the flip-flop, the first stage has half a period and fails with a slack of -0.474 ns, while the second stage has 1.001 ns to spare. With the latch, OpenSTA reports that the first stage borrows 0.354 ns, and it reports a slack of 0 for the borrowing stage. The second stage starts 0.354 ns later, and the latch passes the data from `D` to `Q` a little more slowly than the flip-flop from its clock to `Q`, so the second stage keeps 0.620 ns of slack. The most a stage can borrow is the transparent phase minus the setup time of the latch.
+
+Time borrowing lets latch-based designs balance their stages automatically, which is why some high-performance processors use latches. The price is a more complex timing analysis, harder hold checks, because a latch launches data already at its opening edge while the next latch holds its data until its closing edge, and a more difficult scan test (@sec-dft). The designs of this course use flip-flops only.
+
+## Summary {#sec-sequential-summary}
+
+- A latch is transparent while its gate is active. A flip-flop, built from a master and a slave latch, samples its input at the clock edge. Synchronous designs use flip-flops, so that every register-to-register path has exactly one period.
+- A flip-flop has a clock-to-output delay, a setup and a hold time around the clock edge, a recovery and a removal time for the release of its asynchronous reset, and minimum pulse widths. The library gives them as tables over the slews. Hold times can be negative.
+- The setup condition $t_\text{cq} + t_\text{logic,max} + t_\text{su} \le T + t_\text{skew} - t_\text{unc}$ sets the clock frequency. The hold condition $t_\text{cq} + t_\text{logic,min} \ge t_\text{hold} + t_\text{skew} + t_\text{unc}$ does not contain the period, so for a path between flip-flops on the same edge, a lower clock frequency does not fix a hold violation.
+- Static timing analysis propagates arrival times through all paths of the netlist and compares them with required times, without stimuli. It knows nothing about the function, and it checks only what the constraints describe.
+- SDC constraints define the clocks with their transition and uncertainty, generated clocks, the input and output delays of the environment, the driving cells and loads, and timing exceptions. `check_setup` finds what they forgot. A multicycle path for setup needs a matching one for hold.
+- OpenSTA reports each path with its arrival time, required time, and slack. With its high-fanout nets buffered, the barrel shifter between two registers reaches 591 MHz between its registers in the typical corner, and the release of its reset limits the block to 494 MHz.
+- Hold violations come from clock skew on short paths. Delay cells in the data path fix them, and hold must be checked in all corners.
+- A latch lets a slow stage borrow time from the next one, at the price of a more complex analysis.
+
+In @sec-synth-opt, we use these reports to make a design faster, smaller, and less power-hungry: pipelining, retiming, resource sharing, and clock gating.

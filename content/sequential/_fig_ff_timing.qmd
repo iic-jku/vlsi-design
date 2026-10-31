@@ -1,0 +1,49 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-sequential-ff-timing
+#| echo: false
+#| fig-cap: "The timing parameters of a flip-flop around the rising clock edge. `D` must be stable from the setup time $t_\\text{su}$ before the edge until the hold time $t_\\text{hold}$ after it (shaded window). The new value appears at `Q` after the clock-to-output delay $t_\\text{cq}$. All times are measured at 50 % of the swing. The figure shows a positive hold time. A negative one ends the window before the edge."
+#| fig-alt: "Timing diagram with the rows clk, D, and Q around one rising clock edge, marked by a dashed line. D is undefined at first, holds the new value d in a shaded window that starts t_su before the edge and ends t_hold after it, and is undefined again afterwards. Q shows the old value until t_cq after the edge and the new value d from then on. Arrows below the rows mark t_su, t_hold, and t_cq."
+import schemdraw as sd
+from schemdraw import logic
+from schemdraw import elements as elm
+from schemdraw.util import Point
+sd.svgconfig.svg2 = False
+
+BLUE = '#6c8ebf'
+waves = {'signal': [
+    {'name': 'clk', 'wave': '0.......1.......', 'period': 0.5},
+    {'name': 'D', 'wave': 'x....=....x.....', 'period': 0.5, 'data': ['d']},
+    {'name': 'Q', 'wave': '=..........=....', 'period': 0.5, 'data': ['old', 'd']},
+], 'config': {'hscale': 1}}
+
+S = 0.8   # one time step in drawing units
+
+
+def x(step):
+    return step*S + 0.04
+
+
+def span(xa, xb, y, text):
+    ''' Arrow from xa to xb with a label below '''
+    elm.Line(arrow='<->').at((xa, y)).to((xb, y)).color(BLUE).linewidth(1.2)
+    elm.Label().at(((xa + xb)/2, y - 0.3)).label(text, color=BLUE)
+
+
+with sd.Drawing(canvas='svg') as dr:
+    dr.config(fontsize=11, lw=1.5, bgcolor='white', margin=0.15)
+    elm.Rect(corner1=(x(5), -0.45), corner2=(x(10), -1.35), fill='#eaf1fb', lw=0).color('#eaf1fb')
+    td = logic.TimingDiagram(waves, ygap=0.5, risetime=0.1, yheight=0.8, fontsize=11, namecolor='black',
+                             grid=False)
+    for seg in td.segments:
+        if getattr(seg, 'align', None) == ('right', 'bottom'):   # signal names, onto the wave centers
+            seg.xy = Point((seg.xy[0], seg.xy[1] + 0.2))
+    elm.Line().at((x(8), 1.0)).to((x(8), -3.0)).color('#A6A6A6').linestyle('--').linewidth(1)
+    span(x(5), x(8), -3.3, '$t_\\mathrm{su}$')
+    span(x(8), x(10), -3.3, '$t_\\mathrm{hold}$')
+    span(x(8), x(11), -4.1, '$t_\\mathrm{cq}$')
+```
