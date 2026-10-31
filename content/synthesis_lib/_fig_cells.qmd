@@ -1,0 +1,57 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-synthesis-lib-cells
+#| echo: false
+#| fig-cap: "Two rows of SG13CMOS5L standard cells, drawn to scale. Every cell is 3.78 µm high, and its width is a multiple of the 0.48 µm site. The cells of a row abut each other and share the supply rails VDD and VSS at their top and bottom edges. Every second row is flipped, so that two neighboring rows share one rail. Fill cells close the gaps, and decap cells add capacitance between the rails."
+#| fig-alt: "Two horizontal rows of rectangles of equal height, stacked on top of each other. The bottom row holds dfrbpq_1 (12.96 µm wide), inv_1 (1.44 µm), nand2_1 (1.92 µm), mux2_1 (4.8 µm), and an unlabeled fill_2 (0.96 µm). The top row holds a21oi_1 (2.4 µm), xor2_1 (3.84 µm), decap_4 (1.92 µm), dfrbpq_1, and an unlabeled fill_2 (0.96 µm). Thick horizontal lines mark the rails: VSS at the bottom of the lower row, VDD between the rows, and VSS at the top. A dimension arrow gives the row height of 3.78 µm, and a small bracket the site width of 0.48 µm."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'     # logic cells
+GREEN, GREEN_L = '#82b366', '#d5e8d4'   # flip-flops
+GREY, GREY_L = '#666666', '#f5f5f5'     # fill and decap
+RED = '#b85450'
+S = 0.6                                 # drawing units per um
+H = 3.78 * S
+FLOP = ('dfrbpq_1',)
+PHYS = ('fill_1', 'fill_2', 'decap_4')
+
+
+def row(y0, cells):
+    ''' Abutted cells from x = 0, cells as (name, width in um) '''
+    x = 0.0
+    for name, w in cells:
+        fill, edge = (GREEN_L, GREEN) if name in FLOP else (GREY_L, GREY) if name in PHYS else (BLUE_L, BLUE)
+        b = flow.Box(w=w * S, h=H).at((x + w * S / 2, y0 + H / 2)).anchor('center').fill(fill).color(edge)
+        if w >= 3:
+            b.label(name, color='black', fontsize=10)
+        elif w >= 1:
+            elm.Label().right().at((x + w * S / 2 + 0.1, y0 + H / 2)).label(name, color='black', fontsize=9, rotate=90)
+        x += w * S
+    return x
+
+
+def rail(y, name):
+    elm.Line().at((-0.4, y)).to((x_end + 0.4, y)).color(RED if name == 'VDD' else BLUE).linewidth(4)
+    elm.Label().right().at((-0.6, y - 0.1)).label(name, halign='right', color='black', fontsize=10)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.2, bgcolor='white')
+    x_end = row(0, [('dfrbpq_1', 12.96), ('inv_1', 1.44), ('nand2_1', 1.92), ('mux2_1', 4.8), ('fill_2', 0.96)])
+    row(H, [('a21oi_1', 2.4), ('xor2_1', 3.84), ('decap_4', 1.92), ('dfrbpq_1', 12.96), ('fill_2', 0.96)])
+    rail(0, 'VSS')
+    rail(H, 'VDD')
+    rail(2 * H, 'VSS')
+    # row height and site width
+    elm.Line(arrow='<->').at((x_end + 1.2, 0)).to((x_end + 1.2, H)).color(GREY)
+    elm.Label().right().at((x_end + 1.45, H / 2 - 0.1)).label('3.78 µm', halign='left', color=GREY, fontsize=10)
+    elm.Line(arrow='|-|').at((0, -0.75)).to((0.48 * S, -0.75)).color(GREY)
+    elm.Label().right().at((0.48 * S + 0.2, -0.85)).label('site 0.48 µm', halign='left', color=GREY, fontsize=10)
+```

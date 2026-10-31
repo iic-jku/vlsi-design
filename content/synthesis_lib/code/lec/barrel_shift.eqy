@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 Simon Dorrer
+# SPDX-License-Identifier: Apache-2.0
+# Description: Equivalence check of the 32-bit barrel shifter of
+# chapter 4: its RTL (gold) against the synthesized netlist
+# barrel_shift.nl.v (gate). Run in this folder with stdcell.lib linked
+# to the typical library of SG13CMOS5L: eqy -d bs_eqy barrel_shift.eqy
+
+[gold]
+plugin -i slang
+read_slang --top barrel_shift -G WIDTH=32 \
+  ../../../verification/code/barrel_shift/rtl/barrel_shift.sv
+hierarchy -check -top barrel_shift
+proc
+flatten -noscopeinfo
+
+[gate]
+read_liberty -ignore_miss_func stdcell.lib
+read_verilog barrel_shift.nl.v
+hierarchy -check -top barrel_shift
+flatten -noscopeinfo
+select -assert-none t:sg13cmos5l_*
+
+[strategy sby]
+use sby
+engine abc pdr

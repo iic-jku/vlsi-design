@@ -1,0 +1,53 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-synthesis-lib-flow
+#| echo: false
+#| fig-cap: "The steps of logic synthesis with Yosys. Elaboration turns the RTL into a netlist of word-level cells, such as adders, multiplexers, and registers. The optimization works on these cells, e.g., it detects state machines and shares arithmetic. The lowering step breaks them down into generic single-bit gates and flip-flops, and the technology mapping finally replaces those by standard cells of the library. Only the last step needs the Liberty file. Yosys names its own cells with a dollar sign, e.g., `$add` and `$mux` at the word level and `$_AND_` and `$_DFF_PN0_` at the gate level."
+#| fig-alt: "U-shaped flow diagram. Top row from left to right: RTL, elaborate, optimize. An arrow leads down from optimize to the bottom row, which runs from right to left: lower to gates, map to cells, and the netlist of standard cells. A Liberty box below map to cells feeds it. Grey labels on the arrows name examples of the cells in between: word-level add, mux, and dff after elaboration and optimization, generic AND, MUX, and DFF gates after lowering. Each tool box names its Yosys commands."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'     # design data
+GREEN, GREEN_L = '#82b366', '#d5e8d4'   # tools
+GREY = '#666666'
+
+H = 1.3
+x0, x1, x2 = 0.0, 5.6, 11.2
+yt, yb, yl = 1.7, -1.6, -4.1
+
+
+def box(x, y, text, fill, edge, w):
+    return flow.Box(w=w, h=H).at((x, y)).anchor('center').fill(fill).color(edge).label(text, color='black')
+
+
+def note(x, y, text, halign='center'):
+    elm.Label().right().at((x, y)).label(text, fontsize=9, color=GREY, halign=halign)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+
+    rtl = box(x0, yt, 'RTL\n(SystemVerilog)', BLUE_L, BLUE, 2.8)
+    ela = box(x1, yt, 'elaborate\nhierarchy, proc', GREEN_L, GREEN, 3.4)
+    opt = box(x2, yt, 'optimize\nopt, fsm, share, memory', GREEN_L, GREEN, 3.9)
+    low = box(x2, yb, 'lower to gates\ntechmap, abc', GREEN_L, GREEN, 3.4)
+    mp = box(x1, yb, 'map to cells\ndfflibmap, abc -liberty', GREEN_L, GREEN, 3.9)
+    nl = box(x0, yb, 'netlist of\nstandard cells', BLUE_L, BLUE, 2.8)
+    lib = box(x1, yl, 'Liberty file\n(cells: function, area, timing)', BLUE_L, BLUE, 4.6)
+
+    flow.Arrow().at(rtl.E).to(ela.W)
+    flow.Arrow().at(ela.E).to(opt.W)
+    note((x1 + 1.7 + x2 - 1.95)/2, yt + 0.25, 'add, mux, dff')
+    flow.Arrow().at(opt.S).to(low.N)
+    note(x2 + 0.2, (yt + yb)/2 - 0.1, 'add, mux, dff', halign='left')
+    flow.Arrow().at(low.W).to(mp.E)
+    note((x1 + 1.95 + x2 - 1.7)/2, yb + 0.25, 'AND, MUX, DFF')
+    flow.Arrow().at(mp.W).to(nl.E)
+    flow.Arrow().at(lib.N).to(mp.S)
+```

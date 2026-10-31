@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 Simon Dorrer
+# SPDX-License-Identifier: Apache-2.0
+# Description: Equivalence check of the FIFO of chapter 4: its RTL
+# (gold) against the synthesized netlist fifo.nl.v (gate). Run in this
+# folder with stdcell.lib linked to the typical library of SG13CMOS5L:
+# eqy -d fifo_eqy fifo.eqy
+
+[gold]
+# slang reads the RTL with another frontend than synthesis did
+plugin -i slang
+read_slang ../../../verification/code/fifo/rtl/fifo.sv --top fifo
+hierarchy -check -top fifo
+proc
+# slang keeps mem_q as a memory, synthesis made it registers
+memory_map
+flatten -noscopeinfo
+
+[gate]
+# The cell functions come from the Liberty file
+read_liberty -ignore_miss_func stdcell.lib
+read_verilog fifo.nl.v
+hierarchy -check -top fifo
+flatten -noscopeinfo
+# Fails if a cell had no model and stayed a black box
+select -assert-none t:sg13cmos5l_*
+
+[collect *]
+# full_o and empty_o also feed logic inside the FIFO: compare them
+# together with that logic instead of cutting it there
+bind full_o
+bind empty_o
+
+[strategy sby]
+use sby
+engine abc pdr

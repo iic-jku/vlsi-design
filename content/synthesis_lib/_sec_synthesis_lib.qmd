@@ -5,6 +5,419 @@ SPDX-License-Identifier: Apache-2.0
 
 # Logic Synthesis and the Standard-Cell Library {#sec-synthesis-lib}
 
+Since @sec-sv-crashcourse, we have synthesized every design with a few Yosys commands, and since @sec-modeling, we have looked at cell areas. This chapter opens that black box. Four questions guide it. What does a synthesis tool do between the RTL and the netlist? What is a standard cell, and where do its function, its area, and its delay come from? How does a timing tool know the delay of a cell without simulating its transistors? And how do we know that the netlist still implements the RTL, without simulating it? The answers are the four steps of logic synthesis, the standard-cell library of SG13CMOS5L with its Liberty files, table-based delay calculation, PVT corners, and the logic equivalence check with EQY.
+
 ::: {.callout-note}
-This chapter will be released later in the semester.
+All code of this chapter is available in the folder [`content/synthesis_lib/code`]({{< meta var.url-repo >}}/tree/main/content/synthesis_lib/code) of the course repository: the delay calculation in `dcalc/`, the scripts of the synthesis experiments in `synth/`, and the equivalence checks in `lec/`. The designs come from earlier chapters, i.e., the multiplexer of @sec-sv-assign and the barrel shifter and the FIFO of @sec-verification. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (Yosys 0.70, EQY 0.70, OpenSTA 3.1.0) and the standard-cell library of SG13CMOS5L in the PDK of that image. Run times depend on the computer, and the ones quoted here come from a laptop. The script [`scripts/check_synthesis_lib.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_synthesis_lib.sh) reproduces all other numbers: run `bash scripts/check_synthesis_lib.sh` in the container from the root of the repository.
 :::
+
+For the exercises, clone the course repository into your designs folder once, if you have not done so yet:
+
+```bash
+cd /foss/designs
+git clone https://github.com/iic-jku/vlsi-design.git
+```
+
+Define the path of the typical-corner library in every new terminal:
+
+```bash
+LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib
+LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+```
+
+## Learning Objectives {#sec-synthesis-lib-objectives}
+
+After this chapter, you will be able to:
+
+- describe the steps of logic synthesis from the RTL to a netlist of standard cells, and name the Yosys commands behind them
+- explain what a standard cell is, how cells form rows, and which views of a library each tool of the flow reads
+- read a Liberty file: units, cell area, pin function, timing arcs with their timing sense, and the delay and power tables
+- compute the delay and the output slew of a cell by interpolation in its table, and check the result with OpenSTA
+- explain process, voltage, and temperature corners, and pick the corner for a timing check
+- trade area against speed in technology mapping
+- explain what logic equivalence checking proves, how it matches the two designs, where it can fail falsely, and run it with EQY
+
+## What Logic Synthesis Does {#sec-synthesis-lib-flow}
+
+**Logic synthesis** translates the RTL into a netlist of standard cells that implements the same function, guided by goals for area and speed. Yosys does it in four steps (@fig-synthesis-lib-flow):
+
+1. **Elaboration** parses the RTL, builds the module hierarchy, and turns every process into a netlist of **word-level cells**: adders, comparators, multiplexers, and registers of any width. `always_ff` becomes a register cell, and `always_comb` becomes multiplexers and logic.
+2. **Optimization** works on these word-level cells. It removes constant and unused logic, detects and re-encodes state machines (`fsm`), shares arithmetic between exclusive cases (`share`), and recognizes memories (`memory`).
+3. **Lowering** breaks the word-level cells into **generic gates** and flip-flops of single bits, e.g., an 8-bit adder into its full adders, and optimizes them as a Boolean network. Yosys uses ABC [@ABC] for this, a tool for logic optimization from UC Berkeley.
+4. **Technology mapping** replaces the generic gates by cells of the target library: `dfflibmap` the flip-flops, and ABC the logic, now with the function, area, and delay of every cell from the Liberty file.
+
+{{< include /content/synthesis_lib/_fig_flow.qmd >}}
+
+The command `synth` runs the first three steps. Its script, printed by `yosys -p "help synth"`, has four stages: `begin` builds the hierarchy, `coarse` elaborates and optimizes the word-level netlist, `fine` lowers it to gates, and `check` prints the statistics. `dfflibmap` and `abc -liberty`, which follow `synth` in all our scripts, are the fourth step.
+
+The multiplexer of @sec-sv-assign shows the difference between the steps. After `synth` alone, its eight 4:1 multiplexers and the zero flag become 67 generic gates: 40 NAND, 20 AND, 5 NOR, and 2 AND-NOT gates. After the technology mapping, they become 11 standard cells with an area of 335.7 µm²: 8 `mux4_1`, 2 `nor4_1`, and one `and2_1`. ABC recognized that the library has a 4:1 multiplexer cell and used it, because it is smaller and faster than the gates it replaces.
+
+```bash
+cd /foss/designs/vlsi-design/content/sv_crashcourse/code/mux4
+yosys -p "read_verilog -sv rtl/mux4.sv; synth -top mux4; stat"
+yosys -p "read_verilog -sv rtl/mux4.sv; synth -top mux4; \
+  dfflibmap -liberty $LIB; abc -liberty $LIB; opt_clean; \
+  stat -liberty $LIB"
+```
+
+## The Standard-Cell Library {#sec-synthesis-lib-cells}
+
+A **standard cell** is a small, pre-designed layout of one logic function, e.g., an inverter, a NAND gate, or a flip-flop. All cells of a library have the same height, and their widths are multiples of one **site**. In SG13CMOS5L, every cell is 3.78 µm high, and a site is 0.48 µm wide. The layout tool places the cells side by side in **rows**, where they abut and share the supply rails VDD and VSS along their top and bottom edges (@fig-synthesis-lib-cells). Every second row is flipped, so that neighboring rows share a rail. This regular structure is what makes automatic placement and routing of millions of cells possible.
+
+{{< include /content/synthesis_lib/_fig_cells.qmd >}}
+
+The cell names follow the pattern `sg13cmos5l_<function>_<drive>`. The function is a short name, e.g., `inv`, `nand2`, `a21oi` for an AND-OR-invert gate with a 2-input AND, `mux4`, or `dfrbpq` for a D flip-flop with an active-low reset and only a `Q` output. The **drive strength** scales the width of the transistors: a stronger cell such as `inv_4` drives a larger load at the same delay, and needs more area and input capacitance for it. The library has 84 cells (@tbl-synthesis-lib-cells).
+
+| Category | Cells | Examples |
+|:-------------------|-----:|:----------------------------------------------------|
+| combinational logic | 49 | `inv_1` to `inv_16`, `buf_1` to `buf_16`, `nand2_1`, `a21oi_1`, `xor2_1`, `mux2_1`, `mux4_1` |
+| flip-flops | 9 | `dfrbpq_1`, `dfrbp_1`, and the scan flip-flops `sdfrbpq_1`, `sdfbbp_1` (@sec-dft) |
+| latches | 5 | `dlhq_1`, `dllrq_1` |
+| clock gates | 2 | `lgcp_1`, `slgcp_1` (@sec-synth-opt) |
+| tri-state drivers | 6 | `ebufn_2`, `einvn_2` (@sec-modeling-tristate) |
+| delay cells | 3 | `dlygate4sd1_1` to `dlygate4sd3_1`, for hold fixing (@sec-sequential) |
+| tie cells | 2 | `tiehi`, `tielo`, constant 1 and 0 |
+| physical cells | 7 | `fill_1` to `fill_8`, `decap_4`, `decap_8`, `antennanp` |
+| bus holder | 1 | `sighold` |
+
+: The 84 cells of the SG13CMOS5L standard-cell library {#tbl-synthesis-lib-cells}
+
+The physical cells have no logic function. Fill cells close the gaps in a row, so that the wells and rails continue. Decap cells add capacitance between VDD and VSS to stabilize the supply, and the antenna diode protects transistor gates against charge collected during fabrication (@sec-digital-flow).
+
+### Library Views {#sec-synthesis-lib-views}
+
+Each tool of the flow needs a different description of the same cells, called a **view**. The PDK keeps them in `$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell` (@tbl-synthesis-lib-views).
+
+| View | Folder | Content | Used by |
+|:-----------|:-------------|:--------------------------------------------|:------------------------------|
+| Liberty | `lib/` | one file per corner: function, area, pin capacitances, delay, power | synthesis, STA, equivalence checking |
+| LEF | `lef/` | size, pin shapes, and blockages of each cell, the site, and the layers | placement and routing |
+| GDS | `gds/` | the full layout of each cell | the final chip layout, DRC, LVS |
+| Verilog | `verilog/` | simulation models with `specify` blocks | gate-level simulation (@sec-verification-gl) |
+| CDL, SPICE | `cdl/`, `spice/` | the transistor netlist of each cell | LVS, analog simulation |
+| datasheet | `doc/` | one PDF per corner: function, pins, and timing in tables | the designer |
+
+: Views of the standard-cell library {#tbl-synthesis-lib-views}
+
+LEF (Library Exchange Format) is an abstract of the layout: placement and routing only need to know where a cell's pins are and where the router must not place wires, not the transistors inside. The PDK also contains Xschem symbols and schematics of the cells (`sym/`, `sch/`), which let you use them in a schematic.
+
+### Gate Equivalents {#sec-synthesis-lib-ge}
+
+Areas in µm² depend on the technology, so designers often count in **gate equivalents** (GE), the area divided by the area of a 2-input NAND gate. In SG13CMOS5L, `nand2_1` is 1.92 µm wide and has an area of 7.2576 µm², which is 1 GE. An `inv_1` is 0.75 GE, a `mux4_1` 5.25 GE, and the flip-flop `dfrbpq_1` 6.75 GE. The FIFO of @sec-verification, with 103 cells and 3008 µm², has 414.5 GE. A gate count in GE lets you compare designs across technologies, as long as you keep in mind that the ratios between the cells differ from library to library.
+
+## Inside a Liberty File {#sec-synthesis-lib-liberty}
+
+The **Liberty** format (`.lib`), introduced by Synopsys and freely available, is the de-facto standard that describes the logic, timing, and power of every cell in plain text. The header of a library defines the units and the conditions of the characterization:
+
+```
+library (sg13cmos5l_stdcell_typ_1p20V_25C) {
+  delay_model : table_lookup;
+  capacitive_load_unit (1,pf);
+  leakage_power_unit : "1pW";
+  time_unit : "1ns";
+  ...
+  input_threshold_pct_rise : 50;
+  nom_process : 1;
+  nom_temperature : 25;
+  nom_voltage : 1.2;
+  output_threshold_pct_rise : 50;
+  slew_lower_threshold_pct_rise : 20;
+  slew_upper_threshold_pct_rise : 80;
+  ...
+```
+
+Times are in ns and capacitances in pF. A delay is measured from 50 % of the input swing to 50 % of the output swing, and a **slew** (transition time) from 20 % to 80 % of the swing. The library also defines templates for its tables. In the template of the delay tables, `index_1` is the input slew and `index_2` is the total load capacitance at the output, with seven values each. Here is the inverter `inv_1`, shortened to the parts that matter:
+
+```
+cell (sg13cmos5l_inv_1) {
+  area : 5.4432;
+  cell_leakage_power : 63.0032;
+  pin (Y) {
+    direction : "output";
+    function : "!(A)";
+    max_capacitance : 0.3;
+    timing () {
+      related_pin : "A";
+      timing_sense : negative_unate;
+      timing_type : combinational;
+      cell_rise (TIMING_DELAY_7x7ds1) {
+        index_1 ("0.0186, 0.0966, 0.174, 0.3294, ...");
+        index_2 ("0.001, 0.0234, 0.039, 0.0648, ...");
+        values ( \
+          "0.0205647, 0.0848969, 0.128137, ...", \
+          ...);
+      }
+      rise_transition (TIMING_DELAY_7x7ds1) { ... }
+      cell_fall (TIMING_DELAY_7x7ds1) { ... }
+      fall_transition (TIMING_DELAY_7x7ds1) { ... }
+    }
+    internal_power () { ... }
+  }
+  pin (A) {
+    direction : "input";
+    capacitance : 0.00286745;
+  }
+}
+```
+
+- `area` is the cell area in µm², and `cell_leakage_power` the static power in pW. The full file also lists the leakage per input state, 82.5 pW for `A` = 1 and 43.5 pW for `A` = 0, and the cell value is their average.
+- `function` gives the Boolean function of the output. Synthesis maps logic with it, and the equivalence check of @sec-synthesis-lib-lec reads it.
+- `capacitance` of an input pin is the load it presents to its driver, here 2.87 fF. `max_capacitance` is the largest load the output may drive, 0.3 pF.
+- A `timing` group describes one **timing arc** from the related pin (`related_pin`) to the pin whose group contains it, here from the input `A` to the output `Y`. `timing_type` says what kind of arc it is: `combinational` for logic, and for a flip-flop, e.g., `rising_edge` from the clock to `Q`, `setup_rising` and `hold_rising` for the timing checks of `D`, and `recovery_rising` and `removal_rising` for its asynchronous reset.
+- `timing_sense` is the **unateness** of the arc. A `positive_unate` arc (AND, OR, buffer) turns a rising input into a rising output, a `negative_unate` arc (NAND, NOR, inverter) into a falling one, and a `non_unate` arc (XOR, the select input of a multiplexer, the clock of a flip-flop) can do either, depending on the other inputs.
+- Four 7×7 tables give the delay (`cell_rise`, `cell_fall`) and the output slew (`rise_transition`, `fall_transition`) for a rising and a falling output, and `internal_power` gives the energy of a switching event in the same form.
+
+A flip-flop adds a group that defines its state, here for `dfrbpq_1`:
+
+```
+ff (IQ,IQN) {
+  clear : "!RESET_B";
+  clocked_on : "CLK";
+  next_state : "D";
+}
+```
+
+The internal state `IQ` takes the value of `D` at the rising edge of `CLK` and is cleared while `RESET_B` is low, and the function of the output `Q` is `"IQ"`. The setup and hold times of `D` are tables as well, with 4×4 entries over the slews of the data and the clock signal. @sec-sequential uses them.
+
+## Delay Calculation with Tables {#sec-synthesis-lib-delay}
+
+Old libraries modeled a delay as a constant plus a resistance times the load, which is fine for long-channel transistors. In modern technologies, the delay depends on both the load and the input slew, and the slew also changes how the delay grows with the load (@fig-synthesis-lib-nldm). For a fast input edge, the delay of `inv_1` grows almost linearly with the load, but a slow edge bends the curve at small loads. No simple formula fits this, so the library stores the delay as a table over both, the **nonlinear delay model** (NLDM). Advanced nodes add current-source models, the composite current source (CCS) and the effective current source model (ECSM), for even more accuracy, but the SG13CMOS5L libraries contain NLDM tables only.
+
+{{< include /content/synthesis_lib/_fig_nldm.qmd >}}
+
+A timing tool computes the delay of each cell instance from two values: the slew at its input, which the driving cell determines, and the load at its output, i.e., the sum of the input capacitances of all driven pins plus the capacitance of the wire. The two values rarely coincide with table indices, so the tool interpolates linearly between the four neighboring entries, first along the load and then along the slew.
+
+Take an `inv_1` with an input slew $s = 0.25$ ns and a load $C = 0.05$ pF, and compute its delay for a rising output. The neighbors in `cell_rise` are at the slews 0.174 and 0.3294 ns and the loads 0.039 and 0.0648 pF:
+
+| | $C$ = 0.039 pF | $C$ = 0.0648 pF |
+|---|--:|--:|
+| $s$ = 0.174 ns | 0.211237 ns | 0.285953 ns |
+| $s$ = 0.3294 ns | 0.276414 ns | 0.363301 ns |
+
+: The four entries of `cell_rise` of `inv_1` around $s$ = 0.25 ns and $C$ = 0.05 pF {#tbl-synthesis-lib-interp}
+
+The position between the indices is $u = (0.05 - 0.039)/(0.0648 - 0.039) = 0.4264$ along the load and $v = (0.25 - 0.174)/(0.3294 - 0.174) = 0.4891$ along the slew. Interpolating both rows along the load gives $0.211237 + u \cdot 0.074716 = 0.2431$ ns and $0.276414 + u \cdot 0.086887 = 0.3135$ ns, and interpolating between them along the slew gives the delay
+
+$$t_\text{pd} = 0.2431 + v \cdot (0.3135 - 0.2431) = 0.2775 \text{ ns.}$$
+
+OpenSTA shows this calculation with `report_dcalc`, including the four table entries it used (`v` is a falling and `^` a rising edge):
+
+```
+A v -> Y ^
+P = 1.0000 V = 1.2000 T = 25.0000
+------- input_net_transition = 0.2500
+|       total_output_net_capacitance = 0.0500
+|        0.0390     0.0648
+v      --------------------
+0.1740 | 0.2112     0.2860
+0.3294 | 0.2764     0.3633
+Table value = 0.2775
+PVT scale factor = 1.0000
+Delay = 0.2775
+```
+
+The output slew comes from `rise_transition` in the same way, and it becomes the input slew of the next cell. A path delay is therefore computed stage by stage, from the inputs to the outputs: a slow edge makes the next cell slow as well.
+
+The load includes the capacitance of the wires, which is unknown before the layout. The SG13CMOS5L libraries contain 12 **wire-load models**, which estimate a wire's capacitance from the number of loads it drives (its fanout) and the size of the design. OpenSTA uses them only when you select one with `set_wire_load_model`. The model `1k`, for example, estimates 0.0182 pF for a net with eight loads, as much as the inputs of six `inv_1` cells. Without it, as in all timing analyses of this book so far, the pre-layout delays include no wires. In the LibreLane flow, the wire capacitances are estimated from the placement and later extracted from the routed layout (@sec-digital-flow).
+
+::: {.callout-tip title="Exercise: Interpolate a Delay Table"}
+All commands start in the folder `content/synthesis_lib/code/dcalc`. The netlist `one_inv.v` holds one `inv_1`, and `dcalc.tcl` runs `report_dcalc` on it. The environment variables `SLEW` (in ns) and `LOAD` (in pF) set the input slew and the output load.
+
+1. Find the inverter `sg13cmos5l_inv_4` in the typical library (`less $LIB`, then search with `/inv_4`). What is its area in gate equivalents? What is the input capacitance of `A`, and what is the largest load that `Y` may drive? Compare the three values with those of `inv_1`.
+2. Compute by hand the delay of `inv_1` from a rising input to a falling output (`cell_fall`) at an input slew of 0.25 ns and a load of 0.05 pF.
+3. Check your result with OpenSTA: `sta -no_init -exit dcalc.tcl`. What is the output slew of the falling edge?
+4. Run the analysis with a load of 0.4 pF: `LOAD=0.4 sta -no_init -exit dcalc.tcl`. Which table entries does OpenSTA use now, and what does it report at the end?
+5. Replace the `inv_1` by an `inv_4` with `sed -i 's/inv_1/inv_4/' one_inv.v`, and run the analysis with a load of 0.2 pF. Compare the delays with those of `inv_1` at 0.05 pF. Restore the netlist with `git restore one_inv.v`.
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Interpolate a Delay Table" collapse="true"}
+1. The area of `inv_4` is 10.8864 µm², i.e., 10.8864 / 7.2576 = 1.5 GE, twice the area of `inv_1`. The input capacitance of `A` is 0.0112 pF, 3.9 times the 0.00287 pF of `inv_1`, and `max_capacitance` of `Y` is 1.2 pF, four times the 0.3 pF of `inv_1`.
+2. The neighbors in `cell_fall` are 0.196172 and 0.259858 ns at the slew 0.174 ns, and 0.259958 and 0.33725 ns at 0.3294 ns. With $u = 0.4264$ and $v = 0.4891$ as in the text, the rows give 0.2233 and 0.2929 ns, and the delay is $0.2233 + v \cdot (0.2929 - 0.2233) = 0.2574$ ns.
+3. OpenSTA reports `A ^ -> Y v` with `Table value = 0.2574` and an output slew of 0.1981 ns. The falling output is faster than the rising one (0.2775 ns), because the NMOS transistor of the inverter is stronger than the PMOS transistor.
+4. The load of 0.4 pF lies beyond the last load index of 0.3 pF. OpenSTA uses the rows of the slews 0.174 and 0.3294 ns as before, and extrapolates linearly from the two last columns, 0.18 and 0.3 pF: the rising delay grows to 1.2563 ns. At the end, `report_check_types` reports a violation of `max capacitance`: the limit is 0.3 pF, the load 0.4 pF, and the slack -0.10 pF. An extrapolated value is a guess, which is why the library limits the load: the flow must insert a buffer or use a stronger cell.
+5. At 0.2 pF, `inv_4` has a falling delay of 0.2578 ns and a rising delay of 0.2771 ns, the same within 0.4 ps as `inv_1` at 0.05 pF. Four times the drive strength gives the same delay at four times the load. The price is twice the area and almost four times the input capacitance, which in turn loads the cell that drives `inv_4`.
+:::
+
+## Corners {#sec-synthesis-lib-corners}
+
+The speed of a transistor depends on the fabrication process, the supply voltage, and the temperature (**PVT**). A chip must work for every combination it will see, so the library is characterized at several **corners**. A fast corner combines fast transistors, a high supply voltage, and a low temperature. A slow corner combines slow transistors, a low supply voltage, and a high temperature. A typical corner lies in between. SG13CMOS5L has six Liberty files `sg13cmos5l_stdcell_<corner>.lib`, three for a nominal supply of 1.2 V and three for 1.5 V (@tbl-synthesis-lib-corners).
+
+| Corner | Process | Voltage | Temperature | Fall delay | Rise delay |
+|:----------------|:--------|-----:|-----:|-----:|-----:|
+| `fast_1p32V_m40C` | fast | 1.32 V | -40 °C | 0.197 ns | 0.205 ns |
+| `typ_1p20V_25C` | typical | 1.20 V | 25 °C | 0.257 ns | 0.278 ns |
+| `slow_1p08V_125C` | slow | 1.08 V | 125 °C | 0.353 ns | 0.376 ns |
+| `fast_1p65V_m40C` | fast | 1.65 V | -40 °C | 0.145 ns | 0.154 ns |
+| `typ_1p50V_25C` | typical | 1.50 V | 25 °C | 0.188 ns | 0.208 ns |
+| `slow_1p35V_125C` | slow | 1.35 V | 125 °C | 0.259 ns | 0.276 ns |
+
+: The six corners of SG13CMOS5L, with the delays of `inv_1` at an input slew of 0.25 ns and a load of 0.05 pF {#tbl-synthesis-lib-corners}
+
+At 1.2 V, the same inverter is about 1.8 times slower in the slow corner than in the fast one. Each timing check is usually hardest to meet in one corner: the setup check, which limits the clock frequency, with the maximum delays of the slow corner, and the hold check with the minimum delays of the fast corner (@sec-sequential). For the sign-off before a tapeout, both checks run in all corners, because the clock network slows down with the logic, and a hold violation can also appear in the slow corner. Older libraries had a single table and scaled it to other conditions with derating factors. Today, every corner is characterized on its own, because the scaling is not linear.
+
+## Synthesis with Yosys in Practice {#sec-synthesis-lib-yosys}
+
+The command sequence that we have used since @sec-modeling maps a design onto SG13CMOS5L:
+
+```bash
+yosys -p "read_verilog -sv rtl/fifo.sv; synth -top fifo; \
+  dfflibmap -liberty $LIB; abc -liberty $LIB; opt_clean; \
+  stat -liberty $LIB; write_verilog -noattr fifo.nl.v"
+```
+
+- `read_verilog -sv` reads the SystemVerilog source, and `synth -top fifo` runs elaboration, optimization, and lowering with `fifo` as the top module.
+- `dfflibmap -liberty $LIB` maps the generic flip-flops onto the flip-flops of the library. SG13CMOS5L has no flip-flop without a reset, so a register without reset becomes a `dfrbpq_1` with its reset input tied to 1 (@sec-modeling-reset).
+- `abc -liberty $LIB` maps the logic onto the cells of the library, with their functions, areas, and delays.
+- `opt_clean` removes unused wires and cells, `stat -liberty $LIB` prints the cell counts and the total cell area, and `write_verilog -noattr` writes the netlist without Yosys attributes.
+
+ABC can map the same logic for a small area or for a short delay. With `-constr <file>`, ABC appends **buffering and gate sizing** to its mapping: it inserts buffers into nets with a large fanout, and it resizes cells, stronger ones on the slowest paths and weaker ones elsewhere (`buffer`, `upsize`, `dnsize`). For the delays, it needs the cell that drives the inputs and the load of the outputs, which the file sets. The file `synth/abc.constr` sets an `inv_2` as driver and a load of 10 fF (the unit is fF here), the 0.01 pF of the timing scripts of this chapter. The option `-D <ps>` sets a delay target in picoseconds for the sizing. Without `-constr`, `-D` has no effect on the barrel shifter of the next exercise. The option `-script` replaces ABC's default commands, e.g., by the area-only mapping `amap`.
+
+In the LibreLane flow, the variable `SYNTH_STRATEGY` selects one of nine prepared ABC scripts, `AREA 0` to `AREA 3` and `DELAY 0` to `DELAY 4`. The default is `AREA 0`, and the counter of the AMS chip template uses `DELAY 4`. Which strategy wins depends on the design, so the only reliable way to choose is to try several and compare the timing reports.
+
+::: {.callout-tip title="Exercise: Area Against Delay"}
+All commands start in the folder `content/synthesis_lib/code/synth`. The 32-bit barrel shifter of @sec-verification is a large block of multiplexers, which makes the effect of the mapping visible.
+
+1. Synthesize the barrel shifter with `WIDTH = 32` three times, with the default mapping, with a delay target of 1 ns, and with the area mapping. Each time, note the number of cells and the area, and write the netlist to `barrel_shift.nl.v`:
+
+   ```bash
+   yosys -p "read_verilog -sv \
+     ../../../verification/code/barrel_shift/rtl/barrel_shift.sv; \
+     chparam -set WIDTH 32 barrel_shift; synth -top barrel_shift; \
+     abc -liberty $LIB; opt_clean; \
+     stat -liberty $LIB; write_verilog -noattr barrel_shift.nl.v"
+   ```
+
+   For the delay target, replace the `abc` command by `abc -D 1000 -constr abc.constr -liberty $LIB`, and for the area mapping by `abc -liberty $LIB -script +strash;dch,-f;amap;topo`.
+
+2. After each synthesis, find the longest path with `TOP=barrel_shift sta -no_init -exit comb_sta.tcl` in the typical corner, and with `CORNER=slow_1p08V_125C TOP=barrel_shift sta -no_init -exit comb_sta.tcl` in the slow corner. The column `Actual Delay` gives the delay of the slowest path from an input to an output.
+
+3. Collect the results in a table. How much area does the fastest version cost compared with the smallest? Which version would you choose for a block that has to run at 250 MHz, and which for one that runs at 50 MHz? Which corner decides?
+
+4. Repeat the delay-targeted mapping with 3000 ps, with 500 ps, and with `-constr abc.constr` but without `-D`. What happens, and why can a delay target not be met by mapping alone?
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Area Against Delay" collapse="true"}
+1. The default mapping gives 747 cells and 9399.0 µm², the delay target of 1 ns 818 cells and 10030.4 µm², and the area mapping 765 cells and 7305.5 µm².
+
+2. The longest paths are 2.51 ns with the default mapping, 1.50 ns with the delay target, and 4.81 ns with the area mapping in the typical corner, and 3.87, 2.33, and 7.36 ns in the slow corner.
+
+3. The results:
+
+   | Mapping | Cells | Area | Typical | Slow |
+   |---|--:|--:|--:|--:|
+   | `amap` (area) | 765 | 7305.5 µm² | 4.81 ns | 7.36 ns |
+   | default | 747 | 9399.0 µm² | 2.51 ns | 3.87 ns |
+   | `-D 1000 -constr` | 818 | 10030.4 µm² | 1.50 ns | 2.33 ns |
+
+   The fastest version needs 37 % more area than the smallest and is 3.2 times faster. The slow corner decides, because it limits the setup check (@sec-synthesis-lib-corners). At 250 MHz, a period of 4 ns, the delay-targeted mapping leaves 1.67 ns for the registers around the block. The default mapping leaves only 0.13 ns, too little for the clock-to-output delay and the setup time of the flip-flops (@sec-sequential). At 50 MHz, 20 ns, even the area mapping is fast enough, and it saves 22 % of the area of the default mapping.
+
+4. With 3000 ps, the netlist has 818 cells, 9914.3 µm², and a longest path of 1.88 ns. The sizing stops as soon as the target is met and saves 116 µm². With 500 ps and without `-D`, the result is the same as with 1000 ps: 10030.4 µm² and 1.50 ns. The target only limits the sizing, and below 1.50 ns, the sizing finds nothing faster. ABC restructures the logic only locally and picks and sizes the cells of the library. A much faster block needs a different architecture, e.g., fewer logic levels or a pipeline register (@sec-synth-opt).
+:::
+
+## Logic Equivalence Checking {#sec-synthesis-lib-lec}
+
+The netlist must implement the RTL, but why should we believe that it does? Synthesis is a large program with bugs of its own, settings and scripts can change the function, the netlist can be edited by hand after synthesis (an **engineering change order**, ECO), and a netlist can simply be stale, i.e., synthesized from an older version of the RTL. A gate-level simulation with the testbench of the RTL checks the netlist for the stimuli it applies (@sec-verification-gl). A **logic equivalence check** (LEC) proves for every input that the netlist computes the same function as the RTL, without any stimulus and without any timing.
+
+@fig-synthesis-lib-lec shows the idea of a classic equivalence checker, such as the commercial tools of the industry. The checker reads both designs: the reference, called **gold**, which is the RTL, and the implementation, called **gate**, which is the netlist. It matches the registers and outputs of both sides by name. The matched registers are **cut points**: they cut both designs into combinational **cones**, and the output of a matched register becomes a **free input** of the cones behind it, an input that the solver may set to any value, but to the same value on both sides. For every cone, the checker then proves with a formal solver that gold and gate compute the same function of the cone's inputs. If every cone agrees, the two designs are equivalent from any state, which is a stronger statement than any simulation can make.
+
+{{< include /content/synthesis_lib/_fig_lec.qmd >}}
+
+This works because synthesis keeps the registers and their names. It fails falsely where synthesis changes the registers: when it re-encodes a state machine (the same name now holds a one-hot instead of a binary code), moves logic across registers (**retiming**), or merges or duplicates registers. A checker then needs extra rules to match the registers, or a **sequential equivalence check** (SEC), which starts both designs from reset and compares them over time without matching registers, at a much higher cost. Equivalence checking runs after every step that changes the netlist: after synthesis, after place and route (which adds buffers, the clock tree, and hold cells), after the insertion of scan chains (@sec-dft), and after every ECO. It has clear limits: it does not see timing, it does not see the start values of registers without reset (@sec-modeling-x), and it proves the netlist equal to the RTL, not the RTL correct.
+
+### EQY {#sec-synthesis-lib-eqy}
+
+EQY [@EQY] is the equivalence checker of the Yosys suite. A configuration file describes gold and gate as Yosys scripts and selects a strategy for the proofs. Here is the check of the FIFO of @sec-verification:
+
+```{.default filename="lec/fifo.eqy"}
+{{< include /content/synthesis_lib/code/lec/fifo.eqy >}}
+```
+
+- `[gold]` reads the RTL with slang [@slang], a different SystemVerilog frontend from the one that synthesis used. If both sides went through the same frontend, a misreading of the RTL would end up in both, and the check would pass. slang keeps the storage array `mem_q` as a memory, while synthesis turned it into registers, so `memory_map` turns it into registers on the gold side as well.
+- `[gate]` reads the netlist and takes the function of every cell from the Liberty file, linked as `stdcell.lib`. `-ignore_miss_func` skips cells with an output that has no function, such as the clock gate `lgcp_1`, which `read_liberty` would otherwise refuse. The two checks make sure that no cell escapes the comparison: `hierarchy -check` fails if the netlist uses a cell that was skipped, and `select -assert-none` fails if any cell is still a black box after `flatten`. They turn a missing or skipped cell model into a clear error at once, instead of an obscure error later in the run.
+- `[collect *]` with `bind` is explained below.
+- `[strategy sby]` proves each partition (see below) with the formal tool SymbiYosys and the PDR engine of ABC (property-directed reachability).
+
+Synthesize the FIFO into the folder `lec`, link the library, and run EQY:
+
+```bash
+cd /foss/designs/vlsi-design/content/synthesis_lib/code/lec
+ln -sf $LIB stdcell.lib
+yosys -p "read_verilog -sv \
+  ../../../verification/code/fifo/rtl/fifo.sv; synth -top fifo; \
+  dfflibmap -liberty $LIB; abc -liberty $LIB; opt_clean; \
+  write_verilog -noattr fifo.nl.v"
+eqy -d fifo_eqy fifo.eqy
+```
+
+EQY prints `Successfully proved designs equivalent` and `DONE (PASS, rc=0)` after about 3 s. The matched names are in `fifo_eqy/matched.ids`. A failing check exits with status 2 and names the partitions it could not prove.
+
+EQY works in a way related to @fig-synthesis-lib-lec, but not identical. It splits the designs into **partitions**, by default one per matched register or output, usually with all bits of a signal together. A matched signal that another partition computes becomes a free input, i.e., a cut point, while the registers of a partition stay inside it. The `[collect *]` section holds commands that change the partitions, for all modules (`*`). Here, it merged them into 3 partitions, listed in `fifo_eqy/partition.list`. Because a partition keeps its registers, the strategy `sby` proves it over time: SymbiYosys shows with PDR that gold and gate agree at the matched signals in every cycle. The registers of the netlist start with any value, those of the RTL start unknown (`x`), and an `x` on the gold side matches any value on the gate side. EQY therefore proves the netlist equal to the RTL in every state that the RTL can reach after its reset, not from any state like a classic checker. A state that the reset never reaches is not compared, and a register of the RTL without reset is only checked once it holds a known value.
+
+### A False Failure {#sec-synthesis-lib-false-fail}
+
+Without the `[collect *]` section, EQY reports a failure: it cannot prove 5 of the 9 partitions, among them the write pointer. For each failed partition, the solver writes a **counterexample**, a waveform of input values for which gold and gate differ. The counterexample in `strategies/fifo.wr_ptr_q/sby/fifo.wr_ptr_q/engine_0/trace.vcd` of the work folder, opened in Surfer, shows why. The partition of `wr_ptr_q` has the free inputs `push_i`, `full_o`, and `rd_ptr_q`, among others. After the reset, `wr_ptr_q` is 000, and the solver sets `push_i` to 1, `full_o` to 0, and `rd_ptr_q` to 100. Gold increments `wr_ptr_q` to 001, while the gate side keeps 000.
+
+The reason is a cut point. In the RTL, the push logic reads the flag `full_o`, an output that EQY matched, so the gold partition reads the free input `full_o`. The netlist does not read the output net: synthesis computes "full" a second time inside the push logic, from the pointers, so the gate partition reads the free input `rd_ptr_q` instead. Nothing ties the two free inputs together, and the solver picks values that no real circuit can produce: with the pointers 000 and 100, the FIFO is full, but `full_o` is 0. The partitions differ, the designs do not.
+
+`bind full_o` puts the registers that read `full_o`, the write pointer and the storage, into the partition of `full_o`, and `bind empty_o` puts the read pointer into the partition of `empty_o`. The logic that computes a flag then stays together with the logic that reads it, instead of being cut at the output net, and the check passes. Two lessons follow. A failing partition is not yet a bug: read the counterexample and decide whether a real circuit can be in that state. And a check that passes must also be able to fail. With the RTL changed after synthesis, e.g., to accept a push into a full FIFO during a pop (mutant M3 of @sec-verification-mutation), the same configuration fails in the partition `full_o`, as it must.
+
+Other equivalence checkers exist. kepler-formal, also in the image, compares two designs either combinationally (LEC) or sequentially from reset (SEC). The commercial tools Cadence Conformal and Synopsys Formality are the standard in industry. LibreLane has an equivalence step with EQY as well, but it prepares the cell models only for the sky130 PDK, so we run EQY ourselves.
+
+::: {.callout-tip title="Exercise: Prove It, Break It"}
+All commands start in the folder `content/synthesis_lib/code/lec`. Link the library with `ln -sf $LIB stdcell.lib`, if you have not done so for the FIFO. The folder holds the reference solution `barrel_shift.eqy`, so move it out of the way first: `mv barrel_shift.eqy barrel_shift_solution.eqy`.
+
+1. Sketch gold and gate of the barrel shifter in the style of @fig-synthesis-lib-lec. Where are the cut points, and how many cones do you expect?
+
+2. Synthesize the barrel shifter with `WIDTH = 32` and the default mapping into `barrel_shift.nl.v` in this folder, with the same command as in the previous exercise. How many cells does the netlist have?
+
+3. Write `barrel_shift.eqy` after the example of `fifo.eqy`. Which parts of the FIFO configuration does the barrel shifter not need, and why? Note that slang takes a parameter as `-G WIDTH=32`.
+
+4. Run `eqy -d bs_eqy barrel_shift.eqy`. How many partitions does EQY build? Does the number match your sketch?
+
+5. Break the netlist: replace the first `sg13cmos5l_a21oi_1` by an `sg13cmos5l_o21ai_1`, which has the same pins and a different function:
+
+   ```bash
+   cp barrel_shift.nl.v barrel_shift_good.nl.v
+   sed -i '0,/sg13cmos5l_a21oi_1 /s//sg13cmos5l_o21ai_1 /' \
+     barrel_shift.nl.v
+   eqy -d bs_mut barrel_shift.eqy
+   ```
+
+6. Open the counterexample `bs_mut/strategies/*/sby/*/engine_0/trace.vcd` in Surfer. The signals `__pi_*` are the inputs, and `__po_*__gold` and `__po_*__gate` the outputs of both sides. Which input vector shows the difference, and which output bit differs? Compute the correct output by hand.
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Prove It, Break It" collapse="true"}
+1. The barrel shifter has no registers, so the only matched points are its inputs and its output `data_o`. Both lanes of the sketch hold one cone, from the inputs to `data_o`, with no cut point inside.
+
+2. The netlist has 747 cells, as with the default mapping of the previous exercise.
+
+3. The barrel shifter has no storage array and no output that it reads internally, so it needs neither `memory_map` nor `[collect *]`:
+
+```{.default filename="lec/barrel_shift.eqy"}
+{{< include /content/synthesis_lib/code/lec/barrel_shift.eqy >}}
+```
+
+4. EQY proves the designs equivalent in about 3 s with a single partition, `data_o[31:0]`. This matches the sketch: one partition per matched register or output, and the barrel shifter has no register and one output.
+
+5. EQY fails with exit status 2: `Failed to prove equivalence of partition barrel_shift.data_o`.
+
+6. With the netlist of the default mapping, the counterexample is `data_i = 0x57C45344`, `shamt_i = 8`, and `mode_i = 2'b10`, a rotation to the left by 8 positions. The gate side gives `0xC4524457`, which differs from gold in bit 16. The correct result, which gold computes, is `0xC4534457`: the input rotated left by two hex digits. The solver found an input vector that exercises exactly the mutated cell, out of $2^{39}$ possible ones. A different netlist or a different mutated cell gives a different counterexample.
+:::
+
+## Summary {#sec-synthesis-lib-summary}
+
+- Logic synthesis elaborates the RTL into word-level cells, optimizes them, lowers them to generic gates, and maps those onto the cells of the library. Yosys runs the first three steps with `synth`, and `dfflibmap` and `abc` the mapping.
+- A standard cell has a fixed height and a width of whole sites, and the cells abut in rows between shared supply rails. SG13CMOS5L has 84 cells, 3.78 µm high on a 0.48 µm site. Each tool reads its own view of them: Liberty, LEF, GDS, Verilog, CDL.
+- A Liberty file gives each cell its area, its function, the capacitance of its inputs, and its timing arcs with their timing sense, with the delay and the output slew as 7×7 tables over the input slew and the output load.
+- A timing tool interpolates the delay between the four neighboring table entries and computes a path stage by stage, because the output slew of a cell is the input slew of the next one. Wires add load, which the libraries can only estimate before the layout.
+- Corners cover process, voltage, and temperature. The inverter of SG13CMOS5L is about 1.8 times slower in the slow corner than in the fast one at 1.2 V. Setup is usually limited by the slow corner and hold by the fast corner, but the sign-off checks both in all corners.
+- The technology mapping trades area against delay. Which strategy is best depends on the design, and the architecture limits what mapping can reach.
+- Logic equivalence checking proves that the netlist computes the same function as the RTL, by matching registers and outputs and comparing the cones between them. EQY proves partitions that keep their registers, over time and for the states that the RTL reaches after reset. Read the counterexample of a failing partition before you call it a bug, and make sure that a check fails on a broken design.
+
+In @sec-sequential, we put the delays of this chapter together: the timing of flip-flops, static timing analysis of whole paths, and the constraints that tell it the clock and the environment.

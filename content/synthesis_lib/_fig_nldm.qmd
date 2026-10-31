@@ -1,0 +1,41 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-synthesis-lib-nldm
+#| echo: false
+#| fig-cap: "The table `cell_rise` of `sg13cmos5l_inv_1` in the typical library: the delay from a falling input `A` to a rising output `Y` over the output load, for four of the seven input slews of the table. The markers are the table entries. The delay grows with the load and with the input slew. For a fast input, it grows almost linearly with the load, while a slow input bends the curve at small loads. The black point is the operating point of @sec-synthesis-lib-delay, an input slew of 0.25 ns and a load of 0.05 pF, which lies between the table entries and gives 0.2775 ns by interpolation."
+#| fig-alt: "Line chart. The horizontal axis is the output load from 0 to 0.3 pF, the vertical axis the delay from 0 to about 1.6 ns. Four lines in blue shades of increasing darkness are the input slews 0.0186, 0.174, 0.3294, and 1.263 ns. Each rises with the load, steeper for small loads, and a larger slew shifts the line up. A black point at 0.05 pF and 0.2775 ns lies between the lines for 0.174 and 0.3294 ns."
+import matplotlib.pyplot as plt
+
+# index_2 (load in pF) and four rows of cell_rise (index_1 = slew in ns)
+load = [0.001, 0.0234, 0.039, 0.0648, 0.108, 0.18, 0.3]
+rows = {
+    0.0186: [0.0205647, 0.0848969, 0.128137, 0.199515, 0.318905, 0.518173, 0.849492],
+    0.174: [0.0494593, 0.16103, 0.211237, 0.285953, 0.405855, 0.604919, 0.93662],
+    0.3294: [0.06145, 0.213087, 0.276414, 0.363301, 0.491278, 0.693125, 1.02497],
+    1.263: [0.0904964, 0.386189, 0.508826, 0.663145, 0.869187, 1.1435, 1.52963],
+}
+colors = ['#6baed6', '#3182bd', '#1f5f9e', '#08306b']   # one hue, light to dark
+
+plt.rcParams.update({'font.size': 10})
+fig, ax = plt.subplots(figsize=(6.5, 3.6))
+for (slew, delay), color in zip(rows.items(), colors):
+    ax.plot(load, delay, color=color, linewidth=2, marker='o', markersize=5,
+            label=f'{slew:g} ns')
+ax.plot([0.05], [0.2775], marker='o', markersize=8, color='black', zorder=5)
+ax.annotate('slew 0.25 ns, load 0.05 pF:\ndelay 0.2775 ns', (0.05, 0.2775),
+            xytext=(0.12, 0.06), textcoords='data', color='black',
+            arrowprops=dict(arrowstyle='-', color='black', lw=0.8))
+ax.set_xlabel('output load (pF)')
+ax.set_ylabel('delay A fall to Y rise (ns)')
+ax.set_xlim(0, 0.31)
+ax.set_ylim(0, 1.65)
+ax.grid(color='#e5e5e5', linewidth=0.8)
+ax.spines[['top', 'right']].set_visible(False)
+ax.legend(title='input slew', frameon=False, loc='upper left')
+fig.tight_layout()
+plt.show()
+```

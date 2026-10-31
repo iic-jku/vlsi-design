@@ -1,0 +1,54 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-synthesis-lib-lec
+#| echo: false
+#| fig-cap: "What a classic logic equivalence checker compares. The RTL (gold) and the netlist (gate) share their inputs. The checker matches the registers and outputs of both sides by name, and these matched points cut the designs into combinational cones. A matched register output becomes a free input that has the same value on both sides. For every cone, the checker proves that gold and gate compute the same function of these inputs, i.e., that the register inputs and the outputs agree for every possible value. If all cones agree, the designs are equivalent, whatever happens over time. EQY works in a related way, but keeps registers inside its partitions (@sec-synthesis-lib-eqy)."
+#| fig-alt: "Two horizontal lanes. Top lane, labeled RTL (gold): inputs, a logic cone, a register r, a second logic cone, and the output y. Bottom lane, labeled netlist (gate): the same structure built from standard cells. Two dashed red lines connect the lanes, one at the register inputs and one at the outputs, each through a compare mark with an equals sign, labeled register inputs and outputs. A dotted grey line connects the outputs of the two registers r and is labeled matched: same free value."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'     # gold
+GREEN, GREEN_L = '#82b366', '#d5e8d4'   # gate
+RED, GREY = '#b85450', '#666666'
+
+yg, yt = 1.8, -1.8
+xi, xa, xr, xb, xo = 0.0, 3.0, 6.4, 9.6, 12.6
+
+
+def lane(y, fill, edge, cone, name):
+    elm.Label().right().at((xi - 1.2, y + 1.1)).label(name, halign='left', color='black')
+    inp = flow.Box(w=1.4, h=0.8).at((xi, y)).anchor('center').fill('white').color(GREY).label('inputs', fontsize=10, color='black')
+    a = flow.Box(w=2.2, h=1.1).at((xa, y)).anchor('center').fill(fill).color(edge).label(cone, color='black')
+    r = flow.Box(w=1.0, h=1.1).at((xr, y)).anchor('center').fill('white').color('black').label('r', color='black')
+    b = flow.Box(w=2.2, h=1.1).at((xb, y)).anchor('center').fill(fill).color(edge).label(cone, color='black')
+    flow.Arrow().at(inp.E).to(a.W)
+    flow.Arrow().at(a.E).to(r.W)
+    flow.Arrow().at(r.E).to(b.W)
+    flow.Arrow().at(b.E).to((xo, y))
+    elm.Label().right().at((xo + 0.15, y - 0.1)).label('y', halign='left', color='black')
+    return a, r, b
+
+
+def compare(x, text):
+    elm.Line().at((x, yg)).to((x, 0.32)).linestyle('--').color(RED)
+    elm.Line().at((x, -0.32)).to((x, yt)).linestyle('--').color(RED)
+    flow.Circle(r=0.32).at((x, 0)).anchor('center').fill('white').color(RED).label('=', color=RED)
+    elm.Label().right().at((x + 0.45, -0.1)).label(text, halign='left', fontsize=9, color=RED)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    lane(yg, BLUE_L, BLUE, 'logic', 'RTL (gold)')
+    lane(yt, GREEN_L, GREEN, 'cells', 'netlist (gate)')
+    compare((xa + 1.1 + xr - 0.5) / 2, 'register\ninputs')
+    compare(xo - 0.3, 'outputs')
+    # the matched register output is one shared free value
+    elm.Line().at((xr + 0.5, yg - 0.55)).to((xr + 0.5, yt + 0.55)).linestyle(':').color(GREY)
+    elm.Label().right().at((xr + 0.65, 0.2)).label('matched:\nsame free value', halign='left', fontsize=9, color=GREY)
+```
