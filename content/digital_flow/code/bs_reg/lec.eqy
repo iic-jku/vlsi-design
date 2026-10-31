@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2026 Simon Dorrer
+# SPDX-License-Identifier: Apache-2.0
+# Description: Equivalence check of bs_reg: its RTL (gold) against the
+# final netlist of the LibreLane run in runs/base (gate). Run in this
+# folder with stdcell.lib linked to the typical library of SG13CMOS5L:
+# eqy -d lec_eqy lec.eqy
+
+[gold]
+plugin -i slang
+read_slang --top bs_reg \
+  ../../../verification/code/barrel_shift/rtl/barrel_shift.sv \
+  ../../../sequential/code/bs_reg/rtl/bs_reg.sv
+hierarchy -check -top bs_reg
+proc
+flatten -noscopeinfo
+# Flattening keeps the net names of the submodule as second names
+rename -hide w:*.*
+
+[gate]
+# The cell functions come from the Liberty file
+read_liberty -ignore_miss_func stdcell.lib
+read_verilog runs/base/final/nl/bs_reg.nl.v
+hierarchy -check -top bs_reg
+flatten -noscopeinfo
+# Fails if a cell had no model and stayed a black box
+select -assert-none t:sg13cmos5l_*
+rename -hide w:*.*
+
+[strategy sby]
+use sby
+engine abc pdr

@@ -1,0 +1,45 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-digital-flow-steps
+#| echo: false
+#| fig-cap: "The stages of the Classic flow of LibreLane, with the tools and the main steps of each. Checkers between the steps stop the flow, e.g., on unmapped cells, routing errors, or a failed LVS. The run of `bs_reg` in this chapter has 76 steps."
+#| fig-alt: "Six boxes in a row, connected by arrows: synthesis with Yosys, floorplan with OpenROAD, placement with OpenROAD, clock tree synthesis with OpenROAD, routing with OpenROAD, and signoff with OpenRCX, OpenSTA, Magic, KLayout and Netgen. Below each box, a list of its steps. Synthesis: lint, synthesis, mapping. Floorplan: die and core, rows, IO pins, power grid. Placement: global placement, buffering, detailed placement. Clock tree: clock tree, setup repair, hold repair. Routing: global routing, antenna repair, detailed routing, fill and decap. Signoff: extraction, timing in all corners, IR drop, GDS, DRC and LVS."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+STAGES = [
+    ('synthesis', 'Yosys', ['lint (Verilator)', 'synthesis', 'mapping']),
+    ('floorplan', 'OpenROAD', ['die and core', 'rows', 'IO pins', 'power grid']),
+    ('placement', 'OpenROAD', ['global placement', 'buffering', 'detailed placement']),
+    ('clock tree', 'OpenROAD', ['clock tree', 'setup repair', 'hold repair']),
+    ('routing', 'OpenROAD', ['global routing', 'antenna repair', 'detailed routing',
+                             'fill and decap']),
+    ('signoff', 'OpenRCX, OpenSTA,\nMagic, KLayout,\nNetgen',
+     ['extraction (SPEF)', 'STA, all corners', 'IR drop', 'GDS', 'DRC, LVS']),
+]
+COLORS = [('#dae8fc', '#6c8ebf'), ('#d5e8d4', '#82b366'), ('#d5e8d4', '#82b366'),
+          ('#ffe6cc', '#d79b00'), ('#d5e8d4', '#82b366'), ('#f8cecc', '#b85450')]
+W, H, GAP = 2.4, 1.0, 0.55
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
+    prev = None
+    for k, ((name, tool, steps), (fill, line)) in enumerate(zip(STAGES, COLORS)):
+        x = k * (W + GAP)
+        b = flow.Box(w=W, h=H).at((x + W / 2, 0)).anchor('center') \
+            .fill(fill).color(line).label(name, color='black')
+        if prev is not None:
+            flow.Arrow().at(prev.E).to(b.W)
+        prev = b
+        elm.Label().at((x + W / 2, 0.95)).label(tool, color='#444444',
+                                                fontsize=10, valign='bottom')
+        for i, step in enumerate(steps):
+            elm.Label().at((x + 0.1, -0.85 - 0.42 * i)).label(
+                step, halign='left', color='black', fontsize=10)
+```

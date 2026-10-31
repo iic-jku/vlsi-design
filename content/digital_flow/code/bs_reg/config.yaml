@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 Simon Dorrer
+# SPDX-License-Identifier: Apache-2.0
+# Description: LibreLane configuration of the barrel shifter between
+# two registers (bs_reg, 32 bits) of chapter 6. Usage, in this folder:
+#   librelane config.yaml --pdk ihp-sg13cmos5l --pdk-root $PDK_ROOT \
+#     --manual-pdk --run-tag base
+# The run lands in runs/base, its results in runs/base/final.
+
+meta:
+  version: 3
+  flow: Classic
+
+DESIGN_NAME: bs_reg
+VERILOG_FILES:
+  - dir::../../../verification/code/barrel_shift/rtl/barrel_shift.sv
+  - dir::../../../sequential/code/bs_reg/rtl/bs_reg.sv
+
+# The clock and the constraints of chapter 6
+CLOCK_PORT: clk_i
+CLOCK_PERIOD: 4.0
+PNR_SDC_FILE: dir::../../../sequential/code/bs_reg/syn/bs_reg.sdc
+SIGNOFF_SDC_FILE: dir::../../../sequential/code/bs_reg/syn/bs_reg.sdc
+
+# Floorplan: the core takes the cells at the target utilization
+FP_SIZING: relative
+FP_CORE_UTIL: 50
+PL_TARGET_DENSITY_PCT: 60
+
+# The supply nets, named as in the AMS chip template
+VDD_NETS: [VDD]
+GND_NETS: [VSS]
+
+# The library; its corners come from the PDK: typical, slow, and fast
+# at 1.2 V, with the typical one as the default corner
+STD_CELL_LIBRARY: sg13cmos5l_stdcell

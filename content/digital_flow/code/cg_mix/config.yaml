@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 Simon Dorrer
+# SPDX-License-Identifier: Apache-2.0
+# Description: LibreLane configuration of cg_mix. Usage, in this
+# folder: librelane config.yaml --pdk ihp-sg13cmos5l \
+#   --pdk-root $PDK_ROOT --manual-pdk --run-tag base
+
+meta:
+  version: 3
+  flow: Classic
+
+DESIGN_NAME: cg_mix
+VERILOG_FILES: [dir::rtl/cg_mix.sv]
+CLOCK_PORT: clk_i
+CLOCK_PERIOD: 4.0
+FP_SIZING: relative
+FP_CORE_UTIL: 40
+STD_CELL_LIBRARY: sg13cmos5l_stdcell
+VDD_NETS: [VDD]
+GND_NETS: [VSS]

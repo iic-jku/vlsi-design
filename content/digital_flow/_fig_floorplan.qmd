@@ -1,0 +1,70 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-digital-flow-floorplan
+#| echo: false
+#| fig-cap: "A floorplan, not to scale. The core inside the die holds rows of 3.78 µm height, made of sites of 0.48 µm width, in which the cells will stand, alternately flipped so that neighboring rows share a supply rail. Metal1 rails run along the rows, connected by via stacks to vertical straps on Metal4 and horizontal straps on TopMetal1, which carry VDD and VSS to the pins of the macro. The signal pins sit on the edges of the die, on Metal2 and Metal3."
+#| fig-alt: "A rectangle labeled die contains a smaller rectangle labeled core with horizontal stripes, the rows. Thin horizontal lines between the rows, alternately red and black, are labeled Metal1 rails, VDD in red and VSS in black. Two wide vertical bars labeled Metal4 straps and two wide horizontal bars labeled TopMetal1 straps cross the core. Small rectangles on the left and right edges of the die are labeled pins on Metal3, on the top and bottom edges pins on Metal2. A dimension on the side marks the row height of 3.78 µm."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+ROW, NROW = 0.62, 8
+X0, Y0, CW = 1.0, 1.0, 8.0          # core corner and width
+CH = ROW * NROW
+BLUE, GREEN, ORANGE, RED, GREY = '#6c8ebf', '#82b366', '#d79b00', '#b85450', '#666666'
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
+    # die and core
+    flow.Box(w=CW + 2 * X0, h=CH + 2 * Y0).at((0, 0)).anchor('SW').color(GREY)
+    elm.Label().at((0.15, CH + 2 * Y0 - 0.3)).label('die', halign='left',
+                                                   color=GREY)
+    for i in range(NROW):
+        fill = '#eef4fb' if i % 2 else '#dae8fc'
+        flow.Box(w=CW, h=ROW).at((X0, Y0 + i * ROW)).anchor('SW') \
+            .fill(fill).color('#a9c4e6').linewidth(0.8)
+    elm.Label().at((X0 + 0.1, Y0 + CH + 0.25)).label('core', halign='left',
+                                                    color=BLUE)
+    # rails between the rows
+    for i in range(NROW + 1):
+        y = Y0 + i * ROW
+        elm.Line().at((X0, y)).to((X0 + CW, y)).color(RED if i % 2 else '#333333') \
+            .linewidth(1.6)
+    # straps
+    for x in (X0 + 2.2, X0 + 5.6):
+        flow.Box(w=0.32, h=CH + 0.4).at((x, Y0 - 0.2)).anchor('SW') \
+            .fill(GREEN).color(GREEN)
+    for y in (Y0 + 1.25, Y0 + 3.75):
+        flow.Box(w=CW + 0.4, h=0.32).at((X0 - 0.2, y)).anchor('SW') \
+            .fill(ORANGE).color(ORANGE)
+    # pins
+    for y in (1.6, 2.6, 3.6, 4.6):
+        flow.Box(w=0.35, h=0.14).at((0, y)).anchor('SW').fill(BLUE).color(BLUE)
+        flow.Box(w=0.35, h=0.14).at((CW + 2 * X0 - 0.35, y + 0.4)).anchor('SW') \
+            .fill(BLUE).color(BLUE)
+    for x in (2.0, 3.4, 6.6, 8.0):
+        flow.Box(w=0.14, h=0.35).at((x, CH + 2 * Y0 - 0.35)).anchor('SW') \
+            .fill(BLUE).color(BLUE)
+        flow.Box(w=0.14, h=0.35).at((x + 0.5, 0)).anchor('SW').fill(BLUE) \
+            .color(BLUE)
+    # labels on the right
+    xr = CW + 2 * X0 + 0.5
+    elm.Label().at((xr, Y0 + 3.91)).label('TopMetal1 straps', halign='left',
+                                         color=ORANGE)
+    elm.Label().at((xr, Y0 + CH - 0.2)).label('Metal1 rails: VDD (red), VSS (black)',
+                                             halign='left', color=RED)
+    elm.Label().at((xr, Y0 + 2.4)).label('pins on Metal3 (left, right),\n'
+                                         'Metal2 (top, bottom)',
+                                         halign='left', color=BLUE)
+    elm.Label().at((X0 + 2.36, -0.45)).label('Metal4 straps', color=GREEN)
+    # row height
+    elm.Line().at((X0 - 0.45, Y0)).to((X0 - 0.45, Y0 + ROW)).color('black') \
+        .linewidth(1)
+    elm.Label().at((-0.1, Y0 + ROW / 2)).label('row\n3.78 µm', halign='right',
+                                              fontsize=10)
+```
