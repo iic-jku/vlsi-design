@@ -3,7 +3,7 @@
 # Description: Equivalence check of the FIFO of chapter 4: its RTL
 # (gold) against the synthesized netlist fifo.nl.v (gate). Run in this
 # folder with stdcell.lib linked to the typical library of SG13CMOS5L:
-# eqy -d fifo_eqy fifo.eqy
+# eqy -f -d fifo_eqy fifo.eqy
 
 [gold]
 # slang reads the RTL with another frontend than synthesis did

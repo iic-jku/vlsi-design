@@ -3,7 +3,8 @@
 # Description: Equivalence check of the 32-bit barrel shifter of
 # chapter 4: its RTL (gold) against the synthesized netlist
 # barrel_shift.nl.v (gate). Run in this folder with stdcell.lib linked
-# to the typical library of SG13CMOS5L: eqy -d bs_eqy barrel_shift.eqy
+# to the typical library of SG13CMOS5L:
+#   eqy -f -d bs_eqy barrel_shift.eqy
 
 [gold]
 plugin -i slang
