@@ -94,7 +94,7 @@ check "recovery, removal" "$(dc ff.log recovery 1) $(dc ff.log removal 1)" "0.13
 check "reset to output" "$(dc ff.log 'Reg Set/Clr' 1)" "0.276"
 check "minimum pulse width, CLK high, CLK low, RESET_B low" \
   "$(dc ff.log width 1) $(dc ff.log width 2) $(awk '/^RESET_B v -> RESET_B \^/ {on = 1} on && /^Check = / {print $3; exit}' ff.log)" \
-  "0.064 0.104 0.233"
+  "0.217 0.249 0.233"
 sed 's/set_input_transition 0.1 \[get_ports {d_i rst_ni}\]/set_input_transition 0.042 [get_ports {d_i rst_ni}]/' ff.tcl > ff_fast.tcl
 sta -no_init -exit ff_fast.tcl > ff_fast.log 2>&1
 check "setup with a data edge of 0.042 ns, D falling" "$(dc ff_fast.log setup 2)" "0.100"

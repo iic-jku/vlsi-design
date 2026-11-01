@@ -9,7 +9,7 @@ module popcount (
   output logic [3:0] count_o
 );
 
-  // The loop is unrolled at elaboration: eight adders, no clock cycles
+  // Add up the bits of x_i
   always_comb begin
     count_o = '0;
     for (int i = 0; i < 8; i++) begin

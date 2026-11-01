@@ -18,6 +18,7 @@ limitations under the License.
 #| label: fig-design-flow
 #| echo: false
 #| fig-cap: "The RTL-to-GDSII design flow. The synthesized gate-level netlist is checked by pre-layout simulation. After routing, parasitic extraction, static timing analysis, and post-layout simulation feed back to floorplanning and placement or, if necessary, to the RTL (design iteration). Only a design that passes physical verification is taped out."
+#| fig-alt: "Flowchart. A main column runs from RTL Design through HDL, Logic Synthesis, Floorplanning, Placement, Clock Tree Synthesis, and Routing to Physical Verification and Tapeout. Logic Synthesis feeds Pre-Layout Simulation on the right, which points back to HDL. After Routing, a branch on the left runs up through Parasitic Extraction, Static Timing Analysis, and Post-Layout Simulation, which feeds back to Floorplanning, Placement, and, through Design Iteration, to the top of the flow."
 import schemdraw as sd
 from schemdraw import flow
 from schemdraw.elements import Element
@@ -50,7 +51,7 @@ with sd.Drawing(canvas='svg') as d:
     def box(text, x, y, fill='#dae8fc', color='#6c8ebf'):
         return flow.Box(w=W, h=H).at((x, y)).anchor('center').label(text, color='black').fill(fill).color(color)
 
-    # main column: RTL design to tape-out
+    # main column: RTL design to tapeout
     rtl = Hexagon().at((0, 0)).anchor('center').label('RTL Design', color='black').fill('#fff2cc').color('#d6b656')
     hdl = box('HDL', 0, -1*DY)
     syn = box('Logic Synthesis', 0, -2*DY)
@@ -59,7 +60,7 @@ with sd.Drawing(canvas='svg') as d:
     cts = box('Clock Tree Synthesis', 0, -5*DY)
     rte = box('Routing', 0, -6*DY)
     pv = box('Physical Verification', 0, -7.4*DY)
-    tpo = box('Tape-out', 0, -8.4*DY, fill='#f8cecc', color='#b85450')
+    tpo = box('Tapeout', 0, -8.4*DY, fill='#f8cecc', color='#b85450')
     for a, b in [(rtl, hdl), (hdl, syn), (syn, flp), (flp, plc), (plc, cts), (cts, rte), (pv, tpo)]:
         flow.Arrow().at(a.S).to(b.N)
 

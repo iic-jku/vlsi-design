@@ -15,6 +15,8 @@ link_design one_ff
 create_clock -name clk -period 4 [get_ports clk_i]
 set_clock_transition 0.1 [get_clocks clk]
 set_input_transition 0.1 [get_ports {d_i rst_ni}]
+# The pulse-width check takes its slew from the clock port
+set_input_transition 0.1 [get_ports clk_i]
 set_load 0.005 [get_ports q_o]
 
 report_dcalc -from u1/CLK -to u1/Q -digits 3

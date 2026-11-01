@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 #| label: fig-modeling-mismatch
 #| echo: false
 #| fig-cap: "You verify the RTL, but the chip implements the netlist. The same testbench drives the RTL simulation and the gate-level simulation of the synthesized netlist, and both must give the same results. Logic equivalence checking (@sec-synthesis-lib) proves that the netlist implements the RTL without any simulation."
-#| fig-alt: "Flow diagram: the RTL feeds an RTL simulation and, through logic synthesis with Yosys, a gate-level netlist of standard cells, which feeds a gate-level simulation. One testbench drives both simulations. The results of both simulations are connected by a double arrow labeled must match. A dashed double arrow labeled logic equivalence checking connects the RTL and the netlist."
+#| fig-alt: "Flow diagram: the RTL feeds an RTL simulation and, through logic synthesis with Yosys, a gate-level netlist of standard cells, which feeds a gate-level simulation. One testbench drives both simulations. The results of both simulations are connected by a double arrow labeled must match. A dashed arrow labeled logic equivalence checking (EQY) runs from the RTL to the netlist."
 import schemdraw as sd
 from schemdraw import flow
 from schemdraw import elements as elm

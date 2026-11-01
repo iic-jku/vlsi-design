@@ -8,8 +8,15 @@ SPDX-License-Identifier: Apache-2.0
 Most of you already design digital circuits in VHDL. This chapter is a crash course that maps what you know from VHDL onto synthesizable **SystemVerilog**, the hardware description language (HDL) we use throughout this course. It is not an introduction to digital design: the synchronous, latch-free design style you learned with VHDL carries over unchanged, and only the syntax and a few semantic rules are new. Along the way, you write testbenches in SystemVerilog and in Python with **cocotb**, and you lint, simulate, and synthesize your designs in the IIC-OSIC-TOOLS container.
 
 ::: {.callout-note}
-All code of this chapter (RTL, VHDL references, testbenches, and the solutions of the exercises) is available in the folder [`content/sv_crashcourse/code`]({{< meta var.url-repo >}}/tree/main/content/sv_crashcourse/code) of the course repository, with one folder per design. The SystemVerilog code follows the layout of a macro in the AMS chip template: the RTL in `rtl/` and the testbenches in `testbenches/verilog/` and `testbenches/cocotb/`. The VHDL versions are in `vhdl/`, the plain Verilog original of the priority encoder exercise is in `verilog/`, and the lint exercise keeps its file with deliberate mistakes in `exercise/`. Every file in `rtl/` lints without warnings and synthesizes, and all testbenches pass with the tools of the IIC-OSIC-TOOLS image `2026.10`: Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, GHDL 7.0.0-dev (for the VHDL files), and Yosys 0.70. With another image, the cell counts in the solutions can differ slightly.
+All code of this chapter (RTL, VHDL references, testbenches, and the solutions of the exercises) is available in the folder [`content/sv_crashcourse/code`]({{< meta var.url-repo >}}/tree/main/content/sv_crashcourse/code) of the course repository, with one folder per design. The SystemVerilog code follows the layout of a macro in the AMS chip template: the RTL in `rtl/` and the testbenches in `testbenches/verilog/` and `testbenches/cocotb/`. The VHDL versions are in `vhdl/`, the plain Verilog original of the priority encoder exercise is in `verilog/`, and the lint exercise keeps its file with deliberate mistakes in `exercise/`. Every file in `rtl/` lints without warnings and synthesizes, and all testbenches pass with the tools of the IIC-OSIC-TOOLS image `2026.10`: Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, GHDL 7.0.0-dev (for the VHDL files), and Yosys 0.70. With another image, the cell counts in the solutions can differ slightly. The script [`scripts/check_sv_crashcourse.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_sv_crashcourse.sh) reproduces every tool result of this chapter: run `bash scripts/check_sv_crashcourse.sh` in the container from the root of the repository.
 :::
+
+For the exercises, clone the course repository into your designs folder once, if you have not done so yet:
+
+```bash
+cd /foss/designs
+git clone https://github.com/iic-jku/vlsi-design.git
+```
 
 ## Learning Objectives {#sec-sv-objectives}
 
@@ -177,7 +184,7 @@ All non-standard languages have one thing in common: their output is Verilog or 
 
 | Criterion | Standardized HDLs | Embedded DSLs | New standalone HDLs | HLS |
 |-----------|--------------|--------------|--------------|--------------|
-| Industry adoption | very high, the reference for all EDA tools, IP, and jobs | niche, some companies and many open-source cores (Rocket Chip and BOOM in Chisel, VexRiscv in SpinalHDL) | research and early adopters | established for data paths in commercial FPGA and ASIC flows |
+| Industry adoption | very high, the reference for all electronic design automation (EDA) tools, intellectual property (IP), and jobs | niche, some companies and many open-source cores (Rocket Chip and BOOM in Chisel, VexRiscv in SpinalHDL) | research and early adopters | established for data paths in commercial FPGA and ASIC flows |
 | Tool support | all simulators, synthesis, lint, formal, and timing tools | host-language toolchain plus the generated Verilog | one compiler, few other tools | mostly commercial, open-source tools less mature |
 | Abstraction and productivity | RTL, limited metaprogramming (parameters, generate) | high, the full host language builds generators | medium to high, modern syntax and type inference | highest, algorithmic description |
 | Learning curve | moderate, Verilog has many pitfalls | host language plus hardware thinking | new syntax, small community and documentation | low for software developers, but good results need hardware knowledge and tool directives |
@@ -394,7 +401,7 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 {{< include /content/sv_crashcourse/code/mux4/rtl/mux4.sv >}}
 ```
 
-- The selected signal assignment becomes a `case` statement in `always_comb`, and `when others` becomes `default`. A chain of conditional operators `?:` in an `assign` is also correct.
+- The selected signal assignment becomes a `unique case` statement in `always_comb` (@sec-sv-case), and `when others` becomes `default`. A chain of conditional operators `?:` in an `assign` is also correct.
 - `x"00"` becomes `8'h00`. The comparison already has a 1-bit result, so `'1' when ... else '0'` is not needed.
 - The output `y_o` is read directly, and the internal signal `y` of the VHDL version is gone.
 - The zero flag can also be written with the reduction NOR operator, `assign zero_o = ~|y_o;`.
@@ -513,7 +520,7 @@ And the same design in SystemVerilog:
 {{< include /content/sv_crashcourse/code/tick_gen/rtl/tick_gen.sv >}}
 ```
 
-@tbl-sv-two-process lists the correspondences. With the default `DIV = 10`, both versions describe the same hardware apart from the reset polarity: four flip-flops for the counter, one for the tick, and the increment and compare logic in front of them. The VHDL and SystemVerilog versions of the tick generator and of the two FSMs of this chapter were simulated with the same cocotb testbenches, with the reset adapted, to make sure they behave identically.
+@tbl-sv-two-process lists the correspondences. With the default `DIV = 10`, both versions describe the same hardware apart from the reset polarity: four flip-flops for the counter, one for the tick, and the increment and compare logic in front of them. The VHDL and SystemVerilog versions of the tick generator, the sequence detector, and the two controllers of this chapter were simulated with the same cocotb testbenches, with the reset adapted, to make sure they behave identically.
 
 | VHDL (two-process) | SystemVerilog (two-process) |
 |-------------------------|-------------------------|
@@ -630,7 +637,7 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 
 {{< include /content/sv_crashcourse/_fig_ctrl_fsm_mealy.qmd >}}
 
-3. Compared with the Moore version, only the run state changes: the assignment to `done_o` moves into the condition on `last_i`, which now returns to idle.
+3. Compared with the Moore version, the state `StDone` disappears, so the enumeration needs only one bit, and in the run state the assignment to `done_o` moves into the condition on `last_i`, which now returns to idle.
 
 ```{.vhdl filename="ctrl_fsm_mealy/vhdl/ctrl_fsm_mealy_ea.vhd"}
 {{< include /content/sv_crashcourse/code/ctrl_fsm_mealy/vhdl/ctrl_fsm_mealy_ea.vhd >}}
@@ -642,7 +649,7 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 
 The 1-bit state type of the SystemVerilog version has no unused encoding, and the `default` item stays only because the guidelines ask for `unique case` with a `default` (@sec-sv-guidelines). Verilator reports no warning. Yosys 0.70 builds the Mealy controller from 4 cells with one flip-flop, against 9 cells with three flip-flops for the one-hot Moore version.
 
-4. @tbl-sv-moore-mealy lists both versions cycle by cycle. Icarus Verilog, Verilator, and GHDL show exactly these values for the VHDL and the SystemVerilog versions.
+4. @tbl-sv-moore-mealy lists both versions cycle by cycle. Icarus Verilog, Verilator, and GHDL show exactly these values for the VHDL and the SystemVerilog versions (the check script of this chapter runs the sequence).
 
 | Clock cycle | 0 | 1 | 2 | 3 | 4 | 5 |
 |----------------|------|------|------|------|------|------|
@@ -875,9 +882,11 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 
 Verilator reports no warning, and Yosys builds 22 cells with the four flip-flops and no latch. While `valid_o` is low, `idx_o` is now 0, where the original kept the last index (or `x` before the first request). This does not matter, since `idx_o` is only meaningful while `valid_o` is high. The default `idx_d = idx_q;` would also be correct: it keeps the last index in the register, and Yosys turns the three `idx` flip-flops into flip-flops with enable (`$_DFFE_PN0P_`), again without a latch.
 
-The testbench `prio_enc/testbenches/verilog/prio_enc_tb.sv` in the code folder applies all 256 values of `req` and compares the outputs with a reference model, checking `idx_o` only while `valid_o` is high. It also runs with your own translation, as long as it has the parameter `N` and the ports `clk_i`, `rst_ni`, `req_i`, `idx_o`, and `valid_o`:
+The testbench `prio_enc/testbenches/verilog/prio_enc_tb.sv` in the code folder applies all 256 values of `req` and compares the outputs with a reference model, checking `idx_o` only while `valid_o` is high. It also runs with your own translation, as long as it has the parameter `N` and the ports `clk_i`, `rst_ni`, `req_i`, `idx_o`, and `valid_o`. Copy it next to your translation, and run it:
 
 ```bash
+T=/foss/designs/vlsi-design/content/sv_crashcourse/code/prio_enc
+cp $T/testbenches/verilog/prio_enc_tb.sv .
 iverilog -g2012 -o prio_enc_tb.vvp prio_enc.sv prio_enc_tb.sv
 vvp prio_enc_tb.vvp
 ```
@@ -898,7 +907,7 @@ A testbench applies stimuli to the design under test (DUT) and checks its respon
 - `always #(CLK_PERIOD_NS / 2) clk = ~clk;` generates the clock. Initial values in declarations are fine in a testbench.
 - The stimulus runs in an `initial` block. **Inputs are changed and outputs are checked on the falling clock edge** (`@(negedge clk)`), while the DUT acts on the rising edge. If the testbench and the DUT used the same edge, the result would depend on the order in which the simulator runs the processes, and Icarus Verilog and Verilator choose this order differently.
 - The checks use `!==`, which also fails if the output is `x`, and end the simulation with `$fatal(1, ...)` on the first error. Do not use `$error` for this: Icarus Verilog only prints the message, reaches `$finish`, and exits with status 0, so a script or a make target cannot see that the test failed.
-- `$dumpfile` and `$dumpvars` write all signals into a VCD waveform file, and `$finish` ends the simulation.
+- `$dumpfile` and `$dumpvars` write all signals into a waveform file in the Value Change Dump (VCD) format, and `$finish` ends the simulation.
 
 ### A cocotb Testbench {#sec-sv-tb-cocotb}
 
@@ -977,7 +986,8 @@ If a warning is a false alarm, you can switch it off for a few lines with `/* ve
 Icarus Verilog compiles the design and the testbench into a simulation file, which `vvp` then runs:
 
 ```bash
-iverilog -g2012 -o testbenches/verilog/tick_gen_tb.vvp rtl/tick_gen.sv testbenches/verilog/tick_gen_tb.sv
+iverilog -g2012 -o testbenches/verilog/tick_gen_tb.vvp \
+  rtl/tick_gen.sv testbenches/verilog/tick_gen_tb.sv
 cd testbenches/verilog
 vvp tick_gen_tb.vvp
 cd ../..
@@ -988,7 +998,9 @@ cd ../..
 Verilator can also run SystemVerilog testbenches. It compiles them into a C++ program, which is much faster for large designs. `--binary` builds an executable, and `--timing` enables the delays and event controls of the testbench. `--timescale` gives the RTL, which has no `` `timescale`` of its own, the same time unit as the testbench, and `--trace` enables the VCD output:
 
 ```bash
-verilator --binary --timing --timescale 1ns/1ps --trace --top-module tick_gen_tb -o tick_gen_tb rtl/tick_gen.sv testbenches/verilog/tick_gen_tb.sv
+verilator --binary --timing --timescale 1ns/1ps --trace \
+  --top-module tick_gen_tb -o tick_gen_tb \
+  rtl/tick_gen.sv testbenches/verilog/tick_gen_tb.sv
 cd testbenches/verilog
 ../../obj_dir/tick_gen_tb
 cd ../..
@@ -1172,7 +1184,9 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 verilator --lint-only -Wall rtl/constants.sv rtl/counter.sv rtl/counter_top.sv
 
 # SystemVerilog testbench with Icarus Verilog
-iverilog -g2012 -o testbenches/verilog/counter_top_tb.vvp rtl/constants.sv rtl/counter.sv rtl/counter_top.sv testbenches/verilog/counter_top_tb.sv
+iverilog -g2012 -o testbenches/verilog/counter_top_tb.vvp \
+  rtl/constants.sv rtl/counter.sv rtl/counter_top.sv \
+  testbenches/verilog/counter_top_tb.sv
 cd testbenches/verilog
 vvp counter_top_tb.vvp
 gtkwave counter_top_tb.vcd counter_top_tb.gtkw
@@ -1239,7 +1253,9 @@ Every target except `help` and `clean` first checks that the environment variabl
 After the switch, `make -n sim-rtl-verilog` prints:
 
 ```bash
-iverilog -g2012 -DSIM -o testbenches/verilog/test_counter_top rtl/constants.sv rtl/counter.sv rtl/counter_top.sv testbenches/verilog/counter_top_tb.sv
+iverilog -g2012 -DSIM -o testbenches/verilog/test_counter_top \
+  rtl/constants.sv rtl/counter.sv rtl/counter_top.sv \
+  testbenches/verilog/counter_top_tb.sv
 cd testbenches/verilog && vvp test_counter_top
 rm -f testbenches/verilog/test_counter_top
 ```

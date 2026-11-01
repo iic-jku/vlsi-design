@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 #| label: fig-dft-rst-bypass
 #| echo: false
 #| fig-cap: "A reset synchronizer with a test mode. In normal operation (`test_mode_i` = 0), the registers get the synchronized reset `rst_sync_n`. In test mode, the multiplexer passes `rst_ni` from the pin, so the tester holds the reset inactive while the chain shifts, whatever the two synchronizer flip-flops in the chain contain."
-#| fig-alt: "Circuit. Two flip-flops in a row form the reset synchronizer: the first has its D input tied to 1, the second drives the net rst_sync_n. rst_ni from the pin drives the reset inputs of both and the 1-input of a multiplexer, whose 0-input is rst_sync_n and whose select input is test_mode_i. The multiplexer output rst_n drives the reset inputs of a block labeled 21 registers of bs_reg."
+#| fig-alt: "Circuit. Two flip-flops in a row form the reset synchronizer: the first has its D input tied to 1, the second drives the net rst_sync_n. rst_ni from the pin drives the reset inputs of both and the 1-input of a multiplexer, whose 0-input is rst_sync_n and whose select input is test_mode_i. The multiplexer output rst_n drives the reset inputs of a block labeled 21 flip-flops of bs_reg."
 import schemdraw as sd
 from schemdraw import flow
 from schemdraw import elements as elm
@@ -70,7 +70,7 @@ with sd.Drawing(canvas='svg') as d:
     flow.Arrow().at((xm + 0.8, ym)).to((10.4, ym))
     elm.Label().at((9.8, ym + 0.3)).label('rst_n')
     flow.Box(w=2.2, h=1.4).at((11.5, ym)).anchor('center').fill(BLUE_L) \
-        .color(BLUE).label('21 registers\nof bs_reg', color='black')
+        .color(BLUE).label('21 flip-flops\nof bs_reg', color='black')
 
     # the clock
     yk = -2.6

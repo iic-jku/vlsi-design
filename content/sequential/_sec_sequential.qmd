@@ -77,7 +77,7 @@ sta -no_init -exit ff.tcl
 | recovery time | `CLK` rising to `RESET_B` rising | 0.133 ns |
 | removal time | `CLK` rising to `RESET_B` rising | -0.114 ns |
 | reset to output | `RESET_B` falling to `Q` falling | 0.276 ns |
-| minimum pulse width, `CLK` high / low | `CLK` | 0.064 / 0.104 ns |
+| minimum pulse width, `CLK` high / low | `CLK` | 0.217 / 0.249 ns |
 | minimum pulse width, `RESET_B` low | `RESET_B` | 0.233 ns |
 
 : Timing parameters of `sg13cmos5l_dfrbpq_1` in the typical corner, with clock and data slews of 0.1 ns and a load of 5 fF {#tbl-sequential-params}
@@ -153,8 +153,8 @@ sta -no_init -exit syn/sta.tcl
 - `read_liberty`, `read_verilog`, and `link_design` read the library and the netlist and connect them, and `read_sdc` reads the constraints.
 - `check_setup -verbose` reports registers without a clock and endpoints without a constraint. Run it first: a path that no constraint covers does not appear in any report.
 - STA sorts the endpoints into **path groups**, one for each capturing clock and one, called `asynchronous`, for the checks of the asynchronous reset. `report_checks -path_delay max` reports the path with the worst setup slack of each group, `-path_delay min` the one with the worst hold slack. `-fields {fanout}` adds the number of pins that each net drives.
-- `report_clock_min_period` reports the minimum period of each clock from the paths between registers. With `-include_port_paths`, it also takes the paths from the inputs and to the outputs into account. `report_wns` and `report_tns` the WNS and the TNS, which OpenSTA prints as 0 when no slack is negative.
-- `report_check_types -max_slew -max_capacitance -violators` lists the pins whose slew or load exceeds the limits of the library (@sec-synthesis-lib-delay).
+- `report_clock_min_period` reports the minimum period of each clock from the paths between registers. With `-include_port_paths`, it also takes the paths from the inputs and to the outputs into account. `report_wns` and `report_tns` report the WNS and the TNS, which OpenSTA prints as 0 when no slack is negative.
+- `report_check_types -max_slew -max_capacitance -violators` lists the pins whose slew or load exceeds the limits of the library, `max_transition` and `max_capacitance` (@sec-synthesis-lib-liberty).
 
 The netlist has 915 cells and 15,276 µm², and `check_setup` finds nothing. Here is the worst setup path of the clock `clk`, from the flip-flop of `shamt_q[1]` to the one of `out_q[30]`:
 
@@ -197,7 +197,7 @@ Fanout    Delay     Time   Description
 
 The report has two halves. The upper half follows the data: the clock edge at 0, the ideal clock network with a delay of 0, the clock-to-output delay of 0.204 ns, and then every cell of the path with its delay and the arrival time after it. `^` marks a rising, `v` a falling transition. This path passes four buffers, each of which drives nine or ten pins. The lower half computes the required time from the next clock edge at 4 ns, minus the uncertainty of 0.1 ns and the setup time of FF2 of 0.100 ns. The setup time is smaller than in @tbl-sequential-params, because the slew at `D` is smaller here. The difference of 2.308 ns is the slack. The **clock reconvergence pessimism** gives back the margin that is lost when the shared part of the launching and the capturing clock path is counted once slow and once fast. For an ideal clock, it is 0.
 
-`report_clock_min_period` reports 1.69 ns, i.e., 591 MHz, for the paths between the registers: the arrival time of 1.491 ns plus the setup time and the uncertainty. The worst hold path runs from the input register of `data_i[0]` to the output register of `out_q[16]`, with an arrival time of 0.328 ns, a required time of 0.081 ns (the uncertainty of 0.100 ns plus a hold time of -0.019 ns), and a slack of 0.247 ns.
+`report_clock_min_period` reports 1.69 ns, i.e., 591 MHz, for the paths between the registers: the arrival time of 1.491 ns plus the setup time and the uncertainty. The worst hold path runs from the input register `data_q[0]` to the output register `out_q[16]`, with an arrival time of 0.328 ns, a required time of 0.081 ns (the uncertainty of 0.100 ns plus a hold time of -0.019 ns), and a slack of 0.247 ns.
 
 The group `asynchronous` holds the recovery and removal checks of the reset. The input `rst_ni` drives the `RESET_B` pins of all 71 flip-flops through one net. The driving `buf_2` needs 0.599 ns for that, and the large slew of 0.87 ns raises the recovery time to 0.323 ns. The recovery slack is still 1.977 ns. But this path limits the block: with the input delay of 1 ns, the release of the reset needs 1.0 + 0.599 + 0.323 + 0.1 = 2.022 ns, and `report_clock_min_period -include_port_paths` reports 2.02 ns, i.e., 494 MHz. In the layout flow, the reset net is buffered like any net with a large fanout (@sec-digital-flow), and @sec-cdc explains how its release is made synchronous to the clock.
 

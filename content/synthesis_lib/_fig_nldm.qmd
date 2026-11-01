@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 #| label: fig-synthesis-lib-nldm
 #| echo: false
 #| fig-cap: "The table `cell_rise` of `sg13cmos5l_inv_1` in the typical library: the delay from a falling input `A` to a rising output `Y` over the output load, for four of the seven input slews of the table. The markers are the table entries. The delay grows with the load and with the input slew. For a fast input, it grows almost linearly with the load, while a slow input bends the curve at small loads. The black point is the operating point of @sec-synthesis-lib-delay, an input slew of 0.25 ns and a load of 0.05 pF, which lies between the table entries and gives 0.2775 ns by interpolation."
-#| fig-alt: "Line chart. The horizontal axis is the output load from 0 to 0.3 pF, the vertical axis the delay from 0 to about 1.6 ns. Four lines in blue shades of increasing darkness are the input slews 0.0186, 0.174, 0.3294, and 1.263 ns. Each rises with the load, steeper for small loads, and a larger slew shifts the line up. A black point at 0.05 pF and 0.2775 ns lies between the lines for 0.174 and 0.3294 ns."
+#| fig-alt: "Line chart. The horizontal axis is the output load from 0 to 0.3 pF, the vertical axis the delay from 0 to about 1.6 ns. Four lines in blue shades of increasing darkness are the input slews 0.0186, 0.174, 0.3294, and 1.263 ns. Each rises with the load. The line for 0.0186 ns is almost straight, the lines for slower slews are steeper at small loads and bend, and a larger slew shifts the line up. A black point at 0.05 pF and 0.2775 ns lies between the lines for 0.174 and 0.3294 ns."
 import matplotlib.pyplot as plt
 
 # index_2 (load in pF) and four rows of cell_rise (index_1 = slew in ns)

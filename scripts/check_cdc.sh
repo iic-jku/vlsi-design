@@ -153,7 +153,6 @@ sed 's/      if (sample != d_i) n_random++;/      if (sample != d_i) begin n_ran
 iverilog -g2012 -DDUT=cnt_cross_bin -o d.vvp rtl/cnt_cross_bin.sv dbg_meta.sv tb/tb_cnt_cross.sv > /dev/null 2>&1
 check "binary, random samples before 400 ns" "$(vvp -n d.vvp | grep 'sampled' | tr '\n' ' ')" \
   "75.35 ns: d_i 0110 sampled 0111 335.65 ns: d_i 0000 sampled 1100 "
-check "slow: delay per decade" "$(calc 'printf "%.0f", 111.6 * log(10)')" "257"
 check "plain RTL synchronizer: binary, Gray" \
   "$(grep -o '[0-9]* errors' cnt_cross_bin.rtl.log) $(grep -o '[0-9]* errors' cnt_cross_gray.rtl.log)" "0 errors 0 errors"
 check "Gray code of 0 to 7" \

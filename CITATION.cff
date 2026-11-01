@@ -5,5 +5,7 @@ authors:
   given-names: Simon
   orcid: https://orcid.org/0009-0001-5994-5477
 title: "VLSI Design"
-date-released: 2026
-url: https://github.com/iic-jku/vlsi-design
+date-released: 2026-10-17
+url: https://iic-jku.github.io/vlsi-design
+repository-code: https://github.com/iic-jku/vlsi-design
+license: Apache-2.0
