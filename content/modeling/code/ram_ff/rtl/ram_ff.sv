@@ -18,14 +18,17 @@ module ram_ff #(
 );
 
   logic [WIDTH-1:0] mem_q [DEPTH];
+  logic [WIDTH-1:0] rdata_q;
 
   // No reset: the content of a memory is undefined after power-up
   always_ff @(posedge clk_i) begin
     if (we_i) begin
       mem_q[addr_i] <= wdata_i;
     end
-    rdata_o <= mem_q[addr_i];
+    rdata_q <= mem_q[addr_i];
   end
+
+  assign rdata_o = rdata_q;
 
 endmodule
 
