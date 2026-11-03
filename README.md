@@ -1,6 +1,8 @@
 # VLSI Design
 
-<!-- [![Quarto Publish](https://github.com/iic-jku/vlsi-design/actions/workflows/quarto-publish.yml/badge.svg?branch=main)](https://github.com/iic-jku/vlsi-design/actions/workflows/quarto-publish.yml) -->
+[![Quarto Publish](https://github.com/iic-jku/vlsi-design/actions/workflows/quarto-publish.yml/badge.svg?branch=main)](https://github.com/iic-jku/vlsi-design/actions/workflows/quarto-publish.yml)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-online-brightgreen?logo=github)](https://iic-jku.github.io/vlsi-design/vlsi.html)
+<!-- [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.XXXXXXXX-blue)](https://doi.org/10.5281/zenodo.XXXXXXXX) -->
 
 **(c) 2026 Simon Dorrer and co-authors, Department for Integrated Circuits (ICD), Johannes Kepler University, Linz (JKU)**
 
