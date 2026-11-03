@@ -2,12 +2,12 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.10.20">
+<meta name="generator" content="quarto-1.11.9">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Simon Dorrer">
-<meta name="dcterms.date" content="2026-11-01">
+<meta name="dcterms.date" content="2026-11-03">
 
 <title>VLSI Design</title>
 <style>
@@ -95,18 +95,19 @@ div.csl-indent {
 <link href="./favicon.png" rel="icon" type="image/png">
 <script src="site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
 <script src="site_libs/quarto-html/popper.min.js"></script>
 <script src="site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="site_libs/quarto-html/anchor.min.js"></script>
 <link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-17888a1159294d3eb470f19f6f52f5a5.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-0ae969d3293726db143f6e9eb89af930.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-17888a1159294d3eb470f19f6f52f5a5.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-447e42e69aaa9833c0ba1b986f430b20.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-18826bdffc499313b8548946b016ade6.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-dark-b61b5e665e7c54502502960c330a8e7f.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
-<link href="site_libs/bootstrap/bootstrap-18826bdffc499313b8548946b016ade6.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-443ec083c9578aa13a8ff787872b1cad.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-aabbeeb8ce3a989689481ed8ac76c05a.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="site_libs/bootstrap/bootstrap-443ec083c9578aa13a8ff787872b1cad.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
 <script src="site_libs/quarto-contrib/glightbox/glightbox.min.js"></script>
 <link href="site_libs/quarto-contrib/glightbox/glightbox.min.css" rel="stylesheet">
 <link href="site_libs/quarto-contrib/glightbox/lightbox.css" rel="stylesheet">
@@ -170,7 +171,7 @@ window.Quarto = {
 
 </head>
 
-<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+<body class="nav-fixed quarto-light"><a id="quarto-skip-link" class="visually-hidden-focusable" href="#quarto-document-content">Skip to main content</a><script id="quarto-html-before-body" type="application/javascript">
     const toggleBodyColorMode = (bsSheetEl) => {
       const mode = bsSheetEl.getAttribute("data-mode");
       const bodyEl = window.document.querySelector("body");
@@ -193,6 +194,7 @@ window.Quarto = {
       for (let i=0; i < toggles.length; i++) {
         const toggle = toggles[i];
         if (toggle) {
+          toggle.setAttribute("aria-checked", alternate ? "true" : "false");
           if (alternate) {
             toggle.classList.add("alternate");
           } else {
@@ -222,13 +224,19 @@ window.Quarto = {
       manageTransitions('#quarto-margin-sidebar .nav-link', true);
       // Switch the toggles
       setColorSchemeToggle(alternate)
-      // Hack to workaround the fact that safari doesn't
-      // properly recolor the scrollbar when toggling (#1455)
+    }
+    // Hack to workaround the fact that safari doesn't
+    // properly recolor the scrollbar when toggling (#1455).
+    // Not run on load: stylesheets are set before first paint there, and
+    // scrolling would undo the scroll to a URL fragment (#14973).
+    // The one pixel nudge keeps the reader where they were.
+    const refreshSafariScrollbar = () => {
       if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
         manageTransitions("body", false);
-        window.scrollTo(0, 1);
+        const scrollY = window.scrollY;
+        window.scrollTo(0, scrollY > 0 ? scrollY - 1 : 1);
         setTimeout(() => {
-          window.scrollTo(0, 0);
+          window.scrollTo(0, scrollY);
           manageTransitions("body", true);
         }, 40);
       }
@@ -322,6 +330,7 @@ window.Quarto = {
       // Read the current dark / light value
       let toAlternate = !hasAlternateSentinel();
       toggleColorMode(toAlternate);
+      refreshSafariScrollbar();
       setStyleSentinel(toAlternate);
       toggleGiscusIfUsed(toAlternate, darkModeDefault);
       window.dispatchEvent(new Event('resize'));
@@ -336,15 +345,14 @@ window.Quarto = {
 
 <div id="quarto-search-results"></div>
   <header id="quarto-header" class="headroom fixed-top">
-    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark" aria-label="Site">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
     <a class="navbar-brand" href="./index.html">
     <span class="navbar-title">VLSI Design</span>
     </a>
   </div>
-            <div id="quarto-search" class="" title="Search"></div>
-          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
   <span class="navbar-toggler-icon"></span>
 </button>
           <div class="collapse navbar-collapse" id="navbarCollapse">
@@ -373,8 +381,9 @@ window.Quarto = {
 </ul>
           </div> <!-- /navcollapse -->
             <div class="quarto-navbar-tools">
-  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+  <button type="button" role="switch" aria-checked="false" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi"></i></button>
 </div>
+            <div id="quarto-search" class="" title="Search"></div>
       </div> <!-- /container-fluid -->
     </nav>
 </header>
@@ -383,7 +392,7 @@ window.Quarto = {
 <!-- sidebar -->
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        <nav id="TOC" role="doc-toc" class="toc-active" data-toc-expanded="2">
+        <nav id="TOC" role="doc-toc" aria-labelledby="toc-title" class="toc-active" data-toc-expanded="2">
     <h2 id="toc-title">On this page</h2>
    
   <ul>
@@ -601,8 +610,9 @@ window.Quarto = {
   <li><a href="#sec-digital-flow-cts" id="toc-sec-digital-flow-cts" class="nav-link" data-scroll-target="#sec-digital-flow-cts"><span class="header-section-number">10.5</span> Clock Tree Synthesis</a></li>
   <li><a href="#sec-digital-flow-route" id="toc-sec-digital-flow-route" class="nav-link" data-scroll-target="#sec-digital-flow-route"><span class="header-section-number">10.6</span> Routing</a></li>
   <li><a href="#sec-digital-flow-signoff" id="toc-sec-digital-flow-signoff" class="nav-link" data-scroll-target="#sec-digital-flow-signoff"><span class="header-section-number">10.7</span> Signoff</a></li>
-  <li><a href="#sec-digital-flow-chip" id="toc-sec-digital-flow-chip" class="nav-link" data-scroll-target="#sec-digital-flow-chip"><span class="header-section-number">10.8</span> Chip Assembly</a></li>
-  <li><a href="#sec-digital-flow-summary" id="toc-sec-digital-flow-summary" class="nav-link" data-scroll-target="#sec-digital-flow-summary"><span class="header-section-number">10.9</span> Summary</a></li>
+  <li><a href="#sec-digital-flow-postlayout" id="toc-sec-digital-flow-postlayout" class="nav-link" data-scroll-target="#sec-digital-flow-postlayout"><span class="header-section-number">10.8</span> Post-Layout Simulation</a></li>
+  <li><a href="#sec-digital-flow-chip" id="toc-sec-digital-flow-chip" class="nav-link" data-scroll-target="#sec-digital-flow-chip"><span class="header-section-number">10.9</span> Chip Assembly</a></li>
+  <li><a href="#sec-digital-flow-summary" id="toc-sec-digital-flow-summary" class="nav-link" data-scroll-target="#sec-digital-flow-summary"><span class="header-section-number">10.10</span> Summary</a></li>
   </ul></li>
   <li><a href="#sec-project" id="toc-sec-project" class="nav-link" data-scroll-target="#sec-project"><span class="header-section-number">11</span> Capstone Project: A Small RISC-V SoC</a></li>
   <li><a href="#sec-app-exam" id="toc-sec-app-exam" class="nav-link" data-scroll-target="#sec-app-exam"><span class="header-section-number">12</span> Appendix: Exam Questions</a>
@@ -624,7 +634,7 @@ window.Quarto = {
 <div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="vlsi.pdf"><i class="bi bi-file-pdf"></i>Typst</a></li></ul></div></nav>
     </div>
 <!-- main -->
-<main class="content" id="quarto-document-content">
+<main class="content" id="quarto-document-content" tabindex="-1">
 
 
 <header id="title-block-header" class="quarto-title-block default">
@@ -655,7 +665,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">November 1, 2026</p>
+      <p class="date">November 3, 2026</p>
     </div>
   </div>
   
@@ -757,7 +767,7 @@ Important
 <li>the project: a tapeout-ready RISC-V SoC (<a href="#sec-project" class="quarto-xref">Section&nbsp;11</a>)</li>
 </ol>
 <p>The appendix lists possible questions for the written exam (<a href="#sec-app-exam" class="quarto-xref">Section&nbsp;12</a>).</p>
-<div class="callout callout-style-default callout-note callout-titled" title="Further Reading">
+<div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -1394,7 +1404,7 @@ Table&nbsp;5: Software for a microcontroller versus a hardware description
 <span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>In the loop body, <code>x_i[i]</code> selects bit <code>i</code> directly, without a shift and a mask, and the size cast <code>4'(...)</code> (<a href="#sec-sv-operators" class="quarto-xref">Section&nbsp;2.5.3</a>) extends this 1-bit value explicitly to the 4 bits of <code>count_o</code>, which SystemVerilog would otherwise do silently.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Loops in Software and in Hardware">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -1413,7 +1423,7 @@ Table&nbsp;5: Software for a microcontroller versus a hardware description
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Loops in Software and in Hardware">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-8-contents" aria-controls="callout-8" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -1887,7 +1897,7 @@ Table&nbsp;8: VHDL versus SystemVerilog
 <li><a href="https://github.com/iic-jku/ihp-sg13cmos5l-ams-chip-template/blob/main/doc/verilog/SystemVerilog_cheatsheet.pdf">SystemVerilog Cheat-Sheet</a> (S. H. Shawon, Algo Science Lab)</li>
 <li><a href="https://github.com/iic-jku/ihp-sg13cmos5l-ams-chip-template/blob/main/doc/verilog/Verilog_cheatsheet.pdf">Verilog Cheat-Sheet</a> (S. Winberg and J. Taylor)</li>
 </ul>
-<div class="callout callout-style-default callout-warning callout-titled" title="Using the Cheat-Sheets">
+<div class="callout callout-style-default callout-warning callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -1901,7 +1911,7 @@ Table&nbsp;8: VHDL versus SystemVerilog
 </div>
 </div>
 <p>For HDL coding guidelines, read the <a href="https://iic-jku.github.io/analog-circuit-design/aicd.html#prolog">Circuit Designer’s Etiquette</a> of the Analog Circuit Design course, in particular its section <a href="https://iic-jku.github.io/analog-circuit-design/aicd.html#vhdlverilog-coding-guide">VHDL/Verilog Coding Guide</a>. <a href="#sec-sv-guidelines" class="quarto-xref">Section&nbsp;2.9</a> summarizes its rules for SystemVerilog. The etiquette recommends the detailed <a href="https://github.com/lowRISC/style-guides/blob/master/VerilogCodingStyle.md">lowRISC Verilog Coding Style Guide</a> <span class="citation" data-cites="lowRISC_Style_Guide">(<a href="#ref-lowRISC_Style_Guide" role="doc-biblioref"><span class="nocase">lowRISC</span> 2026</a>)</span>, from which this course takes most of its naming conventions.</p>
-<div class="callout callout-style-default callout-note callout-titled" title="Further Reading">
+<div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -2308,7 +2318,7 @@ Table&nbsp;11: Operators in VHDL and SystemVerilog
 <span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="co">// VHDL: mux_o &lt;= a_i when sel_i = '1' else b_i;</span></span>
 <span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="kw">assign</span> mux_o = sel_i ? a_i : b_i;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>A selected signal assignment (<code>with ... select</code>) becomes a <code>case</code> statement in an <code>always_comb</code> block (<a href="#sec-sv-case" class="quarto-xref">Section&nbsp;2.5.8</a>). Unlike VHDL-93, SystemVerilog lets you read an output port inside the module, so the internal copy of an output that VHDL needs is not necessary.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: A 4:1 Multiplexer in SystemVerilog">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -2363,7 +2373,7 @@ Table&nbsp;11: Operators in VHDL and SystemVerilog
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: A 4:1 Multiplexer in SystemVerilog">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-12-contents" aria-controls="callout-12" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -2441,7 +2451,7 @@ Table&nbsp;11: Operators in VHDL and SystemVerilog
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  b_q &lt;= a_q;  <span class="co">// reads the old value of a_q: a real swap</span></span>
 <span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>With blocking assignments in this block, <code>b_q</code> would read the <em>new</em> value of <code>a_q</code>, and both registers would end up with the old value of <code>b_q</code>, in simulation and in synthesis. It gets worse when the two blocking assignments sit in two separate <code>always_ff</code> blocks. The simulation result then depends on the order in which the simulator runs the blocks, which the standard leaves open, while synthesis builds the swap anyway. Icarus Verilog 14 and Verilator 5.052 both show no swap for this case, while the netlist of Yosys swaps. This mismatch between simulation and synthesis is one of the most common SystemVerilog bugs, and the following rules avoid it.</p>
-<div class="callout callout-style-default callout-important callout-titled" title="The Golden Rules of Processes">
+<div class="callout callout-style-default callout-important callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -2735,7 +2745,7 @@ Table&nbsp;12: The two-process style in VHDL and SystemVerilog
 <span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">if</span> (en_i) y_o = a_i;</span>
 <span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>In a synchronous design, latches are almost always a bug: static timing analysis treats them differently from flip-flops (<a href="#sec-sequential" class="quarto-xref">Section&nbsp;6</a>), they pass glitches, and they complicate the scan test (<a href="#sec-dft" class="quarto-xref">Section&nbsp;9</a>). The SG13CMOS5L library contains latch cells (e.g., <code>sg13cmos5l_dlhq_1</code>), so an unintended latch synthesizes without complaint if nobody checks. Here <code>always_comb</code> pays off: for the plain Verilog block <code>always @(*)</code>, Yosys 0.70 only prints a warning and builds the latches, while it stops with an error for <code>always_comb</code>. If you really need a latch, write it with <code>always_latch</code>, so that your intention is documented.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Let the Linter Find the Bugs">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -2800,7 +2810,7 @@ Table&nbsp;12: The two-process style in VHDL and SystemVerilog
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Let the Linter Find the Bugs">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-15-contents" aria-controls="callout-15" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -3028,7 +3038,7 @@ Figure&nbsp;7: State diagram of the controller (Moore FSM). The outputs belong t
 <li>The synthesis tool is free to choose the state encoding. Yosys 0.70 recognizes this FSM and re-encodes it one-hot, with three flip-flops instead of two.</li>
 <li>Write the transitions with <code>if</code> and <code>else</code>. A conditional operator between enumeration values, such as <code>state_d = start_i ? StRun : StIdle;</code>, is rejected by Icarus Verilog 14, which requires an explicit cast for it.</li>
 </ul>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: The Controller as a Mealy FSM">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -3048,7 +3058,7 @@ Figure&nbsp;7: State diagram of the controller (Moore FSM). The outputs belong t
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: The Controller as a Mealy FSM">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-17-contents" aria-controls="callout-17" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -3417,7 +3427,7 @@ Table&nbsp;13: The Moore and the Mealy controller for the input sequence of step
 <li>A <code>typedef struct packed</code> replaces a VHDL record. Its fields are accessed with a dot (<code>instr_i.op</code>), and the whole struct is also a plain bit vector, so it can be used as a port or stored in a register.</li>
 <li>A <code>function automatic</code> describes combinational logic, and every call becomes a separate copy of that logic. Declare functions <code>automatic</code>, so that every call gets its own variables. Tasks, which may contain timing, belong in testbenches.</li>
 </ul>
-<div class="callout callout-style-default callout-important callout-titled" title="Tool Support for SystemVerilog Features">
+<div class="callout callout-style-default callout-important callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -3586,7 +3596,7 @@ Table&nbsp;15: Plain Verilog versus SystemVerilog
 </ul>
 <p>Most testbench features of this chapter are SystemVerilog as well, e.g., <code>$fatal</code>, <code>$isunknown()</code>, and <code>int</code> variables, and the verification part of the language (classes, randomization, assertions, and coverage) has no Verilog counterpart.</p>
 <p>Finally, the tools must know which language they read. Verilator reads every file as SystemVerilog, also a <code>.v</code> file. Icarus Verilog reads Verilog-2005 unless you select SystemVerilog with <code>-g2012</code>, and the Yosys command <code>read_verilog</code> needs the option <code>-sv</code>, even for a file that ends in <code>.sv</code>. Name your files <code>.sv</code>, so that readers and editors know which language is inside.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Modernize a Verilog-2001 Module">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -3657,7 +3667,7 @@ Table&nbsp;15: Plain Verilog versus SystemVerilog
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Modernize a Verilog-2001 Module">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-20-contents" aria-controls="callout-20" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -4110,7 +4120,7 @@ Table&nbsp;17: Frequent Verilator warnings
 <p>A simulation shows <em>what</em> a design does, but not <em>which hardware</em> it becomes. A quick synthesis with Yosys answers this in a second:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb42"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="ex">yosys</span> <span class="at">-p</span> <span class="st">"read_verilog -sv rtl/tick_gen.sv; synth -top tick_gen; stat"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><code>read_verilog -sv</code> reads the file with the SystemVerilog front end, <code>synth -top tick_gen</code> synthesizes the design with <code>tick_gen</code> as top module onto generic gates, and <code>stat</code> prints the cell statistics at the end of the log. Check that the number of flip-flops (<code>$_DFF_*</code> and <code>$_DFFE_*</code> cells) matches the registers you intended and that there are no latches (<code>$_DLATCH_*</code> cells). The letters of a flip-flop name give the clock edge, the reset polarity, the reset value, and the enable polarity: <code>$_DFFE_PN0P_</code> is a flip-flop on the positive clock edge (<code>P</code>) with an active-low reset (<code>N</code>) to zero (<code>0</code>) and an active-high enable (<code>P</code>). In the LibreLane flow, Yosys maps these generic cells onto the standard cells of SG13CMOS5L (<a href="#sec-synthesis-lib" class="quarto-xref">Section&nbsp;5</a>).</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Lint, Simulate, and Synthesize the Tick Generator">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -4131,7 +4141,7 @@ Table&nbsp;17: Frequent Verilator warnings
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Lint, Simulate, and Synthesize the Tick Generator">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-22-contents" aria-controls="callout-22" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -4153,7 +4163,7 @@ Table&nbsp;17: Frequent Verilator warnings
 </div>
 </div>
 </div>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: PWM Generator with a SystemVerilog Testbench">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -4178,7 +4188,7 @@ Table&nbsp;17: Frequent Verilator warnings
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: PWM Generator with a SystemVerilog Testbench">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-24-contents" aria-controls="callout-24" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -4313,7 +4323,7 @@ Table&nbsp;17: Frequent Verilator warnings
 </div>
 </div>
 </div>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: PWM Generator with a cocotb Testbench">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -4333,7 +4343,7 @@ Table&nbsp;17: Frequent Verilator warnings
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: PWM Generator with a cocotb Testbench">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-26-contents" aria-controls="callout-26" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -4447,7 +4457,7 @@ Table&nbsp;17: Frequent Verilator warnings
 </div>
 </div>
 </div>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Sequence Detector FSM">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -4639,7 +4649,7 @@ Table&nbsp;17: Frequent Verilator warnings
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Sequence Detector FSM">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-28-contents" aria-controls="callout-28" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -4789,7 +4799,7 @@ Table&nbsp;18: Transitions of the sequence detector
 <section id="sec-sv-template" class="level2" data-number="2.8">
 <h2 data-number="2.8" class="anchored" data-anchor-id="sec-sv-template"><span class="header-section-number">2.8</span> Hands-On: The Counter of the AMS Chip Template</h2>
 <p>In this course, you use the SG13CMOS5L version of the AMS chip template, <a href="https://github.com/iic-jku/ihp-sg13cmos5l-ams-chip-template">ihp-sg13cmos5l-ams-chip-template</a>, together with its <a href="https://iic-jku.github.io/ihp-sg13cmos5l-ams-chip-template/">tutorial</a>. Its digital example is the macro <code>macros/counter</code>: an 8-bit counter with a synchronous reset, an enable, and a wrap-around at <code>CTR_MAX</code>, plus a wrapper <code>counter_top</code>, which converts the active-low reset of the chip into the active-high reset of the counter. The tutorial shows the complete code of the counter in its section <a href="https://iic-jku.github.io/ihp-sg13cmos5l-ams-chip-template/#counter.sv"><code>counter.sv</code></a>. The macro comes with a SystemVerilog and a cocotb testbench, and its <code>Makefile</code> wraps the commands of <a href="#sec-sv-tools" class="quarto-xref">Section&nbsp;2.7</a> into make targets. In the following exercises, you first type the commands yourself and only then look at the targets.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Lint and Simulate the Counter by Hand">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -4813,7 +4823,7 @@ Table&nbsp;18: Transitions of the sequence detector
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Lint and Simulate the Counter by Hand">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-30-contents" aria-controls="callout-30" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -4848,7 +4858,7 @@ Table&nbsp;18: Transitions of the sequence detector
 </div>
 </div>
 </div>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: The Counter in the Two-Process Style">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -4868,7 +4878,7 @@ Table&nbsp;18: Transitions of the sequence detector
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: The Counter in the Two-Process Style">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-32-contents" aria-controls="callout-32" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -4956,7 +4966,7 @@ Figure&nbsp;9: The counter of the AMS chip template as register and next-state l
 </div>
 </div>
 </div>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: What Is Behind the Make Targets?">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -4974,7 +4984,7 @@ Figure&nbsp;9: The counter of the AMS chip template as register and next-state l
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: What Is Behind the Make Targets?">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-34-contents" aria-controls="callout-34" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -5396,7 +5406,7 @@ Figure&nbsp;11: The controller FSM of <a href="#sec-sv-fsm" class="quarto-xref">
 <li><strong>A data register may stay without reset</strong> if the control logic guarantees that it is written before it is read, e.g., a pipeline register behind a valid flag, or the content of a memory. Large designs often omit these resets, because the reset net must reach every flip-flop that uses it, and it then needs its own buffer tree and timing checks like a clock. In SG13CMOS5L, a register without reset saves no cell area, though: the library has no flip-flop without reset. Its flip-flops are <code>dfrbp</code> and <code>dfrbpq</code> and the scan flip-flops <code>sdfrbp</code>, <code>sdfrbpq</code>, and <code>sdfbbp</code> (<a href="#sec-dft" class="quarto-xref">Section&nbsp;9</a>), and all of them have a reset input, which synthesis simply ties inactive for a register without reset.</li>
 <li><strong>Use the four-state type <code>logic</code> for registers</strong>, also as the base type of an enumeration. The two-state types <code>bit</code> and <code>int</code> start at <code>0</code> in every simulator and hide a missing reset, just like Verilator. In VHDL, a signal of an enumeration type starts with its leftmost value, e.g., <code>IDLE</code>, so the RTL simulation of a VHDL FSM without reset looks fine as well, while the gate-level simulation shows <code>U</code>.</li>
 </ol>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Find the Missing Reset">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -5439,7 +5449,7 @@ Figure&nbsp;11: The controller FSM of <a href="#sec-sv-fsm" class="quarto-xref">
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Find the Missing Reset">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-37-contents" aria-controls="callout-37" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -5573,7 +5583,7 @@ Figure&nbsp;12: A divided clock against a clock enable, for a register that togg
 </div>
 </div>
 </div>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: An LED Blinker from FPGA to ASIC">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -5644,7 +5654,7 @@ Figure&nbsp;12: A divided clock against a clock enable, for a register that togg
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: An LED Blinker from FPGA to ASIC">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-39-contents" aria-controls="callout-39" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -6035,7 +6045,7 @@ Table&nbsp;23: The two architectures of the exclusive counter on SG13CMOS5L (typ
 <li><strong>The binary version is more robust.</strong> Its outputs are one-hot by construction, whatever the counter holds. The ring is one-hot only as long as its state is: if it starts without a reset, or if a bit flips, e.g., from radiation, the ring can hold no high bit or several of them until the next <code>clr_i</code>. For the ring, the reset is mandatory.</li>
 </ul>
 <p>Neither architecture is better in general: the requirements decide. Note what did <em>not</em> matter here: the coding style. The file <code>excl_cnt/rtl/excl_cnt_ring_for.sv</code> describes the ring with a <code>for</code> loop instead of the concatenation, and writes the clear last, so that it overrides the rotation instead of being checked first. Yosys synthesizes it into exactly the same 28 cells with 553.2 µm². What synthesis sees is the function of every register, not the syntax that describes it.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: A Third Architecture, the Johnson Counter">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -6062,7 +6072,7 @@ Table&nbsp;23: The two architectures of the exclusive counter on SG13CMOS5L (typ
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: A Third Architecture, the Johnson Counter">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-41-contents" aria-controls="callout-41" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -6689,7 +6699,7 @@ Figure&nbsp;16: Architecture of a self-checking testbench. The generator creates
 <p>This works only as long as the testbench draws its random numbers in the same order, so fix the bug before you change the testbench. All results of this chapter use seed 1.</p>
 <p>Purely random inputs are not always good stimuli. The interesting states of a design are often reached only by a particular sequence, e.g., a deep FIFO is full only after many more pushes than pops. <code>test_random</code> therefore uses <strong>constrained-random stimuli</strong>. It runs 20 phases of 50 cycles, i.e., 1000 cycles, and each phase draws the probability of a push from 0.2, 0.5, and 0.8 and sets the probability of a pop to the complement. A phase with mostly pushes fills the FIFO, and a phase with mostly pops drains it. The constraints steer the stimuli toward the corners, and the random values within them still reach combinations that nobody has written down. SystemVerilog has a whole constraint language for this (<code>rand</code>, <code>constraint</code>, and <code>randomize()</code>), and in Python, plain code does the job.</p>
 <p>The best tests combine directed and random values: directed values at the corners of every input, i.e., the smallest and the largest value, single bits, and the boundaries of every range, followed by random values. The following exercise shows why.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Verify a Barrel Shifter">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -6722,7 +6732,7 @@ Figure&nbsp;16: Architecture of a self-checking testbench. The generator creates
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Verify a Barrel Shifter">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-44-contents" aria-controls="callout-44" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -7110,7 +7120,7 @@ Table&nbsp;27: Support of SystemVerilog assertions in the open-source tools
 <p>Coverage measures the stimuli, but what measures the checks? <strong>Mutation testing</strong> inserts a small deliberate bug into the design, a <strong>mutant</strong>, and reruns the testbench. If a test fails, the mutant is <strong>killed</strong>. If all tests pass, the mutant <strong>survives</strong>, and there are only two possible reasons: the testbench has a hole, or the mutant does not change the behavior at the ports at all, in which case it is called <strong>equivalent</strong>. The share of killed mutants among the non-equivalent ones measures the quality of the testbench.</p>
 <p>An example: replace <code>if (push)</code> by <code>if (push_i)</code> in the storage process of <code>fifo.sv</code>. The storage is now also written by a push into a full FIFO, where the write pointer addresses the oldest entry, so the push overwrites it. Whether a test notices depends on its stimulus, which the following exercise measures.</p>
 <p>Mutants are usually created by tools. The IIC-OSIC-TOOLS image contains MCY (Mutation Cover with Yosys) <span class="citation" data-cites="MCY">(<a href="#ref-MCY" role="doc-biblioref">YosysHQ 2026b</a>)</span>, which creates mutants of a design with Yosys and runs a testbench on each of them. For a small design, a handful of mutants written by hand already shows the holes of a testbench, as the following exercise shows.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Kill the Mutants">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -7142,7 +7152,7 @@ Table&nbsp;27: Support of SystemVerilog assertions in the open-source tools
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Kill the Mutants">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-46-contents" aria-controls="callout-46" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -7329,14 +7339,14 @@ Figure&nbsp;17: Ingredients of a gate-level simulation. Logic synthesis maps the
 <p>Both tests pass. Icarus Verilog prints 38 warnings <code>SDF WARNING: ... TIMINGCHECK not supported</code>, one per flip-flop. It reads the delays, but it never checks a setup, hold, recovery, or removal time. A timing violation therefore shows up in Icarus Verilog only if it makes a flip-flop capture a wrong value. Simulators that support timing checks evaluate the <code>$setuphold</code> and <code>$recrem</code> checks of the cell models, and on a violation the model of the flip-flop drives its output to <code>x</code>, the same mechanism that VITAL, the IEEE standard for ASIC cell models in VHDL, defines.</p>
 <p>Four traps of the open-source flow, measured with OpenSTA 3.1.0 and Icarus Verilog 14.0. <code>sta.tcl</code> handles the first three:</p>
 <ul>
-<li>OpenSTA writes the triples as <code>(min::max)</code>, without the typical value, unless <code>write_sdf</code> gets the option <code>-include_typ</code>. Icarus Verilog annotates only the typical value, so without the option it annotates nothing, without any message. The simulation then runs without delays, while it seems to run with them. In the FIFO, <code>empty_o</code> falls 0.44 ns after the clock edge that stores the first push with the typical values, and 0 ns after it without them.</li>
+<li>OpenSTA writes the triples as <code>(min::max)</code>, without the typical value, unless <code>write_sdf</code> gets the option <code>-include_typ</code>. By default, Icarus Verilog annotates the typical value, so without the option it annotates nothing, without any message. The simulation then runs without delays, while it seems to run with them. In the FIFO, <code>empty_o</code> falls 0.44 ns after the clock edge that stores the first push with the typical values, and 0 ns after it without them.</li>
 <li>Icarus Verilog reports an error for the header lines <code>VOLTAGE</code> and <code>TEMPERATURE</code>, whose triples also lack the typical value.</li>
-<li>Icarus Verilog annotates <code>INTERCONNECT</code> entries only with the option <code>-ginterconnect</code>, and even then not those that start at the bits of the input bus <code>data_i</code>. Before the layout, all wire delays are zero anyway, so <code>sta.tcl</code> removes all <code>INTERCONNECT</code> entries together with the two header lines. After the layout, the wire delays count, and the entries must stay.</li>
+<li>Icarus Verilog annotates <code>INTERCONNECT</code> entries only with the option <code>-ginterconnect</code>, and even then not all of those that start at a bit of an input bus that drives several cells, as each bit of <code>data_i</code> drives four. Before the layout, all wire delays are zero anyway, so <code>sta.tcl</code> removes all <code>INTERCONNECT</code> entries together with the two header lines. After the layout, the wire delays count, and the entries must stay.</li>
 <li>Icarus Verilog does not support the state-dependent delays of the cell models, i.e., delays that depend on the values of the other inputs, e.g., the delay from the select input of a <code>mux2_1</code> to its output, which depends on <code>A0</code> and <code>A1</code>. These are the 68 <code>sorry: ifnone with an edge-sensitive path is not supported</code> messages. It uses the default delay of such a path instead.</li>
 </ul>
 <p>The lesson of the first trap applies to every flow: zero error messages do not prove that the annotation worked. Check that a delay really shows up in the waveform.</p>
 <p>A gate-level simulation is slower than an RTL simulation, because the netlist has more signals and events. For the small FIFO, the Python side of cocotb dominates: <code>test_random</code>, extended to 400 phases, i.e., 20,000 cycles, took about 1.0 s at RTL, 1.2 s at gate level, and 1.5 s with delays. For a large design, the difference grows with the number of cells, which is why only a selected set of tests runs on the netlist.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Timing Simulation Against Static Timing Analysis">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -7358,7 +7368,7 @@ Figure&nbsp;17: Ingredients of a gate-level simulation. Logic synthesis maps the
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Timing Simulation Against Static Timing Analysis">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-48-contents" aria-controls="callout-48" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -7416,7 +7426,7 @@ Together, the path takes 0.06 + 0.58 + 0.25 ≈ 0.89 ns in the simulation, again
 <li>Code coverage measures the RTL, and functional coverage measures the situations of the specification. The directed FIFO test reached 100 % line, branch, and expression coverage, but only 5 of 12 functional bins.</li>
 <li>Coverage measures the stimuli, and mutation testing measures the checks. A surviving mutant points to a hole in the testbench or is equivalent.</li>
 <li>Keep concurrent assertions in a separate checker attached with <code>bind</code>, which Verilator runs. Icarus Verilog and Yosys do not support them. Keep the checks at the ports in the cocotb testbench, so that they also run on the netlist.</li>
-<li>The same testbench runs on the netlist, without and with the delays of an SDF file. Icarus Verilog annotates only the typical value of each delay, ignores state-dependent delays, and checks no setup or hold times, so a timing simulation is optimistic and does not replace static timing analysis.</li>
+<li>The same testbench runs on the netlist, without and with the delays of an SDF file. Icarus Verilog annotates the typical value of each delay by default, ignores state-dependent delays, and checks no setup or hold times, so a timing simulation is optimistic and does not replace static timing analysis.</li>
 <li>A regression runs all tests with one command and fails if any test fails, on every change and every night.</li>
 </ul>
 <p>In <a href="#sec-synthesis-lib" class="quarto-xref">Section&nbsp;5</a>, we look inside the synthesis step that produced the netlist of this chapter: the standard-cell library, its timing model, and the logic equivalence check that proves the netlist equivalent to the RTL without any simulation.</p>
@@ -7779,7 +7789,7 @@ PVT scale factor = 1.0000
 Delay = 0.2775</code></pre>
 <p>The output slew comes from <code>rise_transition</code> in the same way, and it becomes the input slew of the next cell. A path delay is therefore computed stage by stage, from the inputs to the outputs: a slow edge makes the next cell slow as well.</p>
 <p>The load includes the capacitance of the wires, which is unknown before the layout. The SG13CMOS5L libraries contain 12 <strong>wire-load models</strong>, which estimate a wire’s capacitance from the number of loads it drives (its fanout) and the size of the design. OpenSTA uses them only when you select one with <code>set_wire_load_model</code>. The model <code>1k</code>, for example, estimates 0.0182 pF for a net with eight loads, as much as the inputs of six <code>inv_1</code> cells. Without it, as in all timing analyses of this book so far, the pre-layout delays include no wires. In the LibreLane flow, the wire capacitances are estimated from the placement and later extracted from the routed layout (<a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a>).</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Interpolate a Delay Table">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -7800,7 +7810,7 @@ Delay = 0.2775</code></pre>
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Interpolate a Delay Table">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-51-contents" aria-controls="callout-51" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -7913,7 +7923,7 @@ Table&nbsp;31: The six corners of SG13CMOS5L, with the delays of <code>inv_1</co
 </ul>
 <p>ABC can map the same logic for a small area or for a short delay. With <code>-constr &lt;file&gt;</code>, ABC appends <strong>buffering and gate sizing</strong> to its mapping: it inserts buffers into nets with a large fanout, and it resizes cells, stronger ones on the slowest paths and weaker ones elsewhere (<code>buffer</code>, <code>upsize</code>, <code>dnsize</code>). For the delays, it needs the cell that drives the inputs and the load of the outputs, which the file sets. The file <code>synth/abc.constr</code> sets an <code>inv_2</code> as driver and a load of 10 fF (the unit is fF here), the 0.01 pF of the timing scripts of this chapter. The option <code>-D &lt;ps&gt;</code> sets a delay target in picoseconds for the sizing. Without <code>-constr</code>, <code>-D</code> has no effect on the barrel shifter of the next exercise. The option <code>-script</code> replaces ABC’s default commands, e.g., by the area-only mapping <code>amap</code>.</p>
 <p>In the LibreLane flow, the variable <code>SYNTH_STRATEGY</code> selects one of nine prepared ABC scripts, <code>AREA 0</code> to <code>AREA 3</code> and <code>DELAY 0</code> to <code>DELAY 4</code>. The default is <code>AREA 0</code>, and the counter of the AMS chip template uses <code>DELAY 4</code>. Which strategy wins depends on the design, so the only reliable way to choose is to try several and compare the timing reports.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Area Against Delay">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -7939,7 +7949,7 @@ Table&nbsp;31: The six corners of SG13CMOS5L, with the delays of <code>inv_1</co
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Area Against Delay">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-53-contents" aria-controls="callout-53" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -8082,7 +8092,7 @@ Figure&nbsp;21: What a classic logic equivalence checker compares. The RTL (gold
 <p>The reason is a cut point. In the RTL, the push logic reads the flag <code>full_o</code>, an output that EQY matched, so the gold partition reads the free input <code>full_o</code>. The netlist does not read the output net: synthesis computes “full” a second time inside the push logic, from the pointers, so the gate partition reads the free input <code>rd_ptr_q</code> instead. Nothing ties the two free inputs together, and the solver picks values that no real circuit can produce: with the pointers 000 and 100, the FIFO is full, but <code>full_o</code> is 0. The partitions differ, the designs do not.</p>
 <p><code>bind full_o</code> puts the registers that read <code>full_o</code>, the write pointer and the storage, into the partition of <code>full_o</code>, and <code>bind empty_o</code> puts the read pointer into the partition of <code>empty_o</code>. The logic that computes a flag then stays together with the logic that reads it, instead of being cut at the output net, and the check passes. Two lessons follow. A failing partition is not yet a bug: read the counterexample and decide whether a real circuit can be in that state. And a check that passes must also be able to fail, since a check that is set up wrongly, e.g., with a skipped cell model or a black box, would pass for any netlist. With the RTL changed after synthesis, e.g., to accept a push into a full FIFO during a pop (mutant M3 of <a href="#sec-verification-mutation" class="quarto-xref">Section&nbsp;4.9</a>), the same configuration fails in the partition <code>full_o</code>, as it must.</p>
 <p>Other equivalence checkers exist. kepler-formal, also in the image, compares two designs either combinationally (LEC) or sequentially from reset (SEC). The commercial tools Cadence Conformal and Synopsys Formality are the standard in industry. LibreLane has an equivalence step with EQY as well, but it prepares the cell models only for the sky130 PDK, so we run EQY ourselves.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Prove It, Break It">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -8108,7 +8118,7 @@ Figure&nbsp;21: What a classic logic equivalence checker compares. The RTL (gold
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Prove It, Break It">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-55-contents" aria-controls="callout-55" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -8499,7 +8509,7 @@ Fanout    Delay     Time   Description
 <p>The report has two halves. The upper half follows the data: the clock edge at 0, the ideal clock network with a delay of 0, the clock-to-output delay of 0.204 ns, and then every cell of the path with its delay and the arrival time after it. <code>^</code> marks a rising, <code>v</code> a falling transition. This path passes four buffers, each of which drives nine or ten pins. The lower half computes the required time from the next clock edge at 4 ns, minus the uncertainty of 0.1 ns and the setup time of FF2 of 0.100 ns. The setup time is smaller than in <a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;32</a>, because the slew at <code>D</code> is smaller here. The difference of 2.308 ns is the slack. The <strong>clock reconvergence pessimism</strong> gives back the margin that is lost when the shared part of the launching and the capturing clock path is counted once slow and once fast. For an ideal clock, it is 0.</p>
 <p><code>report_clock_min_period</code> reports 1.69 ns, i.e., 591 MHz, for the paths between the registers: the arrival time of 1.491 ns plus the setup time and the uncertainty. The worst hold path runs from the input register <code>data_q[0]</code> to the output register <code>out_q[16]</code>, with an arrival time of 0.328 ns, a required time of 0.081 ns (the uncertainty of 0.100 ns plus a hold time of -0.019 ns), and a slack of 0.247 ns.</p>
 <p>The group <code>asynchronous</code> holds the recovery and removal checks of the reset. The input <code>rst_ni</code> drives the <code>RESET_B</code> pins of all 71 flip-flops through one net. The driving <code>buf_2</code> needs 0.599 ns for that, and the large slew of 0.87 ns raises the recovery time to 0.323 ns. The recovery slack is still 1.977 ns. But this path limits the block: with the input delay of 1 ns, the release of the reset needs 1.0 + 0.599 + 0.323 + 0.1 = 2.022 ns, and <code>report_clock_min_period -include_port_paths</code> reports 2.02 ns, i.e., 494 MHz. In the layout flow, the reset net is buffered like any net with a large fanout (<a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a>), and <a href="#sec-cdc" class="quarto-xref">Section&nbsp;8</a> explains how its release is made synchronous to the clock.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: How Fast Is the Barrel Shifter?">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -8519,7 +8529,7 @@ Fanout    Delay     Time   Description
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: How Fast Is the Barrel Shifter?">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-58-contents" aria-controls="callout-58" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -8544,7 +8554,7 @@ Fanout    Delay     Time   Description
 <section id="sec-sequential-genclk" class="level2" data-number="6.8">
 <h2 data-number="6.8" class="anchored" data-anchor-id="sec-sequential-genclk"><span class="header-section-number">6.8</span> Generated Clocks</h2>
 <p>A clock propagates through buffers, inverters, and gates, e.g., through a clock gate, but not through a flip-flop. When a register output clocks other registers, as <code>slow_clk_q</code> in the FPGA version of the LED blinker in <a href="#sec-modeling-clken" class="quarto-xref">Section&nbsp;3.4.2</a>, STA does not know this clock unless the constraints define it. <code>create_generated_clock</code> defines a <strong>generated clock</strong>, a clock that is derived from another one, with its source, the ratio, e.g., <code>-divide_by 2</code>, and the pin where it appears. The tool then knows the edges of the new clock, times the paths it clocks, and also the paths between it and its source clock, which are synchronous to each other.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: A Clock That STA Does Not See">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -8570,7 +8580,7 @@ Fanout    Delay     Time   Description
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: A Clock That STA Does Not See">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-60-contents" aria-controls="callout-60" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -8636,7 +8646,7 @@ Fanout    Delay     Time   Description
 <h2 data-number="6.10" class="anchored" data-anchor-id="sec-sequential-hold"><span class="header-section-number">6.10</span> Hold Violations</h2>
 <p>Before the layout, the clock is ideal, and the uncertainty is the only margin that the hold check keeps for the skew of the future clock tree. After clock tree synthesis, <code>set_propagated_clock</code> makes STA compute the latency of every register through the buffers of the clock tree. A short path between two registers whose clocks arrive at different times can then fail the hold check. The layout flow repairs such paths after clock tree synthesis by inserting delay into the data path (<a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a>). SG13CMOS5L has three delay cells for that, <code>dlygate4sd1_1</code> to <code>dlygate4sd3_1</code>, with increasing delay.</p>
 <p>A setup violation and a hold violation are fixed in opposite ways. A setup violation needs a shorter path: stronger cells, different logic, a pipeline register (<a href="#sec-synth-opt" class="quarto-xref">Section&nbsp;7</a>), or a slower clock. A hold violation needs a longer shortest path or less skew, and the added delay must not break the setup check of the same path.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Fix a Hold Violation">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -8656,7 +8666,7 @@ Fanout    Delay     Time   Description
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Fix a Hold Violation">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-62-contents" aria-controls="callout-62" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -8851,7 +8861,7 @@ Figure&nbsp;26: The carry networks of three 8-bit adders. Each column is one bit
 <p>For 32 bits, the ripple-carry adder has 31 operators on 31 levels, Brent-Kung 57 operators on 9 levels, and Kogge-Stone 129 operators on 5 levels. Weste and Harris treat these and further adder architectures in depth <span class="citation" data-cites="Weste_Harris_2010">(<a href="#ref-Weste_Harris_2010" role="doc-biblioref">Weste and Harris 2010</a>)</span>.</p>
 <p>Yosys turns <code>+</code> and <code>-</code> into an <code>$alu</code> cell, and <code>techmap</code> builds its carries with a lookahead carry unit <code>$lcu</code>, by default as a Brent-Kung tree (the module <code>_90_lcu_brent_kung</code> in <code>techmap.v</code>). The folder <code>choices</code> of Yosys holds three alternatives, which <code>synth -extra-map</code> selects: <code>synth -extra-map +/choices/kogge-stone.v</code>, and in the same way <code>sklansky.v</code> and <code>han-carlson.v</code>, where <code>+/</code> stands for the data folder of Yosys. LibreLane has no switch for these prefix adders: its variable <code>SYNTH_ADDER_TYPE</code> only selects full-adder, ripple-carry, or carry-select adders from mapping files that the PDK must provide, and SG13CMOS5L provides none.</p>
 <p>A sum of more than two operands, e.g., <code>a + b + c + d</code>, needs no chain of adders. A row of full adders adds three numbers into two, a sum and a carry vector, without passing a carry from bit to bit. A tree of such <strong>carry-save adders</strong> reduces any number of operands to two, and one final adder adds them. A multiplier works the same way: it sums its partial products, one per bit of one operand, in such a tree. <strong>Booth encoding</strong> halves the number of partial products. Yosys builds a carry-save tree for every <code>$macc_v2</code> cell, i.e., for a sum of more than two operands and for the partial products of a multiplier (the pass <code>maccmap</code>). <code>synth -arith_tree</code> replaces these trees by trees of 4:2 compressors and also merges chains of separate adders, and <code>synth -booth</code> builds Booth multipliers.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Ripple or Prefix?">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -8882,7 +8892,7 @@ Figure&nbsp;26: The carry networks of three 8-bit adders. Each column is one bit
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Ripple or Prefix?">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-65-contents" aria-controls="callout-65" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -9026,7 +9036,7 @@ Figure&nbsp;27: (a) Pipelining: a register in the middle of the logic halves the
 </div>
 <p>The work of pipelining is in the details. Every signal that belongs to the same operation must pass the same number of registers, also an operand that is only used in a later stage, such as <code>x</code> in the figure, and the control signals that travel along, such as a valid flag. Every testbench and every block that uses the result must expect it later.</p>
 <p><strong>Retiming</strong> moves registers across combinational logic without changing the behavior at the outputs (<a href="#fig-synth-opt-pipeline" class="quarto-xref">Figure&nbsp;27</a> (b)), e.g., to balance the stages of a pipeline that is cut at the wrong place. Retiming can change the number of registers, it must compute new reset or initial values for the registers it moves, and it breaks the matching of the registers by name in equivalence checking (<a href="#sec-synthesis-lib-lec" class="quarto-xref">Section&nbsp;5.8</a>). Commercial synthesis tools retime on request. In the open-source flow, Yosys passes flip-flops to ABC only with <code>abc -dff</code> (in LibreLane <code>SYNTH_ABC_DFF</code>, off by default), and only flip-flops without a reset: <code>yosys -h abc</code> lists <code>$_DFF_?_</code> and <code>$_DFFE_??_</code>. Every default script of ABC then runs <code>dretime</code>, which by default retimes for minimum area, i.e., it moves registers to reduce their number, not the delay. Only with a delay target, <code>abc -dff -D &lt;ps&gt;</code>, does ABC add a delay-oriented <code>retime</code>. And <code>abc -dff</code> must run before <code>dfflibmap</code>, while the flip-flops are still generic cells. The designs of this course use flip-flops with an asynchronous reset and place their pipeline registers in the RTL.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Pipeline the Adder">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -9049,7 +9059,7 @@ Figure&nbsp;27: (a) Pipelining: a register in the middle of the logic halves the
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Pipeline the Adder">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-67-contents" aria-controls="callout-67" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -9278,7 +9288,7 @@ Figure&nbsp;29: Gating the clock with a plain AND gate and with an integrated cl
 <p>Yosys inserts the ICGs with the pass <code>clockgate</code>, between <code>synth</code> and <code>dfflibmap</code>. It replaces each group of flip-flops that share a clock and an enable by one ICG and flip-flops without enable:</p>
 <pre><code>clockgate -pos sg13cmos5l_lgcp_1 GATE:CLK:GCLK -min_net_size 4</code></pre>
 <p><code>-pos</code> names the ICG for flip-flops on the rising edge and its pins for the enable, the clock, and the gated clock. <code>-min_net_size</code> sets the smallest group that gets an ICG, since an ICG is clocked in every cycle and costs area and power of its own. LibreLane runs the same pass when <code>SYNTH_CLOCKGATE_MIN_WIDTH</code> is set, and it inserts ICGs when <code>SYNTH_CLOCKGATE_POSEDGE_ICG</code> names the cell, e.g., <code>sg13cmos5l_lgcp_1/GATE/CLK/GCLK</code>. The configuration of SG13CMOS5L sets neither and even excludes <code>lgcp_1</code> and <code>slgcp_1</code> from synthesis, so LibreLane gates no clocks unless a design configures it.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Gate the Clock">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -9309,7 +9319,7 @@ Figure&nbsp;29: Gating the clock with a plain AND gate and with an integrated cl
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Gate the Clock">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-69-contents" aria-controls="callout-69" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -9540,7 +9550,7 @@ Figure&nbsp;31: A two-flip-flop synchronizer. The signal leaves domain A from a 
 <span id="cb139-2"><a href="#cb139-2" aria-hidden="true" tabindex="-1"></a><span class="ex">iverilog</span> <span class="at">-g2012</span> <span class="at">-o</span> sim.vvp rtl/pulse_sync.sv rtl/sync_2ff.sv <span class="dt">\</span></span>
 <span id="cb139-3"><a href="#cb139-3" aria-hidden="true" tabindex="-1"></a>  tb/tb_pulse_sync.sv</span>
 <span id="cb139-4"><a href="#cb139-4" aria-hidden="true" tabindex="-1"></a><span class="ex">vvp</span> <span class="at">-n</span> sim.vvp</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: How Long Until It Fails?">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -9560,7 +9570,7 @@ Figure&nbsp;31: A two-flip-flop synchronizer. The signal leaves domain A from a 
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: How Long Until It Fails?">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-72-contents" aria-controls="callout-72" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -9591,7 +9601,7 @@ Figure&nbsp;31: A two-flip-flop synchronizer. The signal leaves domain A from a 
 <li>An <strong>asynchronous FIFO</strong> for data streams (<a href="#sec-cdc-fifo" class="quarto-xref">Section&nbsp;8.6</a>).</li>
 </ul>
 <p>An RTL simulation cannot show these problems by itself, because metastability is an analog effect that an RTL simulator does not model. The model <code>sync/sim/sync_2ff_meta.sv</code> replaces <code>sync/rtl/sync_2ff.sv</code> in a testbench. It has the same module name and ports, and it injects metastability: a bit of <code>d_i</code> that changed less than 1 ns before the clock edge resolves randomly to its old or its new value. The window is far wider than the real one, so that a crossing bug shows up within a few thousand cycles instead of years. At the end of a simulation, the model reports in how many samples at least one bit took its old value.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Count Across Clock Domains">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -9618,7 +9628,7 @@ Figure&nbsp;31: A two-flip-flop synchronizer. The signal leaves domain A from a 
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Count Across Clock Domains">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-74-contents" aria-controls="callout-74" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -9877,7 +9887,7 @@ set_false_path -hold -from [get_clocks rclk] -to [get_clocks wclk]</code></pre>
 <h2 data-number="8.8" class="anchored" data-anchor-id="sec-cdc-reset"><span class="header-section-number">8.8</span> Resets</h2>
 <p>The asynchronous reset of our designs (<a href="#sec-sv-registers" class="quarto-xref">Section&nbsp;2.5.6</a>) acts at once, without a clock. Asserting it at any moment is safe: every flip-flop goes into reset. Releasing it is a crossing. The reset comes from a pin or from a power-on-reset circuit, which holds the reset low until the supply has settled, asynchronous to the clock, and when its release falls into the window of the recovery and removal checks (<a href="#sec-sequential-params" class="quarto-xref">Section&nbsp;6.3</a>), some flip-flops leave the reset at one clock edge and others one edge later. The design then starts in a state that the RTL never reaches.</p>
 <p>A <strong>reset synchronizer</strong> asserts the reset of a clock domain at once, asynchronously, and releases it synchronously, at a clock edge. Its output drives the reset inputs of all registers of the domain, so that they all leave the reset at the same clock edge. Every clock domain needs its own reset synchronizer. The reset input itself must be free of glitches, because even a short pulse resets the design asynchronously. A chip therefore takes it from a power-on-reset circuit or from a filtered pin, whose input stage ignores pulses shorter than a set time.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Release the Reset">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -9909,7 +9919,7 @@ set_false_path -hold -from [get_clocks rclk] -to [get_clocks wclk]</code></pre>
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Release the Reset">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-76-contents" aria-controls="callout-76" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -10168,7 +10178,7 @@ Figure&nbsp;36: A test for the stuck-at-0 fault at the output of the inverter. <
 </div>
 <p>Applying all input vectors would detect every detectable fault, but as in <a href="#sec-verification-exhaustive" class="quarto-xref">Section&nbsp;4.6.2</a>, their number explodes. The combinational 32-bit barrel shifter of <a href="#sec-verification" class="quarto-xref">Section&nbsp;4</a> has 39 input bits, i.e., <span class="math inline">\(2^{39} \approx 5.5 \cdot 10^{11}\)</span> vectors, which take 1.5 hours per die at 100 MHz. Fortunately, most faults are easy to detect, and a few random vectors find them. <strong>Fault simulation</strong> determines which faults a vector detects: it simulates the netlist with each fault injected and compares the outputs with those of the good netlist. ATPG tools therefore start with random vectors, drop the faults these detect, and search deterministically only for the rest. Some faults resist random vectors. The output of a 16-bit comparator with a constant is 1 for one of <span class="math inline">\(2^{16}\)</span> input values, so 1000 random vectors detect its stuck-at-0 with a probability of only 1.5 %, and a probability of 99 % would take <span class="math inline">\(3.0 \cdot 10^5\)</span> vectors. The deterministic search finds the single test at once. Finally, <strong>compaction</strong> removes vectors whose faults other vectors detect as well.</p>
 <p>The IIC-OSIC-TOOLS image contains <strong>Fault</strong> <span class="citation" data-cites="Fault">(<a href="#ref-Fault" role="doc-biblioref">AUCOHL 2026</a>)</span> 0.9.4, an open-source DFT tool chain. <code>fault atpg</code> generates random vectors in batches, <code>-v</code> vectors at first and <code>-r</code> more in each further batch, simulates all faults with Icarus Verilog, and continues until it reaches the coverage that <code>-m</code> demands or the number of vectors that <code>--ceiling</code> allows. Then it compacts the vectors. It injects each fault with a <code>force</code> on a cell pin. Fault can also call deterministic ATPG programs, but none of them is available in the image, so here it relies on random vectors, and <code>sat_test.tcl</code> handles single faults.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Find the Test">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -10195,7 +10205,7 @@ Figure&nbsp;36: A test for the stuck-at-0 fault at the output of the inverter. <
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Find the Test">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-79-contents" aria-controls="callout-79" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -10347,7 +10357,7 @@ Figure&nbsp;40: Stuck-at fault coverage of random test vectors for the 8-bit <co
 </div>
 <p>Coverage numbers depend on the fault model. Fault injects a fault with a <code>force</code> on a cell pin. Icarus merges the input pin of a cell with the net it connects to when the net has one bit, so the force acts on the whole net, the <strong>stem</strong>. A force on a pin at one bit of a vector acts on that pin alone, the <strong>branch</strong> of the net to this cell. In this netlist, 300 of the 379 inputs of the logic cells sit on nets of one bit, so Fault mostly simulates faults on whole nets, where commercial ATPG tools list the stem and every branch as separate faults. In a fault simulation with a wire of its own for every cell input, the 32 vectors miss 59 of the 1034 faults at the pins of the 138 logic cells. The SAT solver proves 12 of them untestable, and the other 47 would need more vectors, so the test coverage at the cell pins is 95.4 %.</p>
 <p>The scan flip-flop also costs speed. On the worst path of the 8-bit <code>bs_reg</code> between two registers, its setup time is 0.204 ns instead of 0.125 ns for <code>dfrbpq_1</code>, and its clock-to-output delay 0.344 ns instead of 0.309 ns. The gates on the path take 0.019 ns longer, mainly because the last of them drives the larger input <code>D</code> of the scan flip-flop. The minimum period rises from 1.30 to 1.43 ns.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Insert a Scan Chain">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -10377,7 +10387,7 @@ Figure&nbsp;40: Stuck-at fault coverage of random test vectors for the 8-bit <co
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Insert a Scan Chain">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-81-contents" aria-controls="callout-81" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -10429,7 +10439,7 @@ Figure&nbsp;41: The 8-bit <code>bs_reg</code> after scan insertion. Top: its reg
 <li><strong>One chain per clock domain.</strong> Flip-flops of different clocks see their edges at different moments, so a chain should not mix them. With <code>-clock_mixing no_mix</code>, OpenROAD builds one chain per clock. For the asynchronous FIFO of <a href="#sec-cdc-fifo" class="quarto-xref">Section&nbsp;8.6</a>, it builds a chain of 43 flip-flops at <code>wclk_i</code> and one of 11 at <code>rclk_i</code>, which share <code>scan_enable_0</code>. A chain that crosses from one clock to another needs a <strong>lockup latch</strong> at the crossing, a latch on the launching clock that is transparent while this clock is low. It delays the data by half a period, so that a skew of up to about half a period between the clocks cannot cause a hold violation. During the capture, the paths between asynchronous clocks are not timed (<a href="#sec-cdc-sdc" class="quarto-xref">Section&nbsp;8.7</a>), so their results are unknown when both clocks pulse. The ATPG then captures one clock domain at a time, or ignores the flip-flops behind such paths, e.g., the first stage of each synchronizer.</li>
 <li><strong>The chain is a timing path, too.</strong> The connection from <code>Q</code> to the <code>SCD</code> of the next flip-flop has no logic, so it is among the shortest paths of a design and the first to fail the hold check when the clock reaches the next flip-flop late (<a href="#sec-sequential-hold" class="quarto-xref">Section&nbsp;6.10</a>). In the scanned 8-bit <code>bs_reg</code>, the 20 paths with the smallest hold slack all end at an <code>SCD</code> pin, from 0.292 ns with an ideal clock, which already includes the clock uncertainty of 0.1 ns, while the functional paths start at 0.383 ns. A clock skew of 0.3 ns between two neighbors in the chain would violate the hold check, and from about 0.39 ns, the chain itself would fail. After the clock tree synthesis, the layout flow fixes hold violations on the scan paths like on any other path, with delay cells. <code>scan_enable_0</code> drives all 21 <code>SCE</code> pins, a net with a high fanout like a reset, which must settle within one shift cycle.</li>
 </ul>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Make It Testable">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -10465,7 +10475,7 @@ Figure&nbsp;41: The 8-bit <code>bs_reg</code> after scan insertion. Top: its reg
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Make It Testable">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-83-contents" aria-controls="callout-83" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -10592,7 +10602,7 @@ Note
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>All code of this chapter is available in the folder <a href="https://github.com/iic-jku/vlsi-design/tree/main/content/digital_flow/code"><code>content/digital_flow/code</code></a> of the course repository: the LibreLane configuration and the equivalence check of the barrel shifter in <code>bs_reg/</code>, a small design with a clock gate in <code>cg_mix/</code>, and one with a divided clock in <code>div_mix/</code>. All numbers in this chapter come from the IIC-OSIC-TOOLS image <code>2026.10</code> (LibreLane 3.1.0.dev3 with its OpenROAD 26Q1, Yosys 0.70, Magic 8.3.685, KLayout 0.30.12, Netgen 1.5.324, EQY 0.70) and SG13CMOS5L. The script <a href="https://github.com/iic-jku/vlsi-design/blob/main/scripts/check_digital_flow.sh"><code>scripts/check_digital_flow.sh</code></a> reproduces all of them: run <code>bash scripts/check_digital_flow.sh</code> in the container from the root of the repository. It runs LibreLane seven times, at most two at a time, and takes about 25 minutes.</p>
+<p>All code of this chapter is available in the folder <a href="https://github.com/iic-jku/vlsi-design/tree/main/content/digital_flow/code"><code>content/digital_flow/code</code></a> of the course repository: the LibreLane configuration, the equivalence check, and the testbench of the barrel shifter in <code>bs_reg/</code>, a small design with a clock gate in <code>cg_mix/</code>, and one with a divided clock in <code>div_mix/</code>. All numbers in this chapter come from the IIC-OSIC-TOOLS image <code>2026.10</code> (LibreLane 3.1.0.dev3 with its OpenROAD 26Q1, Yosys 0.70, Magic 8.3.685, KLayout 0.30.12, Netgen 1.5.324, EQY 0.70, Icarus Verilog 14.0) and SG13CMOS5L. The script <a href="https://github.com/iic-jku/vlsi-design/blob/main/scripts/check_digital_flow.sh"><code>scripts/check_digital_flow.sh</code></a> reproduces all of them: run <code>bash scripts/check_digital_flow.sh</code> in the container from the root of the repository. It runs LibreLane seven times, at most two at a time, and takes about 30 minutes.</p>
 </div>
 </div>
 <p>For the exercises, clone the course repository into your designs folder once, if you have not done so yet:</p>
@@ -10610,12 +10620,13 @@ Note
 <li>explain what placement, buffering, clock tree synthesis, timing repair, and routing do to a netlist</li>
 <li>read the signoff results: timing in all corners, IR drop, DRC, LVS, and the equivalence of the final netlist with the RTL</li>
 <li>explain why the estimates before routing are optimistic, and close timing with the right setting</li>
+<li>simulate the final netlist with the delays of the layout, prove that they were annotated, and drive it as the SDC describes</li>
 <li>describe how a block becomes part of a chip with a padframe</li>
 </ul>
 </section>
 <section id="sec-digital-flow-librelane" class="level2" data-number="10.2">
 <h2 data-number="10.2" class="anchored" data-anchor-id="sec-digital-flow-librelane"><span class="header-section-number">10.2</span> LibreLane</h2>
-<p>LibreLane is a Python program that runs the tools of the flow one after the other: Verilator for the lint, Yosys for the synthesis, OpenROAD for floorplan, placement, clock tree, and routing, OpenRCX for the extraction, OpenSTA for the timing, Magic and KLayout for the layout and its design rules, and Netgen for the comparison of the layout with the netlist. Each <strong>step</strong> reads the state of the design that the previous step left, i.e., the netlist and the layout database, runs one tool, and writes the new state. <strong>Checkers</strong> between the steps stop the flow on errors, e.g., on unmapped cells, on wires that break a design rule, or on a failed comparison. A <strong>flow</strong> is a list of steps. The <strong>Classic</strong> flow of <a href="#fig-digital-flow-steps" class="quarto-xref">Figure&nbsp;43</a> hardens a block from RTL to GDSII into a <strong>macro</strong>, a finished layout that a parent design places like a large cell, and the <strong>Chip</strong> flow of <a href="#sec-digital-flow-chip" class="quarto-xref">Section&nbsp;10.8</a> adds the padframe.</p>
+<p>LibreLane is a Python program that runs the tools of the flow one after the other: Verilator for the lint, Yosys for the synthesis, OpenROAD for floorplan, placement, clock tree, and routing, OpenRCX for the extraction, OpenSTA for the timing, Magic and KLayout for the layout and its design rules, and Netgen for the comparison of the layout with the netlist. Each <strong>step</strong> reads the state of the design that the previous step left, i.e., the netlist and the layout database, runs one tool, and writes the new state. <strong>Checkers</strong> between the steps stop the flow on errors, e.g., on unmapped cells, on wires that break a design rule, or on a failed comparison. A <strong>flow</strong> is a list of steps. The <strong>Classic</strong> flow of <a href="#fig-digital-flow-steps" class="quarto-xref">Figure&nbsp;43</a> hardens a block from RTL to GDSII into a <strong>macro</strong>, a finished layout that a parent design places like a large cell, and the <strong>Chip</strong> flow of <a href="#sec-digital-flow-chip" class="quarto-xref">Section&nbsp;10.9</a> adds the padframe.</p>
 <div id="cell-fig-digital-flow-steps" class="cell" data-execution_count="41">
 <div class="cell-output cell-output-display">
 <div id="fig-digital-flow-steps" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Six boxes in a row, connected by arrows: synthesis with Yosys, floorplan with OpenROAD, placement with OpenROAD, clock tree synthesis with OpenROAD, routing with OpenROAD, and signoff with OpenRCX, OpenSTA, Magic, KLayout and Netgen. Below each box, a list of its steps. Synthesis: lint, synthesis, mapping. Floorplan: die and core, rows, IO pins, power grid. Placement: global placement, buffering, detailed placement. Clock tree: clock tree, setup repair, hold repair. Routing: global routing, antenna repair, detailed routing, fill and decap. Signoff: extraction, timing in all corners, IR drop, GDS, DRC and LVS.">
@@ -10693,7 +10704,7 @@ Figure&nbsp;44: A floorplan, not to scale. The core inside the die holds rows of
 </div>
 </div>
 </div>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Plan the Floorplan">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -10718,7 +10729,7 @@ Figure&nbsp;44: A floorplan, not to scale. The core inside the die holds rows of
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Plan the Floorplan">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-86-contents" aria-controls="callout-86" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -10750,7 +10761,7 @@ Figure&nbsp;44: A floorplan, not to scale. The core inside the die holds rows of
 <p>Skew moves time from one check to the other (<a href="#sec-sequential-hold" class="quarto-xref">Section&nbsp;6.10</a>): a capturing flip-flop whose clock arrives late gains setup time and loses hold time. After CTS, OpenROAD therefore repairs the timing with the real clock: it enlarges cells and adds buffers on paths that violate setup, and it inserts delay cells, <code>dlygate4sd1_1</code> to <code>dlygate4sd3_1</code>, into paths that violate hold, up to the margins <code>PL_RESIZER_SETUP_SLACK_MARGIN</code> and <code>PL_RESIZER_HOLD_SLACK_MARGIN</code> (0.05 and 0.1 ns by default). The candidates for hold violations are short paths, in which one flip-flop drives the next directly, as in the scan chains of <a href="#sec-dft" class="quarto-xref">Section&nbsp;9</a>.</p>
 <p>A clock gate (<a href="#sec-synth-opt-cg" class="quarto-xref">Section&nbsp;7.7</a>) sits inside the clock tree, and the flip-flops behind it see its delay on top of the tree. TritonCTS balances this extra delay. The design <code>cg_mix</code> has two 16-bit registers on one clock, one of them behind an <code>lgcp_1</code>. CTS builds one tree behind the clock gate and one for the ungated register, reports that it balances the latency of the clock, and inserts three <code>buf_8</code> as delay buffers in front of the tree of the ungated register. In the typical corner, all 32 flip-flops then see the rising clock edge between 0.381 and 0.440 ns after the clock pin.</p>
 <p>A divided clock (<a href="#sec-modeling-clken" class="quarto-xref">Section&nbsp;3.4.2</a>) gets no such help. In <code>div_mix</code>, a flip-flop divides <code>clk_i</code> by two, and a 16-bit register on the divided clock takes over the value of a register on <code>clk_i</code>. Its SDC file defines the divided clock with <code>create_generated_clock</code> (<a href="#sec-sequential-genclk" class="quarto-xref">Section&nbsp;6.8</a>). CTS finds two clock nets, <code>clk_i</code> and the output <code>div_q</code> of the divider, and builds a tree for each without balancing them against each other. The flip-flops behind the divider therefore see the clock later, by the clock-to-output delay of the divider and the delay of the second tree, and after CTS all 16 paths from <code>clk_i</code> into the divided clock violate hold, by up to 0.25 ns in the typical corner. The timing repair fixes them with 32 delay cells, two in front of each flip-flop. A clock enable on <code>clk_i</code> needs neither the second tree nor the delay cells.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Follow the Clock and the Reset">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -10774,7 +10785,7 @@ Figure&nbsp;44: A floorplan, not to scale. The core inside the die holds rows of
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Follow the Clock and the Reset">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-88-contents" aria-controls="callout-88" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -10814,7 +10825,7 @@ Figure&nbsp;45: The finished layout of <code>bs_reg</code>, 172.82 × 191.54 µm
 </section>
 <section id="sec-digital-flow-signoff" class="level2" data-number="10.7">
 <h2 data-number="10.7" class="anchored" data-anchor-id="sec-digital-flow-signoff"><span class="header-section-number">10.7</span> Signoff</h2>
-<p>Only now are the wires known. <strong>Parasitic extraction</strong> with OpenRCX computes the resistance of every wire and its capacitance to ground and to its neighbors from the routed layout and the rules of the PDK, and writes them as SPEF. STA reads the SPEF instead of the estimates, and it writes SDF files with the delays of every cell and every wire, which a gate-level simulation can back-annotate (<a href="#sec-verification-gl" class="quarto-xref">Section&nbsp;4.10</a>). The <strong>signoff STA</strong> checks setup and hold in every corner, the slow corner for setup and the fast one for hold in particular, and LibreLane collects the results in <code>55-openroad-stapostpnr/summary.rpt</code>.</p>
+<p>Only now are the wires known. <strong>Parasitic extraction</strong> with OpenRCX computes the resistance of every wire and its capacitance to ground and to its neighbors from the routed layout and the rules of the PDK, and writes them as SPEF. STA reads the SPEF instead of the estimates, and it writes SDF files with the delays of every cell and every wire, which a gate-level simulation can back-annotate (<a href="#sec-digital-flow-postlayout" class="quarto-xref">Section&nbsp;10.8</a>). The <strong>signoff STA</strong> checks setup and hold in every corner, the slow corner for setup and the fast one for hold in particular, and LibreLane collects the results in <code>55-openroad-stapostpnr/summary.rpt</code>.</p>
 <p><a href="#fig-digital-flow-slack" class="quarto-xref">Figure&nbsp;46</a> follows the worst setup slack through the run. The synthesized netlist misses the 4 ns clock, because ABC left the high-fanout nets unbuffered. After the repair of the design and CTS, the slack is positive, and the timing repair adds to it. Then the slack shrinks again, from 1.45 ns after the timing repair to 1.08 ns: the global routes cost 0.11 ns, and the extracted wires another 0.26 ns. The estimates before routing are optimistic: real wires take detours and change layers through vias, and the extraction counts the capacitance between neighboring wires, which the estimate per micron does not.</p>
 <div id="cell-fig-digital-flow-slack" class="cell" data-execution_count="43">
 <div class="cell-output cell-output-display">
@@ -10875,7 +10886,7 @@ Figure&nbsp;46: Worst setup slack of <code>bs_reg</code> at 250 MHz in the typic
 <span id="cb170-31"><a href="#cb170-31" aria-hidden="true" tabindex="-1"></a>engine abc pdr</span>
 <span id="cb170-32"><a href="#cb170-32" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div class="callout callout-style-default callout-tip callout-titled" title="Exercise: Close the Timing">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -10899,7 +10910,7 @@ Figure&nbsp;46: Worst setup slack of <code>bs_reg</code> at 250 MHz in the typic
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
-<div class="callout callout-style-default callout-tip callout-titled" title="Solution: Close the Timing">
+<div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-90-contents" aria-controls="callout-90" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -10922,8 +10933,176 @@ Figure&nbsp;46: Worst setup slack of <code>bs_reg</code> at 250 MHz in the typic
 </div>
 </div>
 </section>
-<section id="sec-digital-flow-chip" class="level2" data-number="10.8">
-<h2 data-number="10.8" class="anchored" data-anchor-id="sec-digital-flow-chip"><span class="header-section-number">10.8</span> Chip Assembly</h2>
+<section id="sec-digital-flow-postlayout" class="level2" data-number="10.8">
+<h2 data-number="10.8" class="anchored" data-anchor-id="sec-digital-flow-postlayout"><span class="header-section-number">10.8</span> Post-Layout Simulation</h2>
+<p>Signoff STA checks every path, and EQY proves the function of the final netlist, but neither of them runs it. The last simulation does: the testbench of the block on the final netlist, with the delays of the layout. It is the timing simulation of <a href="#sec-verification-gl-sdf" class="quarto-xref">Section&nbsp;4.10.2</a>, with three differences:</p>
+<ul>
+<li><strong>The wires.</strong> The SDF files of the layout hold the delay of every connection from a driver to a load, computed from the extracted parasitics, as <code>INTERCONNECT</code> entries, 2672 of them for <code>bs_reg</code>. They must stay in the file, and Icarus Verilog annotates them only with the option <code>-ginterconnect</code>.</li>
+<li><strong>The clock tree.</strong> The clock no longer reaches all flip-flops at once. Each flip-flop sees an edge of <code>clk_i</code> late by the delays of the buffers and wires of its path through the tree (<a href="#sec-digital-flow-cts" class="quarto-xref">Section&nbsp;10.5</a>), as in STA after CTS.</li>
+<li><strong>The corners.</strong> LibreLane writes one SDF file per corner into <code>final/sdf/</code>, e.g., <code>nom_slow_1p08V_125C/bs_reg__nom_slow_1p08V_125C.sdf</code>, each with the triples of its corner. The option <code>-Tmin</code>, <code>-Ttyp</code>, or <code>-Tmax</code> of <code>iverilog</code> selects which value of each triple the simulation uses, and <code>-Ttyp</code> is the default.</li>
+</ul>
+<p>The testbench <code>tb/tb_bs_reg.sv</code> applies random inputs to <code>bs_reg</code> in every cycle and compares <code>data_o</code> with a reference model of the barrel shifter two cycles later. It plays the environment that the SDC of <a href="#sec-sequential-sdc" class="quarto-xref">Section&nbsp;6.6</a> describes: it changes the inputs 1.0 ns after each rising edge of <code>clk_i</code>, the input delay, and checks <code>data_o</code> 1.0 ns before the next edge, the output delay. Plusargs change the period, the drive and sample times (<code>+DRIVE</code>, <code>+SAMPLE</code>), the number of cycles, and how many mismatches it prints, and <code>+SDF=&lt;file&gt;</code> annotates an SDF file with <code>$sdf_annotate()</code>:</p>
+<div class="code-with-filename">
+<div class="code-with-filename-file">
+<pre><strong>bs_reg/tb/tb_bs_reg.sv</strong></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb172" data-filename="bs_reg/tb/tb_bs_reg.sv"><pre class="sourceCode systemverilog code-with-copy"><code class="sourceCode systemverilog"><span id="cb172-1"><a href="#cb172-1" aria-hidden="true" tabindex="-1"></a><span class="co">// </span><span class="an">SPDX-FileCopyrightText:</span><span class="co"> 2026 Simon Dorrer</span></span>
+<span id="cb172-2"><a href="#cb172-2" aria-hidden="true" tabindex="-1"></a><span class="co">// </span><span class="an">SPDX-License-Identifier:</span><span class="co"> Apache-2.0</span></span>
+<span id="cb172-3"><a href="#cb172-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Description: Testbench of bs_reg for the RTL and the netlist, with</span></span>
+<span id="cb172-4"><a href="#cb172-4" aria-hidden="true" tabindex="-1"></a><span class="co">// the delays of an SDF file if +SDF=&lt;file&gt; names one. It changes the</span></span>
+<span id="cb172-5"><a href="#cb172-5" aria-hidden="true" tabindex="-1"></a><span class="co">// inputs DRIVE ns after each rising edge and checks data_o SAMPLE ns</span></span>
+<span id="cb172-6"><a href="#cb172-6" aria-hidden="true" tabindex="-1"></a><span class="co">// after it, against the inputs of two edges before. Plusargs:</span></span>
+<span id="cb172-7"><a href="#cb172-7" aria-hidden="true" tabindex="-1"></a><span class="co">// +PERIOD, +DRIVE, +SAMPLE (ns), +CYCLES, +SHOW (mismatches to</span></span>
+<span id="cb172-8"><a href="#cb172-8" aria-hidden="true" tabindex="-1"></a><span class="co">// print), +SDF, +WAVES.</span></span>
+<span id="cb172-9"><a href="#cb172-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb172-10"><a href="#cb172-10" aria-hidden="true" tabindex="-1"></a><span class="ot">`timescale</span> <span class="dv">1</span>ns / <span class="dv">1</span>ps</span>
+<span id="cb172-11"><a href="#cb172-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb172-12"><a href="#cb172-12" aria-hidden="true" tabindex="-1"></a><span class="kw">module</span> tb_bs_reg;</span>
+<span id="cb172-13"><a href="#cb172-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb172-14"><a href="#cb172-14" aria-hidden="true" tabindex="-1"></a>  <span class="kw">real</span>   period = <span class="fl">4.0</span>;  <span class="co">// the clock of the SDC</span></span>
+<span id="cb172-15"><a href="#cb172-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">real</span>   drive = <span class="fl">1.0</span>;   <span class="co">// the input delay of the SDC</span></span>
+<span id="cb172-16"><a href="#cb172-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">real</span>   sample = <span class="fl">3.0</span>;  <span class="co">// the period minus the output delay</span></span>
+<span id="cb172-17"><a href="#cb172-17" aria-hidden="true" tabindex="-1"></a>  <span class="kw">int</span>    cycles = <span class="dv">2000</span>, show = <span class="dv">3</span>, errors = <span class="dv">0</span>;</span>
+<span id="cb172-18"><a href="#cb172-18" aria-hidden="true" tabindex="-1"></a>  <span class="kw">string</span> sdf;</span>
+<span id="cb172-19"><a href="#cb172-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb172-20"><a href="#cb172-20" aria-hidden="true" tabindex="-1"></a>  <span class="kw">logic</span>        clk_i = <span class="bn">1'b0</span>, rst_ni = <span class="bn">1'b0</span>;</span>
+<span id="cb172-21"><a href="#cb172-21" aria-hidden="true" tabindex="-1"></a>  <span class="kw">logic</span> [<span class="dv">31</span>:<span class="dv">0</span>] data_i = '<span class="dv">0</span>;</span>
+<span id="cb172-22"><a href="#cb172-22" aria-hidden="true" tabindex="-1"></a>  <span class="kw">logic</span> [<span class="dv">4</span>:<span class="dv">0</span>]  shamt_i = '<span class="dv">0</span>;</span>
+<span id="cb172-23"><a href="#cb172-23" aria-hidden="true" tabindex="-1"></a>  <span class="kw">logic</span> [<span class="dv">1</span>:<span class="dv">0</span>]  mode_i = '<span class="dv">0</span>;</span>
+<span id="cb172-24"><a href="#cb172-24" aria-hidden="true" tabindex="-1"></a>  <span class="kw">logic</span> [<span class="dv">31</span>:<span class="dv">0</span>] data_o, exp_o, expected [$];</span>
+<span id="cb172-25"><a href="#cb172-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb172-26"><a href="#cb172-26" aria-hidden="true" tabindex="-1"></a>  bs_reg dut (.*);</span>
+<span id="cb172-27"><a href="#cb172-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb172-28"><a href="#cb172-28" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Reference model of the barrel shifter of chapter 4. A rotation</span></span>
+<span id="cb172-29"><a href="#cb172-29" aria-hidden="true" tabindex="-1"></a>  <span class="co">// shifts two copies of the word side by side.</span></span>
+<span id="cb172-30"><a href="#cb172-30" aria-hidden="true" tabindex="-1"></a>  <span class="kw">function</span> <span class="kw">automatic</span> <span class="kw">logic</span> [<span class="dv">31</span>:<span class="dv">0</span>] model(<span class="kw">logic</span> [<span class="dv">31</span>:<span class="dv">0</span>] d,</span>
+<span id="cb172-31"><a href="#cb172-31" aria-hidden="true" tabindex="-1"></a>                                        <span class="kw">logic</span> [<span class="dv">4</span>:<span class="dv">0</span>] <span class="kw">s</span>, <span class="kw">logic</span> [<span class="dv">1</span>:<span class="dv">0</span>] m);</span>
+<span id="cb172-32"><a href="#cb172-32" aria-hidden="true" tabindex="-1"></a>    <span class="kw">logic</span> [<span class="dv">63</span>:<span class="dv">0</span>] l, r;</span>
+<span id="cb172-33"><a href="#cb172-33" aria-hidden="true" tabindex="-1"></a>    l = {d, d} &lt;&lt; <span class="kw">s</span>;</span>
+<span id="cb172-34"><a href="#cb172-34" aria-hidden="true" tabindex="-1"></a>    r = {d, d} &gt;&gt; <span class="kw">s</span>;</span>
+<span id="cb172-35"><a href="#cb172-35" aria-hidden="true" tabindex="-1"></a>    <span class="kw">case</span> (m)</span>
+<span id="cb172-36"><a href="#cb172-36" aria-hidden="true" tabindex="-1"></a>      <span class="bn">2'b00</span>:   model = d &lt;&lt; <span class="kw">s</span>;</span>
+<span id="cb172-37"><a href="#cb172-37" aria-hidden="true" tabindex="-1"></a>      <span class="bn">2'b01</span>:   model = d &gt;&gt; <span class="kw">s</span>;</span>
+<span id="cb172-38"><a href="#cb172-38" aria-hidden="true" tabindex="-1"></a>      <span class="bn">2'b10</span>:   model = l[<span class="dv">63</span>:<span class="dv">32</span>];</span>
+<span id="cb172-39"><a href="#cb172-39" aria-hidden="true" tabindex="-1"></a>      <span class="kw">default</span>: model = r[<span class="dv">31</span>:<span class="dv">0</span>];</span>
+<span id="cb172-40"><a href="#cb172-40" aria-hidden="true" tabindex="-1"></a>    <span class="kw">endcase</span></span>
+<span id="cb172-41"><a href="#cb172-41" aria-hidden="true" tabindex="-1"></a>  <span class="kw">endfunction</span></span>
+<span id="cb172-42"><a href="#cb172-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb172-43"><a href="#cb172-43" aria-hidden="true" tabindex="-1"></a>  <span class="kw">initial</span> <span class="kw">begin</span></span>
+<span id="cb172-44"><a href="#cb172-44" aria-hidden="true" tabindex="-1"></a>    <span class="kw">if</span> (<span class="kw">$value$plusargs</span>(<span class="st">"SDF=%s"</span>, sdf)) <span class="dt">$sdf_annotate</span>(sdf, dut);</span>
+<span id="cb172-45"><a href="#cb172-45" aria-hidden="true" tabindex="-1"></a>    void'(<span class="kw">$value$plusargs</span>(<span class="st">"PERIOD=%f"</span>, period));</span>
+<span id="cb172-46"><a href="#cb172-46" aria-hidden="true" tabindex="-1"></a>    void'(<span class="kw">$value$plusargs</span>(<span class="st">"DRIVE=%f"</span>, drive));</span>
+<span id="cb172-47"><a href="#cb172-47" aria-hidden="true" tabindex="-1"></a>    void'(<span class="kw">$value$plusargs</span>(<span class="st">"SAMPLE=%f"</span>, sample));</span>
+<span id="cb172-48"><a href="#cb172-48" aria-hidden="true" tabindex="-1"></a>    void'(<span class="kw">$value$plusargs</span>(<span class="st">"CYCLES=%d"</span>, cycles));</span>
+<span id="cb172-49"><a href="#cb172-49" aria-hidden="true" tabindex="-1"></a>    void'(<span class="kw">$value$plusargs</span>(<span class="st">"SHOW=%d"</span>, show));</span>
+<span id="cb172-50"><a href="#cb172-50" aria-hidden="true" tabindex="-1"></a>    <span class="kw">if</span> (<span class="kw">$test$plusargs</span>(<span class="st">"WAVES"</span>)) <span class="kw">begin</span></span>
+<span id="cb172-51"><a href="#cb172-51" aria-hidden="true" tabindex="-1"></a>      <span class="kw">$dumpfile</span>(<span class="st">"tb_bs_reg.fst"</span>);</span>
+<span id="cb172-52"><a href="#cb172-52" aria-hidden="true" tabindex="-1"></a>      <span class="kw">$dumpvars</span>(<span class="dv">0</span>, tb_bs_reg);</span>
+<span id="cb172-53"><a href="#cb172-53" aria-hidden="true" tabindex="-1"></a>    <span class="kw">end</span></span>
+<span id="cb172-54"><a href="#cb172-54" aria-hidden="true" tabindex="-1"></a>    #(period / <span class="dv">2</span>);</span>
+<span id="cb172-55"><a href="#cb172-55" aria-hidden="true" tabindex="-1"></a>    <span class="kw">forever</span> #(period / <span class="dv">2</span>) clk_i = ~clk_i;  <span class="co">// rising edges at k T</span></span>
+<span id="cb172-56"><a href="#cb172-56" aria-hidden="true" tabindex="-1"></a>  <span class="kw">end</span></span>
+<span id="cb172-57"><a href="#cb172-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb172-58"><a href="#cb172-58" aria-hidden="true" tabindex="-1"></a>  <span class="kw">initial</span> <span class="kw">begin</span></span>
+<span id="cb172-59"><a href="#cb172-59" aria-hidden="true" tabindex="-1"></a>    <span class="kw">repeat</span> (<span class="dv">2</span>) @(<span class="kw">posedge</span> clk_i);</span>
+<span id="cb172-60"><a href="#cb172-60" aria-hidden="true" tabindex="-1"></a>    #(drive) rst_ni = <span class="bn">1'b1</span>;</span>
+<span id="cb172-61"><a href="#cb172-61" aria-hidden="true" tabindex="-1"></a>    <span class="kw">for</span> (<span class="kw">int</span> k = <span class="dv">0</span>; k &lt; cycles + <span class="dv">2</span>; k++) <span class="kw">begin</span></span>
+<span id="cb172-62"><a href="#cb172-62" aria-hidden="true" tabindex="-1"></a>      @(<span class="kw">posedge</span> clk_i);</span>
+<span id="cb172-63"><a href="#cb172-63" aria-hidden="true" tabindex="-1"></a>      #(drive);</span>
+<span id="cb172-64"><a href="#cb172-64" aria-hidden="true" tabindex="-1"></a>      <span class="kw">if</span> (k &lt; cycles) <span class="kw">begin</span></span>
+<span id="cb172-65"><a href="#cb172-65" aria-hidden="true" tabindex="-1"></a>        data_i  = <span class="dt">$urandom</span>;</span>
+<span id="cb172-66"><a href="#cb172-66" aria-hidden="true" tabindex="-1"></a>        shamt_i = <span class="dv">5</span>'(<span class="dt">$urandom</span>);</span>
+<span id="cb172-67"><a href="#cb172-67" aria-hidden="true" tabindex="-1"></a>        mode_i  = <span class="dv">2</span>'(<span class="dt">$urandom</span>);</span>
+<span id="cb172-68"><a href="#cb172-68" aria-hidden="true" tabindex="-1"></a>        expected.<span class="ot">push_back</span>(model(data_i, shamt_i, mode_i));</span>
+<span id="cb172-69"><a href="#cb172-69" aria-hidden="true" tabindex="-1"></a>      <span class="kw">end</span></span>
+<span id="cb172-70"><a href="#cb172-70" aria-hidden="true" tabindex="-1"></a>      #(sample - drive);</span>
+<span id="cb172-71"><a href="#cb172-71" aria-hidden="true" tabindex="-1"></a>      <span class="kw">if</span> (k &gt;= <span class="dv">2</span>) <span class="kw">begin</span></span>
+<span id="cb172-72"><a href="#cb172-72" aria-hidden="true" tabindex="-1"></a>        exp_o = expected.<span class="ot">pop_front</span>();</span>
+<span id="cb172-73"><a href="#cb172-73" aria-hidden="true" tabindex="-1"></a>        <span class="kw">if</span> (data_o !== exp_o) <span class="kw">begin</span></span>
+<span id="cb172-74"><a href="#cb172-74" aria-hidden="true" tabindex="-1"></a>          errors++;</span>
+<span id="cb172-75"><a href="#cb172-75" aria-hidden="true" tabindex="-1"></a>          <span class="kw">if</span> (errors &lt;= show)</span>
+<span id="cb172-76"><a href="#cb172-76" aria-hidden="true" tabindex="-1"></a>            <span class="kw">$display</span>(<span class="st">"%0.3f ns: data_o = %h, expected %h"</span>,</span>
+<span id="cb172-77"><a href="#cb172-77" aria-hidden="true" tabindex="-1"></a>                     <span class="kw">$realtime</span>, data_o, exp_o);</span>
+<span id="cb172-78"><a href="#cb172-78" aria-hidden="true" tabindex="-1"></a>        <span class="kw">end</span></span>
+<span id="cb172-79"><a href="#cb172-79" aria-hidden="true" tabindex="-1"></a>      <span class="kw">end</span></span>
+<span id="cb172-80"><a href="#cb172-80" aria-hidden="true" tabindex="-1"></a>    <span class="kw">end</span></span>
+<span id="cb172-81"><a href="#cb172-81" aria-hidden="true" tabindex="-1"></a>    <span class="kw">$display</span>(<span class="st">"%0d cycles, %0d errors"</span>, cycles, errors);</span>
+<span id="cb172-82"><a href="#cb172-82" aria-hidden="true" tabindex="-1"></a>    <span class="kw">$finish</span>;</span>
+<span id="cb172-83"><a href="#cb172-83" aria-hidden="true" tabindex="-1"></a>  <span class="kw">end</span></span>
+<span id="cb172-84"><a href="#cb172-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb172-85"><a href="#cb172-85" aria-hidden="true" tabindex="-1"></a><span class="kw">endmodule</span></span>
+<span id="cb172-86"><a href="#cb172-86" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The same testbench runs on the RTL and, with the cell models, on the final netlist without supply connections, <code>final/nl/bs_reg.nl.v</code>. Its decap and fill cells are empty modules in the cell models:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb173"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb173-1"><a href="#cb173-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /foss/designs/vlsi-design/content/digital_flow/code/bs_reg</span>
+<span id="cb173-2"><a href="#cb173-2" aria-hidden="true" tabindex="-1"></a><span class="ex">iverilog</span> <span class="at">-g2012</span> <span class="at">-o</span> rtl.vvp <span class="dt">\</span></span>
+<span id="cb173-3"><a href="#cb173-3" aria-hidden="true" tabindex="-1"></a>  ../../../verification/code/barrel_shift/rtl/barrel_shift.sv <span class="dt">\</span></span>
+<span id="cb173-4"><a href="#cb173-4" aria-hidden="true" tabindex="-1"></a>  ../../../sequential/code/bs_reg/rtl/bs_reg.sv tb/tb_bs_reg.sv</span>
+<span id="cb173-5"><a href="#cb173-5" aria-hidden="true" tabindex="-1"></a><span class="ex">vvp</span> <span class="at">-n</span> rtl.vvp</span>
+<span id="cb173-6"><a href="#cb173-6" aria-hidden="true" tabindex="-1"></a><span class="va">CELLS</span><span class="op">=</span><span class="va">$PDK_ROOT</span>/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/verilog</span>
+<span id="cb173-7"><a href="#cb173-7" aria-hidden="true" tabindex="-1"></a><span class="ex">iverilog</span> <span class="at">-g2012</span> <span class="at">-gspecify</span> <span class="at">-ginterconnect</span> <span class="at">-o</span> pl.vvp <span class="dt">\</span></span>
+<span id="cb173-8"><a href="#cb173-8" aria-hidden="true" tabindex="-1"></a>  <span class="va">$CELLS</span>/sg13cmos5l_udp.v <span class="va">$CELLS</span>/sg13cmos5l_stdcell.v <span class="dt">\</span></span>
+<span id="cb173-9"><a href="#cb173-9" aria-hidden="true" tabindex="-1"></a>  runs/base/final/nl/bs_reg.nl.v tb/tb_bs_reg.sv</span>
+<span id="cb173-10"><a href="#cb173-10" aria-hidden="true" tabindex="-1"></a><span class="va">C</span><span class="op">=</span>nom_typ_1p20V_25C</span>
+<span id="cb173-11"><a href="#cb173-11" aria-hidden="true" tabindex="-1"></a><span class="ex">vvp</span> <span class="at">-n</span> pl.vvp +SDF=runs/base/final/sdf/<span class="va">$C</span>/bs_reg__<span class="va">$C</span>.sdf</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Both runs report <code>2000 cycles, 0 errors</code>. For the RTL, Icarus Verilog warns that it omits <code>$sdf_annotate()</code> without <code>-gspecify</code>, which is harmless there. For the netlist, the compiler prints the 68 <code>sorry</code> messages of <a href="#sec-verification-gl-sdf" class="quarto-xref">Section&nbsp;4.10.2</a> and warnings that timing checks are not supported. The simulation prints 71 warnings <code>TIMINGCHECK not supported</code>, one per flip-flop, and two errors <code>Chosen value not defined</code> for the header lines <code>VOLTAGE</code> and <code>TEMPERATURE</code>, whose triples lack the typical value. Unlike the SDF file of <a href="#sec-verification-gl-sdf" class="quarto-xref">Section&nbsp;4.10.2</a>, the file of LibreLane needs no editing, and all its <code>INTERCONNECT</code> entries are annotated. Icarus Verilog fails on entries from a bit of an input bus that drives several cells, as each bit of <code>data_i</code> in the FIFO does, and here each input bit drives only its input buffer. Without <code>-ginterconnect</code>, each of the 2672 entries gives the error <code>Could not find net</code>, and the simulation runs without the wire delays and still passes. The 2000 cycles take several seconds, a few hundred times as long as the RTL.</p>
+<p>As <a href="#sec-verification-gl-sdf" class="quarto-xref">Section&nbsp;4.10.2</a> showed, a clean log does not prove that the delays arrived. Check one path: in the waveform, the time from an edge of <code>clk_i</code> to the edge at the clock pin of a flip-flop must equal the sum of the delays along the path in the SDF file, the <code>IOPATH</code> of each buffer and the <code>INTERCONNECT</code> of each wire.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Exercise: Simulate the Layout
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>All commands start in the folder <code>content/digital_flow/code/bs_reg</code> and use the run <code>base</code> of the first exercise and the simulations <code>rtl.vvp</code> and <code>pl.vvp</code> compiled above. In a new terminal, define <code>CELLS</code> and <code>C</code> again as above. The instance names and numbers of the solution hold for this run in the image 2026.10, and the testbench draws the same inputs in every run, from the default seed of <code>$urandom</code>.</p>
+<ol type="1">
+<li><p>Sketch the clock path from <code>clk_i</code> to the flip-flop <code>_1537_</code> of <code>shamt_q[1]</code>, the start of the worst path in the previous exercise. Follow its pin <code>CLK</code> back through the final netlist <code>runs/base/final/nl/bs_reg.nl.v</code>, and write the rising delay of every buffer and every wire from the SDF file of the typical corner next to it. What is the sum? Which delay do you expect in the simulation? Look at the <code>timescale</code> of the cell models in <code>$CELLS/sg13cmos5l_stdcell.v</code>.</p></li>
+<li><p>Measure it. The command below writes the waveform <code>tb_bs_reg.fst</code>, which holds the pins of every cell. Open it with <code>surfer tb_bs_reg.fst</code> and compare <code>tb_bs_reg.clk_i</code> with <code>tb_bs_reg.dut._1537_.CLK</code>. When does <code>CLK</code> of <code>_1537_</code> rise after an edge of <code>clk_i</code>?</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb174"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb174-1"><a href="#cb174-1" aria-hidden="true" tabindex="-1"></a><span class="ex">vvp</span> <span class="at">-n</span> pl.vvp +SDF=runs/base/final/sdf/<span class="va">$C</span>/bs_reg__<span class="va">$C</span>.sdf <span class="dt">\</span></span>
+<span id="cb174-2"><a href="#cb174-2" aria-hidden="true" tabindex="-1"></a>  +CYCLES=10 +WAVES <span class="at">-fst</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<li><p>Change the inputs 0.1 ns after each edge instead of 1.0 ns, in the RTL and in the netlist:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb175"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb175-1"><a href="#cb175-1" aria-hidden="true" tabindex="-1"></a><span class="ex">vvp</span> <span class="at">-n</span> rtl.vvp +DRIVE=0.1</span>
+<span id="cb175-2"><a href="#cb175-2" aria-hidden="true" tabindex="-1"></a><span class="ex">vvp</span> <span class="at">-n</span> pl.vvp +SDF=runs/base/final/sdf/<span class="va">$C</span>/bs_reg__<span class="va">$C</span>.sdf +DRIVE=0.1</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>How many cycles fail, by how many cycles is <code>data_o</code> off, and what went wrong? Then find the earliest drive time, to 1 ps, at which the netlist still passes in the typical corner. Estimate the limit from the clock path of step 1 and the delay from the input <code>shamt_i[1]</code> to the pin <code>D</code> of <code>_1537_</code>. Why is the limit a little later than your estimate? What does STA add on top of it?</p></li>
+<li><p>Simulate the slow corner at 4 ns, with the typical values of its SDF file and with the maximum values:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb176"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb176-1"><a href="#cb176-1" aria-hidden="true" tabindex="-1"></a><span class="va">C</span><span class="op">=</span>nom_slow_1p08V_125C</span>
+<span id="cb176-2"><a href="#cb176-2" aria-hidden="true" tabindex="-1"></a><span class="ex">vvp</span> <span class="at">-n</span> pl.vvp +SDF=runs/base/final/sdf/<span class="va">$C</span>/bs_reg__<span class="va">$C</span>.sdf</span>
+<span id="cb176-3"><a href="#cb176-3" aria-hidden="true" tabindex="-1"></a><span class="ex">iverilog</span> <span class="at">-g2012</span> <span class="at">-gspecify</span> <span class="at">-ginterconnect</span> <span class="at">-Tmax</span> <span class="at">-o</span> pl_max.vvp <span class="dt">\</span></span>
+<span id="cb176-4"><a href="#cb176-4" aria-hidden="true" tabindex="-1"></a>  <span class="va">$CELLS</span>/sg13cmos5l_udp.v <span class="va">$CELLS</span>/sg13cmos5l_stdcell.v <span class="dt">\</span></span>
+<span id="cb176-5"><a href="#cb176-5" aria-hidden="true" tabindex="-1"></a>  runs/base/final/nl/bs_reg.nl.v tb/tb_bs_reg.sv</span>
+<span id="cb176-6"><a href="#cb176-6" aria-hidden="true" tabindex="-1"></a><span class="ex">vvp</span> <span class="at">-n</span> pl_max.vvp +SDF=runs/base/final/sdf/<span class="va">$C</span>/bs_reg__<span class="va">$C</span>.sdf</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Signoff STA failed this corner. How many cycles fail in each simulation? Which flip-flop captures the wrong value, and what is its slack in <code>runs/base/55-openroad-stapostpnr/nom_slow_1p08V_125C/violator_list.rpt</code>? Then run 20,000 cycles with every mismatch printed (<code>+CYCLES=20000 +SHOW=100</code>). Which bits fail now? Why does the simulation find so few of the endpoints that fail in STA? Compare the data arrival time of each failing path in <code>max.rpt</code> of the corner with the time at which its capture clock edge reaches the flip-flop.</p></li>
+</ol>
+</div>
+</div>
+<p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-92-contents" aria-controls="callout-92" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Solution: Simulate the Layout
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-92" class="callout-92-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li>The pin <code>CLK</code> of <code>_1537_</code> hangs on the net <code>clknet_4_10_0_clk_i</code> of the leaf buffer <code>clkbuf_4_10_0_clk_i</code>, which the root buffer <code>clkbuf_0_clk_i</code> drives. In the typical corner, the wire from <code>clk_i</code> to the root takes 0.002 ns, the root <code>buf_8</code> 0.111 ns, the wire to the leaf 0.013 ns, the leaf <code>buf_8</code> 0.107 ns, and the wire to <code>CLK</code> 0.002 ns, 0.235 ns in all. The cell models declare the timescale <code>1ns/10ps</code>, so Icarus Verilog rounds every cell delay to 10 ps, while the wire delays keep their 1 ps. Both buffers take 0.11 ns, and <code>CLK</code> should rise 0.22 + 0.017 = 0.237 ns after <code>clk_i</code>.</li>
+<li><code>CLK</code> of <code>_1537_</code> rises exactly 0.237 ns after each rising edge of <code>clk_i</code>, e.g., at 4.237 ns, and falls 0.236 ns after each falling edge. Every delay along the path is annotated, the wires included.</li>
+<li>With <code>+DRIVE=0.1</code>, the RTL passes, and the netlist fails in 1998 of 2000 cycles. <code>data_o</code> shows each result one cycle early, e.g., at 23 ns, <code>00018f82</code>, the value expected at 27 ns. In the netlist, the clock reaches the input register about 0.24 ns after <code>clk_i</code>, while the new inputs need only about 0.06 ns to its <code>D</code> pins. They arrive before the clock edge that the testbench meant for the old values, so the input register takes them one edge too early. In the RTL, every flip-flop samples at the edge of <code>clk_i</code> itself, so any change after the edge waits for the next one. The netlist passes from a drive time of 0.186 ns on. The estimate from <code>_1537_</code> is 0.237 - 0.055 = 0.182 ns: the rising input takes 0.005 ns on the wire to the input buffer <code>input37</code>, 0.05 ns in the <code>buf_1</code>, and nothing on the short wire to <code>D</code>. Of the 39 flip-flops of the input register, <code>_1542_</code> of <code>mode_q[1]</code> sets the limit: its clock arrives later, at 0.242 ns, and its input <code>mode_i[1]</code> takes 0.056 ns. At 0.186 ns, the new input reaches its <code>D</code> in the same picosecond as the clock edge, and the flip-flop still takes the old value. Icarus Verilog takes any <code>D</code> that changes before <code>CLK</code>, without a hold time or an uncertainty. STA asks for more. Its hold check on the same path takes the latest arrival of the clock, 0.247 ns, adds the uncertainty of 0.1 ns, gets 0.031 ns back from the negative hold time of a falling <code>D</code>, and compares with the earliest data, 0.060 ns for a falling input. It accepts inputs that change from 0.255 ns on, and in the slow corner from 0.334 ns on. The SDC gives the input delay of 1.0 ns to both the setup and the hold check, so the design was signed off only for inputs that change 1.0 ns after the edge, and only a testbench that keeps to it tests that design.</li>
+<li>With the typical values, the slow corner passes all 2000 cycles. With <code>-Tmax</code>, 3 cycles fail, all in bit 4 of <code>data_o</code>, e.g., <code>aac56072</code> instead of <code>aac56062</code> at 995 ns. Bit 4 comes from the flip-flop <code>_1508_</code> through the output buffer <code>output67</code>, and its slack is -0.504 ns, the second worst in the list after <code>_1516_</code> with -0.586 ns. With 20,000 cycles, 29 cycles fail, 24 in bit 4 and 5 in bit 12, which <code>_1516_</code> drives. In each corner, the typical value of a triple is the mean of the minimum and the maximum, as in <a href="#sec-verification-gl-sdf" class="quarto-xref">Section&nbsp;4.10.2</a>, and STA checks setup with the maximum. Icarus Verilog checks no setup time and knows no clock uncertainty, so a path can fail only if its data arrives after the capture edge itself. In <code>max.rpt</code>, this holds for only 6 of the 31 failing paths: by 0.208 ns for <code>_1516_</code>, by 0.191 ns for <code>_1508_</code>, and by less than 0.1 ns for four more. The other 25 fail in STA only through the setup time and the uncertainty, so no stimulus can make them fail in this simulation. The six fail only in the cycles in which the stimulus causes their slowest transitions, and in 20,000 cycles, the simulation finds the two worst of them, with the typical values none. Signoff rests on STA. The post-layout simulation checks what STA takes from the SDC on trust: that the testbench, or the block outside, behaves like the environment the SDC describes, and that the netlist with all its delays still computes the right function.</li>
+</ol>
+</div>
+</div>
+</div>
+</section>
+<section id="sec-digital-flow-chip" class="level2" data-number="10.9">
+<h2 data-number="10.9" class="anchored" data-anchor-id="sec-digital-flow-chip"><span class="header-section-number">10.9</span> Chip Assembly</h2>
 <p>A macro is not yet a chip. The chip top level of the AMS chip template (<a href="#sec-intro-template" class="quarto-xref">Section&nbsp;1.10</a>) places the macros into a core and surrounds it with a <strong>padframe</strong>: a ring of IO cells, each with its bondpad, which drive the signals off the chip, protect the inputs against electrostatic discharge, and bring in the supplies (<a href="#fig-digital-flow-chip" class="quarto-xref">Figure&nbsp;47</a>). It runs LibreLane’s <strong>Chip</strong> flow, the Classic flow with additional steps: one builds the padframe, one draws the <strong>seal ring</strong>, a wall of all metal and via layers along the edge of the die that stops cracks from the sawing and keeps moisture out, and two insert the fill and check its density. In its configuration, <code>flow/librelane/config.yaml</code> of the template:</p>
 <ul>
 <li>The die is 1.6 × 1.6 mm, with the core from 365 to 1235 µm in both directions, and the clock is 20 ns.</li>
@@ -10945,14 +11124,15 @@ Figure&nbsp;47: The chip top level of the AMS chip template on SG13CMOS5L, 1.6 �
 </figure>
 </div>
 </section>
-<section id="sec-digital-flow-summary" class="level2" data-number="10.9">
-<h2 data-number="10.9" class="anchored" data-anchor-id="sec-digital-flow-summary"><span class="header-section-number">10.9</span> Summary</h2>
+<section id="sec-digital-flow-summary" class="level2" data-number="10.10">
+<h2 data-number="10.10" class="anchored" data-anchor-id="sec-digital-flow-summary"><span class="header-section-number">10.10</span> Summary</h2>
 <ul>
 <li>LibreLane runs the flow as a list of steps, each with its own folder of logs and reports in the run folder, and collects GDSII, LEF, netlists, SPEF, SDF, and metrics in <code>final/</code>. A YAML file sets what the defaults of LibreLane and the PDK do not.</li>
 <li>The floorplan sizes the core from the cell area and a utilization, divides it into rows of 3.78 µm, and builds the power grid from Metal1 rails and Metal4 and TopMetal1 straps.</li>
 <li>Placement spreads the cells and buffers every net beyond the limits of slew, capacitance, and fanout, e.g., the reset net. CTS builds an H-tree of <code>buf_8</code> with a small skew and balances clock gates, but not divided clocks. The timing repair fixes setup and hold with the propagated clock.</li>
 <li>Routing assigns and draws every wire, repairs antenna violations, and fill insertion adds decaps and fillers.</li>
 <li>Signoff extracts the wires and checks the timing in all corners, the IR drop, the design rules, and the layout against the netlist. EQY then proves the final netlist equivalent to the RTL. The estimates before routing are optimistic, so the repair needs a margin, and in <code>bs_reg</code> the slow corner passes with a setup margin of 0.6 ns.</li>
+<li>The post-layout simulation compiles the final netlist with <code>-gspecify -ginterconnect</code> and runs the testbench with the SDF file of one corner. Check one path against the SDF file to prove the annotation, and drive the inputs and sample the outputs as the SDC describes, because the clock tree delays the clock edge at every flip-flop. Without timing checks, it finds only paths whose data arrives after the clock edge, and only when its stimulus triggers them, so signoff rests on STA.</li>
 <li>The chip top level of the AMS chip template runs LibreLane’s Chip flow, which places the macros in a core inside a padframe of IO cells and bondpads and draws the seal ring.</li>
 </ul>
 <p>In <a href="#sec-project" class="quarto-xref">Section&nbsp;11</a>, these steps build a complete chip with the AMS chip template.</p>
@@ -11090,12 +11270,13 @@ Note
 <li><p>What do global and detailed routing do, and what is congestion? What is the antenna rule, and how is a violation fixed? Which cells does the fill insertion add to the rows after routing, and why?</p></li>
 <li><p>What does the signoff check? Explain parasitic extraction, the signoff STA in all corners, the IR drop analysis, DRC, and LVS, and say why the equivalence check runs again on the final netlist.</p></li>
 <li><p>How does the flow estimate the wires after placement, and why are these estimates optimistic? Why does the slow corner lose the most slack, and why can a setup margin for the timing repair close the timing where a delay-oriented synthesis does not?</p></li>
+<li><p>What changes when a timing simulation runs on the final netlist after the layout instead of on the synthesized netlist, and how do you check that the delays of the SDF file were really annotated? Why must the testbench change the inputs no earlier than the input delay of the SDC, and what happens in the simulation when it changes them right after the clock edge?</p></li>
 <li><p>What does a padframe do? What do the IO cells, the core ring, the seal ring, and the metal fill add to a chip, and which steps does the Chip flow add to the Classic flow?</p></li>
 </ol>
 </section>
 <section id="sec-app-exam-calc" class="level2" data-number="12.11">
 <h2 data-number="12.11" class="anchored" data-anchor-id="sec-app-exam-calc"><span class="header-section-number">12.11</span> Calculation Problems</h2>
-<ol start="66" type="1">
+<ol start="67" type="1">
 <li><p><strong>Delay Table</strong>: Around an input slew of 0.2 ns and a load of 0.03 pF, the table <code>cell_rise</code> of a cell holds four entries: 0.10 ns at a slew of 0.1 ns and a load of 0.02 pF, 0.20 ns at 0.1 ns and 0.06 pF, 0.14 ns at 0.3 ns and 0.02 pF, and 0.26 ns at 0.3 ns and 0.06 pF. Compute the delay by linear interpolation, first along the load and then along the slew.</p></li>
 <li><p><strong>Setup and Hold Slack</strong>: A path between two flip-flops on the same clock has a clock-to-output delay of 0.2 ns, a longest logic delay of 1.5 ns, a shortest logic delay of 0.02 ns, a setup time of 0.1 ns, and a hold time of 0.05 ns. The clock reaches the capturing flip-flop 0.1 ns later than the launching one, and the clock uncertainty is 0.1 ns for both checks. Compute the setup slack at a clock period of 2 ns, the minimum period, and the hold slack. Which check fails, does a slower clock help, and how do you fix it?</p></li>
 <li><p><strong>Switching Power</strong>: The data nets of a block have a total capacitance of 20 pF and an average activity of 0.1 transitions per clock cycle, and its clock net has 2 pF. Compute the switching power of the data nets and of the clock net at 1.2 V and 250 MHz. By which factor does the switching power grow at 1.5 V and the same clock frequency?</p></li>
@@ -11108,123 +11289,123 @@ Note
 </section>
 <section id="sec-app-exam-code" class="level2" data-number="12.12">
 <h2 data-number="12.12" class="anchored" data-anchor-id="sec-app-exam-code"><span class="header-section-number">12.12</span> Reading, Writing, and Fixing Code</h2>
-<ol start="74" type="1">
+<ol start="75" type="1">
 <li><p><strong>Find the Bugs</strong>: The following module should add <code>d_i</code> to an 8-bit sum in every clock cycle in which <code>en_i</code> is high and keep the sum otherwise. The sum wraps around at 256. Find the three mistakes. For each one, explain what Verilator or Yosys reports or which hardware results, and write the corrected module.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb172"><pre class="sourceCode systemverilog code-with-copy"><code class="sourceCode systemverilog"><span id="cb172-1"><a href="#cb172-1" aria-hidden="true" tabindex="-1"></a><span class="kw">module</span> acc (</span>
-<span id="cb172-2"><a href="#cb172-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">input</span>  <span class="kw">logic</span>       clk_i,</span>
-<span id="cb172-3"><a href="#cb172-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">input</span>  <span class="kw">logic</span>       rst_ni,</span>
-<span id="cb172-4"><a href="#cb172-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">input</span>  <span class="kw">logic</span>       en_i,</span>
-<span id="cb172-5"><a href="#cb172-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">input</span>  <span class="kw">logic</span> [<span class="dv">7</span>:<span class="dv">0</span>] d_i,</span>
-<span id="cb172-6"><a href="#cb172-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">output</span> <span class="kw">logic</span> [<span class="dv">7</span>:<span class="dv">0</span>] sum_o</span>
-<span id="cb172-7"><a href="#cb172-7" aria-hidden="true" tabindex="-1"></a>);</span>
-<span id="cb172-8"><a href="#cb172-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">logic</span> [<span class="dv">7</span>:<span class="dv">0</span>] sum_d, sum_q;</span>
-<span id="cb172-9"><a href="#cb172-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb172-10"><a href="#cb172-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">always_ff</span> @(<span class="kw">posedge</span> clk_i <span class="kw">or</span> <span class="kw">negedge</span> rst_ni) <span class="kw">begin</span></span>
-<span id="cb172-11"><a href="#cb172-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">if</span> (!rst_ni) sum_q = '<span class="dv">0</span>;</span>
-<span id="cb172-12"><a href="#cb172-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">else</span>         sum_q = sum_d;</span>
-<span id="cb172-13"><a href="#cb172-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">end</span></span>
-<span id="cb172-14"><a href="#cb172-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb172-15"><a href="#cb172-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">always_comb</span> <span class="kw">begin</span></span>
-<span id="cb172-16"><a href="#cb172-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">if</span> (en_i) sum_d = sum_q + d_i;</span>
-<span id="cb172-17"><a href="#cb172-17" aria-hidden="true" tabindex="-1"></a>  <span class="kw">end</span></span>
-<span id="cb172-18"><a href="#cb172-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb172-19"><a href="#cb172-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">assign</span> <span class="ot">sum</span> = sum_q;</span>
-<span id="cb172-20"><a href="#cb172-20" aria-hidden="true" tabindex="-1"></a><span class="kw">endmodule</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb177"><pre class="sourceCode systemverilog code-with-copy"><code class="sourceCode systemverilog"><span id="cb177-1"><a href="#cb177-1" aria-hidden="true" tabindex="-1"></a><span class="kw">module</span> acc (</span>
+<span id="cb177-2"><a href="#cb177-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">input</span>  <span class="kw">logic</span>       clk_i,</span>
+<span id="cb177-3"><a href="#cb177-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">input</span>  <span class="kw">logic</span>       rst_ni,</span>
+<span id="cb177-4"><a href="#cb177-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">input</span>  <span class="kw">logic</span>       en_i,</span>
+<span id="cb177-5"><a href="#cb177-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">input</span>  <span class="kw">logic</span> [<span class="dv">7</span>:<span class="dv">0</span>] d_i,</span>
+<span id="cb177-6"><a href="#cb177-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">output</span> <span class="kw">logic</span> [<span class="dv">7</span>:<span class="dv">0</span>] sum_o</span>
+<span id="cb177-7"><a href="#cb177-7" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb177-8"><a href="#cb177-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">logic</span> [<span class="dv">7</span>:<span class="dv">0</span>] sum_d, sum_q;</span>
+<span id="cb177-9"><a href="#cb177-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb177-10"><a href="#cb177-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">always_ff</span> @(<span class="kw">posedge</span> clk_i <span class="kw">or</span> <span class="kw">negedge</span> rst_ni) <span class="kw">begin</span></span>
+<span id="cb177-11"><a href="#cb177-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">if</span> (!rst_ni) sum_q = '<span class="dv">0</span>;</span>
+<span id="cb177-12"><a href="#cb177-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">else</span>         sum_q = sum_d;</span>
+<span id="cb177-13"><a href="#cb177-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">end</span></span>
+<span id="cb177-14"><a href="#cb177-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb177-15"><a href="#cb177-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">always_comb</span> <span class="kw">begin</span></span>
+<span id="cb177-16"><a href="#cb177-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">if</span> (en_i) sum_d = sum_q + d_i;</span>
+<span id="cb177-17"><a href="#cb177-17" aria-hidden="true" tabindex="-1"></a>  <span class="kw">end</span></span>
+<span id="cb177-18"><a href="#cb177-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb177-19"><a href="#cb177-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">assign</span> <span class="ot">sum</span> = sum_q;</span>
+<span id="cb177-20"><a href="#cb177-20" aria-hidden="true" tabindex="-1"></a><span class="kw">endmodule</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
 <li><p><strong>From VHDL to SystemVerilog</strong>: The following counter is written in the two-process style of VHDL, with <code>cnt</code> and <code>next_cnt</code> of type <code>unsigned(2 downto 0)</code>. Translate it into a SystemVerilog module <code>cnt3</code> with the ports <code>clk_i</code>, <code>rst_ni</code>, <code>en_i</code>, <code>clr_i</code>, and <code>tc_o</code>, an asynchronous active-low reset, and the two-process style with <code>_d</code> and <code>_q</code>. Why must the sensitivity list of <code>cnt_logic</code> contain all three signals, and what replaces it in SystemVerilog?</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb173"><pre class="sourceCode vhdl code-with-copy"><code class="sourceCode vhdl"><span id="cb173-1"><a href="#cb173-1" aria-hidden="true" tabindex="-1"></a>reg_proc<span class="ot">:</span> <span class="kw">process</span>(rst_i<span class="ot">,</span> clk_i) <span class="kw">is</span></span>
-<span id="cb173-2"><a href="#cb173-2" aria-hidden="true" tabindex="-1"></a><span class="kw">begin</span></span>
-<span id="cb173-3"><a href="#cb173-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">if</span> rst_i <span class="ot">=</span> <span class="bn">'1'</span> <span class="kw">then</span></span>
-<span id="cb173-4"><a href="#cb173-4" aria-hidden="true" tabindex="-1"></a>    cnt <span class="ot">&lt;=</span> (<span class="ot">others</span> <span class="ot">=&gt;</span> <span class="bn">'0'</span>);</span>
-<span id="cb173-5"><a href="#cb173-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">elsif</span> <span class="kw">rising_edge</span>(clk_i) <span class="kw">then</span></span>
-<span id="cb173-6"><a href="#cb173-6" aria-hidden="true" tabindex="-1"></a>    cnt <span class="ot">&lt;=</span> next_cnt;</span>
-<span id="cb173-7"><a href="#cb173-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">end</span> <span class="kw">if</span>;</span>
-<span id="cb173-8"><a href="#cb173-8" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span> <span class="kw">process</span> reg_proc;</span>
-<span id="cb173-9"><a href="#cb173-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb173-10"><a href="#cb173-10" aria-hidden="true" tabindex="-1"></a>cnt_logic<span class="ot">:</span> <span class="kw">process</span>(cnt<span class="ot">,</span> en_i<span class="ot">,</span> clr_i) <span class="kw">is</span></span>
-<span id="cb173-11"><a href="#cb173-11" aria-hidden="true" tabindex="-1"></a><span class="kw">begin</span></span>
-<span id="cb173-12"><a href="#cb173-12" aria-hidden="true" tabindex="-1"></a>  next_cnt <span class="ot">&lt;=</span> cnt;</span>
-<span id="cb173-13"><a href="#cb173-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">if</span> clr_i <span class="ot">=</span> <span class="bn">'1'</span> <span class="kw">then</span></span>
-<span id="cb173-14"><a href="#cb173-14" aria-hidden="true" tabindex="-1"></a>    next_cnt <span class="ot">&lt;=</span> (<span class="ot">others</span> <span class="ot">=&gt;</span> <span class="bn">'0'</span>);</span>
-<span id="cb173-15"><a href="#cb173-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">elsif</span> en_i <span class="ot">=</span> <span class="bn">'1'</span> <span class="kw">then</span></span>
-<span id="cb173-16"><a href="#cb173-16" aria-hidden="true" tabindex="-1"></a>    next_cnt <span class="ot">&lt;=</span> cnt <span class="ot">+</span> <span class="dv">1</span>;</span>
-<span id="cb173-17"><a href="#cb173-17" aria-hidden="true" tabindex="-1"></a>  <span class="kw">end</span> <span class="kw">if</span>;</span>
-<span id="cb173-18"><a href="#cb173-18" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span> <span class="kw">process</span> cnt_logic;</span>
-<span id="cb173-19"><a href="#cb173-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb173-20"><a href="#cb173-20" aria-hidden="true" tabindex="-1"></a>tc_o <span class="ot">&lt;=</span> <span class="bn">'1'</span> <span class="kw">when</span> cnt <span class="ot">=</span> <span class="dv">7</span> <span class="kw">else</span> <span class="bn">'0'</span>;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb178"><pre class="sourceCode vhdl code-with-copy"><code class="sourceCode vhdl"><span id="cb178-1"><a href="#cb178-1" aria-hidden="true" tabindex="-1"></a>reg_proc<span class="ot">:</span> <span class="kw">process</span>(rst_i<span class="ot">,</span> clk_i) <span class="kw">is</span></span>
+<span id="cb178-2"><a href="#cb178-2" aria-hidden="true" tabindex="-1"></a><span class="kw">begin</span></span>
+<span id="cb178-3"><a href="#cb178-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">if</span> rst_i <span class="ot">=</span> <span class="bn">'1'</span> <span class="kw">then</span></span>
+<span id="cb178-4"><a href="#cb178-4" aria-hidden="true" tabindex="-1"></a>    cnt <span class="ot">&lt;=</span> (<span class="ot">others</span> <span class="ot">=&gt;</span> <span class="bn">'0'</span>);</span>
+<span id="cb178-5"><a href="#cb178-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">elsif</span> <span class="kw">rising_edge</span>(clk_i) <span class="kw">then</span></span>
+<span id="cb178-6"><a href="#cb178-6" aria-hidden="true" tabindex="-1"></a>    cnt <span class="ot">&lt;=</span> next_cnt;</span>
+<span id="cb178-7"><a href="#cb178-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">end</span> <span class="kw">if</span>;</span>
+<span id="cb178-8"><a href="#cb178-8" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span> <span class="kw">process</span> reg_proc;</span>
+<span id="cb178-9"><a href="#cb178-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb178-10"><a href="#cb178-10" aria-hidden="true" tabindex="-1"></a>cnt_logic<span class="ot">:</span> <span class="kw">process</span>(cnt<span class="ot">,</span> en_i<span class="ot">,</span> clr_i) <span class="kw">is</span></span>
+<span id="cb178-11"><a href="#cb178-11" aria-hidden="true" tabindex="-1"></a><span class="kw">begin</span></span>
+<span id="cb178-12"><a href="#cb178-12" aria-hidden="true" tabindex="-1"></a>  next_cnt <span class="ot">&lt;=</span> cnt;</span>
+<span id="cb178-13"><a href="#cb178-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">if</span> clr_i <span class="ot">=</span> <span class="bn">'1'</span> <span class="kw">then</span></span>
+<span id="cb178-14"><a href="#cb178-14" aria-hidden="true" tabindex="-1"></a>    next_cnt <span class="ot">&lt;=</span> (<span class="ot">others</span> <span class="ot">=&gt;</span> <span class="bn">'0'</span>);</span>
+<span id="cb178-15"><a href="#cb178-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">elsif</span> en_i <span class="ot">=</span> <span class="bn">'1'</span> <span class="kw">then</span></span>
+<span id="cb178-16"><a href="#cb178-16" aria-hidden="true" tabindex="-1"></a>    next_cnt <span class="ot">&lt;=</span> cnt <span class="ot">+</span> <span class="dv">1</span>;</span>
+<span id="cb178-17"><a href="#cb178-17" aria-hidden="true" tabindex="-1"></a>  <span class="kw">end</span> <span class="kw">if</span>;</span>
+<span id="cb178-18"><a href="#cb178-18" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span> <span class="kw">process</span> cnt_logic;</span>
+<span id="cb178-19"><a href="#cb178-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb178-20"><a href="#cb178-20" aria-hidden="true" tabindex="-1"></a>tc_o <span class="ot">&lt;=</span> <span class="bn">'1'</span> <span class="kw">when</span> cnt <span class="ot">=</span> <span class="dv">7</span> <span class="kw">else</span> <span class="bn">'0'</span>;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
 <li><p><strong>Clock Enable Instead of a Divided Clock</strong>: The following code counts at half the clock frequency. Rewrite it with only one clock, an asynchronous active-low reset <code>rst_ni</code>, and a clock enable, so that the counter still advances at every second rising edge of <code>clk_i</code>. What does a simulation of the original show, since <code>div_q</code> has no reset, and why does your version not have this problem?</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb174"><pre class="sourceCode systemverilog code-with-copy"><code class="sourceCode systemverilog"><span id="cb174-1"><a href="#cb174-1" aria-hidden="true" tabindex="-1"></a><span class="kw">always_ff</span> @(<span class="kw">posedge</span> clk_i) <span class="kw">begin</span></span>
-<span id="cb174-2"><a href="#cb174-2" aria-hidden="true" tabindex="-1"></a>  div_q &lt;= ~div_q;</span>
-<span id="cb174-3"><a href="#cb174-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb174-4"><a href="#cb174-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb174-5"><a href="#cb174-5" aria-hidden="true" tabindex="-1"></a><span class="kw">always_ff</span> @(<span class="kw">posedge</span> div_q) <span class="kw">begin</span></span>
-<span id="cb174-6"><a href="#cb174-6" aria-hidden="true" tabindex="-1"></a>  cnt_q &lt;= cnt_q + <span class="bn">1'b1</span>;</span>
-<span id="cb174-7"><a href="#cb174-7" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb179"><pre class="sourceCode systemverilog code-with-copy"><code class="sourceCode systemverilog"><span id="cb179-1"><a href="#cb179-1" aria-hidden="true" tabindex="-1"></a><span class="kw">always_ff</span> @(<span class="kw">posedge</span> clk_i) <span class="kw">begin</span></span>
+<span id="cb179-2"><a href="#cb179-2" aria-hidden="true" tabindex="-1"></a>  div_q &lt;= ~div_q;</span>
+<span id="cb179-3"><a href="#cb179-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb179-4"><a href="#cb179-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb179-5"><a href="#cb179-5" aria-hidden="true" tabindex="-1"></a><span class="kw">always_ff</span> @(<span class="kw">posedge</span> div_q) <span class="kw">begin</span></span>
+<span id="cb179-6"><a href="#cb179-6" aria-hidden="true" tabindex="-1"></a>  cnt_q &lt;= cnt_q + <span class="bn">1'b1</span>;</span>
+<span id="cb179-7"><a href="#cb179-7" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
 <li><p><strong>Liberty Cell</strong>: The following excerpt describes a cell of the typical library, whose units are ns and pF.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb175"><pre class="sourceCode default code-with-copy"><code class="sourceCode default"><span id="cb175-1"><a href="#cb175-1" aria-hidden="true" tabindex="-1"></a>cell (sg13cmos5l_a21oi_1) {</span>
-<span id="cb175-2"><a href="#cb175-2" aria-hidden="true" tabindex="-1"></a>  area : 9.072;</span>
-<span id="cb175-3"><a href="#cb175-3" aria-hidden="true" tabindex="-1"></a>  pin (Y) {</span>
-<span id="cb175-4"><a href="#cb175-4" aria-hidden="true" tabindex="-1"></a>    direction : "output";</span>
-<span id="cb175-5"><a href="#cb175-5" aria-hidden="true" tabindex="-1"></a>    function : "!((A1*A2)+B1)";</span>
-<span id="cb175-6"><a href="#cb175-6" aria-hidden="true" tabindex="-1"></a>    max_capacitance : 0.3;</span>
-<span id="cb175-7"><a href="#cb175-7" aria-hidden="true" tabindex="-1"></a>    timing () {</span>
-<span id="cb175-8"><a href="#cb175-8" aria-hidden="true" tabindex="-1"></a>      related_pin : "A1";</span>
-<span id="cb175-9"><a href="#cb175-9" aria-hidden="true" tabindex="-1"></a>      timing_sense : negative_unate;</span>
-<span id="cb175-10"><a href="#cb175-10" aria-hidden="true" tabindex="-1"></a>      timing_type : combinational;</span>
-<span id="cb175-11"><a href="#cb175-11" aria-hidden="true" tabindex="-1"></a>      cell_rise (TIMING_DELAY_7x7ds1) { ... }</span>
-<span id="cb175-12"><a href="#cb175-12" aria-hidden="true" tabindex="-1"></a>      cell_fall (TIMING_DELAY_7x7ds1) { ... }</span>
-<span id="cb175-13"><a href="#cb175-13" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb175-14"><a href="#cb175-14" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb175-15"><a href="#cb175-15" aria-hidden="true" tabindex="-1"></a>  pin (A1) {</span>
-<span id="cb175-16"><a href="#cb175-16" aria-hidden="true" tabindex="-1"></a>    direction : "input";</span>
-<span id="cb175-17"><a href="#cb175-17" aria-hidden="true" tabindex="-1"></a>    capacitance : 0.00301392;</span>
-<span id="cb175-18"><a href="#cb175-18" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb175-19"><a href="#cb175-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb180"><pre class="sourceCode default code-with-copy"><code class="sourceCode default"><span id="cb180-1"><a href="#cb180-1" aria-hidden="true" tabindex="-1"></a>cell (sg13cmos5l_a21oi_1) {</span>
+<span id="cb180-2"><a href="#cb180-2" aria-hidden="true" tabindex="-1"></a>  area : 9.072;</span>
+<span id="cb180-3"><a href="#cb180-3" aria-hidden="true" tabindex="-1"></a>  pin (Y) {</span>
+<span id="cb180-4"><a href="#cb180-4" aria-hidden="true" tabindex="-1"></a>    direction : "output";</span>
+<span id="cb180-5"><a href="#cb180-5" aria-hidden="true" tabindex="-1"></a>    function : "!((A1*A2)+B1)";</span>
+<span id="cb180-6"><a href="#cb180-6" aria-hidden="true" tabindex="-1"></a>    max_capacitance : 0.3;</span>
+<span id="cb180-7"><a href="#cb180-7" aria-hidden="true" tabindex="-1"></a>    timing () {</span>
+<span id="cb180-8"><a href="#cb180-8" aria-hidden="true" tabindex="-1"></a>      related_pin : "A1";</span>
+<span id="cb180-9"><a href="#cb180-9" aria-hidden="true" tabindex="-1"></a>      timing_sense : negative_unate;</span>
+<span id="cb180-10"><a href="#cb180-10" aria-hidden="true" tabindex="-1"></a>      timing_type : combinational;</span>
+<span id="cb180-11"><a href="#cb180-11" aria-hidden="true" tabindex="-1"></a>      cell_rise (TIMING_DELAY_7x7ds1) { ... }</span>
+<span id="cb180-12"><a href="#cb180-12" aria-hidden="true" tabindex="-1"></a>      cell_fall (TIMING_DELAY_7x7ds1) { ... }</span>
+<span id="cb180-13"><a href="#cb180-13" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb180-14"><a href="#cb180-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb180-15"><a href="#cb180-15" aria-hidden="true" tabindex="-1"></a>  pin (A1) {</span>
+<span id="cb180-16"><a href="#cb180-16" aria-hidden="true" tabindex="-1"></a>    direction : "input";</span>
+<span id="cb180-17"><a href="#cb180-17" aria-hidden="true" tabindex="-1"></a>    capacitance : 0.00301392;</span>
+<span id="cb180-18"><a href="#cb180-18" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb180-19"><a href="#cb180-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Draw the gate that the function describes. What does the timing sense of the arc from <code>A1</code> to <code>Y</code> mean? How large is the cell in gate equivalents, if a 2-input NAND gate has 7.2576 µm²? What is the input capacitance of <code>A1</code> in fF, and what happens when the output has to drive more than <code>max_capacitance</code>?</p></li>
 <li><p><strong>Timing Report</strong>: The following report of OpenSTA shows the worst setup path of a block with an ideal clock of 1.25 ns.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb176"><pre class="sourceCode default code-with-copy"><code class="sourceCode default"><span id="cb176-1"><a href="#cb176-1" aria-hidden="true" tabindex="-1"></a>Startpoint: a_q (rising edge-triggered flip-flop clocked by clk)</span>
-<span id="cb176-2"><a href="#cb176-2" aria-hidden="true" tabindex="-1"></a>Endpoint: b_q (rising edge-triggered flip-flop clocked by clk)</span>
-<span id="cb176-3"><a href="#cb176-3" aria-hidden="true" tabindex="-1"></a>Path Group: clk</span>
-<span id="cb176-4"><a href="#cb176-4" aria-hidden="true" tabindex="-1"></a>Path Type: max</span>
-<span id="cb176-5"><a href="#cb176-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb176-6"><a href="#cb176-6" aria-hidden="true" tabindex="-1"></a>  Delay    Time   Description</span>
-<span id="cb176-7"><a href="#cb176-7" aria-hidden="true" tabindex="-1"></a>-----------------------------------------------------------</span>
-<span id="cb176-8"><a href="#cb176-8" aria-hidden="true" tabindex="-1"></a>  0.000   0.000   clock clk (rise edge)</span>
-<span id="cb176-9"><a href="#cb176-9" aria-hidden="true" tabindex="-1"></a>  0.000   0.000   clock network delay (ideal)</span>
-<span id="cb176-10"><a href="#cb176-10" aria-hidden="true" tabindex="-1"></a>  0.000   0.000 ^ a_q/CLK (sg13cmos5l_dfrbpq_1)</span>
-<span id="cb176-11"><a href="#cb176-11" aria-hidden="true" tabindex="-1"></a>  0.210   0.210 v a_q/Q (sg13cmos5l_dfrbpq_1)</span>
-<span id="cb176-12"><a href="#cb176-12" aria-hidden="true" tabindex="-1"></a>  0.650   0.860 ^ u1/Y (sg13cmos5l_nor4_1)</span>
-<span id="cb176-13"><a href="#cb176-13" aria-hidden="true" tabindex="-1"></a>  0.290   1.150 ^ u2/X (sg13cmos5l_mux2_1)</span>
-<span id="cb176-14"><a href="#cb176-14" aria-hidden="true" tabindex="-1"></a>  0.000   1.150 ^ b_q/D (sg13cmos5l_dfrbpq_1)</span>
-<span id="cb176-15"><a href="#cb176-15" aria-hidden="true" tabindex="-1"></a>          1.150   data arrival time</span>
-<span id="cb176-16"><a href="#cb176-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb176-17"><a href="#cb176-17" aria-hidden="true" tabindex="-1"></a>  1.250   1.250   clock clk (rise edge)</span>
-<span id="cb176-18"><a href="#cb176-18" aria-hidden="true" tabindex="-1"></a>  0.000   1.250   clock network delay (ideal)</span>
-<span id="cb176-19"><a href="#cb176-19" aria-hidden="true" tabindex="-1"></a> -0.100   1.150   clock uncertainty</span>
-<span id="cb176-20"><a href="#cb176-20" aria-hidden="true" tabindex="-1"></a>  0.000   1.150   clock reconvergence pessimism</span>
-<span id="cb176-21"><a href="#cb176-21" aria-hidden="true" tabindex="-1"></a>          1.150 ^ b_q/CLK (sg13cmos5l_dfrbpq_1)</span>
-<span id="cb176-22"><a href="#cb176-22" aria-hidden="true" tabindex="-1"></a> -0.120   1.030   library setup time</span>
-<span id="cb176-23"><a href="#cb176-23" aria-hidden="true" tabindex="-1"></a>          1.030   data required time</span>
-<span id="cb176-24"><a href="#cb176-24" aria-hidden="true" tabindex="-1"></a>-----------------------------------------------------------</span>
-<span id="cb176-25"><a href="#cb176-25" aria-hidden="true" tabindex="-1"></a>          1.030   data required time</span>
-<span id="cb176-26"><a href="#cb176-26" aria-hidden="true" tabindex="-1"></a>         -1.150   data arrival time</span>
-<span id="cb176-27"><a href="#cb176-27" aria-hidden="true" tabindex="-1"></a>-----------------------------------------------------------</span>
-<span id="cb176-28"><a href="#cb176-28" aria-hidden="true" tabindex="-1"></a>         -0.120   slack (VIOLATED)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb181"><pre class="sourceCode default code-with-copy"><code class="sourceCode default"><span id="cb181-1"><a href="#cb181-1" aria-hidden="true" tabindex="-1"></a>Startpoint: a_q (rising edge-triggered flip-flop clocked by clk)</span>
+<span id="cb181-2"><a href="#cb181-2" aria-hidden="true" tabindex="-1"></a>Endpoint: b_q (rising edge-triggered flip-flop clocked by clk)</span>
+<span id="cb181-3"><a href="#cb181-3" aria-hidden="true" tabindex="-1"></a>Path Group: clk</span>
+<span id="cb181-4"><a href="#cb181-4" aria-hidden="true" tabindex="-1"></a>Path Type: max</span>
+<span id="cb181-5"><a href="#cb181-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb181-6"><a href="#cb181-6" aria-hidden="true" tabindex="-1"></a>  Delay    Time   Description</span>
+<span id="cb181-7"><a href="#cb181-7" aria-hidden="true" tabindex="-1"></a>-----------------------------------------------------------</span>
+<span id="cb181-8"><a href="#cb181-8" aria-hidden="true" tabindex="-1"></a>  0.000   0.000   clock clk (rise edge)</span>
+<span id="cb181-9"><a href="#cb181-9" aria-hidden="true" tabindex="-1"></a>  0.000   0.000   clock network delay (ideal)</span>
+<span id="cb181-10"><a href="#cb181-10" aria-hidden="true" tabindex="-1"></a>  0.000   0.000 ^ a_q/CLK (sg13cmos5l_dfrbpq_1)</span>
+<span id="cb181-11"><a href="#cb181-11" aria-hidden="true" tabindex="-1"></a>  0.210   0.210 v a_q/Q (sg13cmos5l_dfrbpq_1)</span>
+<span id="cb181-12"><a href="#cb181-12" aria-hidden="true" tabindex="-1"></a>  0.650   0.860 ^ u1/Y (sg13cmos5l_nor4_1)</span>
+<span id="cb181-13"><a href="#cb181-13" aria-hidden="true" tabindex="-1"></a>  0.290   1.150 ^ u2/X (sg13cmos5l_mux2_1)</span>
+<span id="cb181-14"><a href="#cb181-14" aria-hidden="true" tabindex="-1"></a>  0.000   1.150 ^ b_q/D (sg13cmos5l_dfrbpq_1)</span>
+<span id="cb181-15"><a href="#cb181-15" aria-hidden="true" tabindex="-1"></a>          1.150   data arrival time</span>
+<span id="cb181-16"><a href="#cb181-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb181-17"><a href="#cb181-17" aria-hidden="true" tabindex="-1"></a>  1.250   1.250   clock clk (rise edge)</span>
+<span id="cb181-18"><a href="#cb181-18" aria-hidden="true" tabindex="-1"></a>  0.000   1.250   clock network delay (ideal)</span>
+<span id="cb181-19"><a href="#cb181-19" aria-hidden="true" tabindex="-1"></a> -0.100   1.150   clock uncertainty</span>
+<span id="cb181-20"><a href="#cb181-20" aria-hidden="true" tabindex="-1"></a>  0.000   1.150   clock reconvergence pessimism</span>
+<span id="cb181-21"><a href="#cb181-21" aria-hidden="true" tabindex="-1"></a>          1.150 ^ b_q/CLK (sg13cmos5l_dfrbpq_1)</span>
+<span id="cb181-22"><a href="#cb181-22" aria-hidden="true" tabindex="-1"></a> -0.120   1.030   library setup time</span>
+<span id="cb181-23"><a href="#cb181-23" aria-hidden="true" tabindex="-1"></a>          1.030   data required time</span>
+<span id="cb181-24"><a href="#cb181-24" aria-hidden="true" tabindex="-1"></a>-----------------------------------------------------------</span>
+<span id="cb181-25"><a href="#cb181-25" aria-hidden="true" tabindex="-1"></a>          1.030   data required time</span>
+<span id="cb181-26"><a href="#cb181-26" aria-hidden="true" tabindex="-1"></a>         -1.150   data arrival time</span>
+<span id="cb181-27"><a href="#cb181-27" aria-hidden="true" tabindex="-1"></a>-----------------------------------------------------------</span>
+<span id="cb181-28"><a href="#cb181-28" aria-hidden="true" tabindex="-1"></a>         -0.120   slack (VIOLATED)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Is the check met? Compute the minimum clock period of this path. Which cell takes the most time, and why is its rising output slow? Propose two fixes. Which lines of the two clock paths change if only <code>set_propagated_clock</code> is added to the constraints after clock tree synthesis, and why?</p></li>
 <li><p><strong>Timing Constraints</strong>: Write the SDC constraints for a block with the clock input <code>clk_i</code> at 200 MHz, a clock transition of 0.1 ns, a clock uncertainty of 0.15 ns, input delays of 1.5 ns at all other inputs, output delays of 1.5 ns at all outputs, the cell <code>sg13cmos5l_buf_2</code> with its output pin <code>X</code> as the driver of the inputs, and a load of 10 fF at the outputs, in the units of the library, ns and pF. Explain what each command tells the timing analysis.</p></li>
 <li><p><strong>Clock Domain Crossing</strong>: <code>req_a</code> is a pulse of one cycle of the faster clock <code>clk_a_i</code>, and the following code takes it into the domain of <code>clk_b_i</code>. Find the three mistakes, and draw a corrected crossing.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb177"><pre class="sourceCode systemverilog code-with-copy"><code class="sourceCode systemverilog"><span id="cb177-1"><a href="#cb177-1" aria-hidden="true" tabindex="-1"></a><span class="co">// domain A</span></span>
-<span id="cb177-2"><a href="#cb177-2" aria-hidden="true" tabindex="-1"></a><span class="kw">assign</span> req_a = start_a_i &amp; ready_a_q;</span>
-<span id="cb177-3"><a href="#cb177-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb177-4"><a href="#cb177-4" aria-hidden="true" tabindex="-1"></a><span class="co">// domain B</span></span>
-<span id="cb177-5"><a href="#cb177-5" aria-hidden="true" tabindex="-1"></a><span class="kw">always_ff</span> @(<span class="kw">posedge</span> clk_b_i <span class="kw">or</span> <span class="kw">negedge</span> rst_b_ni) <span class="kw">begin</span></span>
-<span id="cb177-6"><a href="#cb177-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">if</span> (!rst_b_ni) <span class="kw">begin</span></span>
-<span id="cb177-7"><a href="#cb177-7" aria-hidden="true" tabindex="-1"></a>    s1_q &lt;= <span class="bn">1'b0</span>;</span>
-<span id="cb177-8"><a href="#cb177-8" aria-hidden="true" tabindex="-1"></a>    s2_q &lt;= <span class="bn">1'b0</span>;</span>
-<span id="cb177-9"><a href="#cb177-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">end</span> <span class="kw">else</span> <span class="kw">begin</span></span>
-<span id="cb177-10"><a href="#cb177-10" aria-hidden="true" tabindex="-1"></a>    s1_q &lt;= req_a;</span>
-<span id="cb177-11"><a href="#cb177-11" aria-hidden="true" tabindex="-1"></a>    s2_q &lt;= s1_q &amp; en_b_i;</span>
-<span id="cb177-12"><a href="#cb177-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">end</span></span>
-<span id="cb177-13"><a href="#cb177-13" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb182"><pre class="sourceCode systemverilog code-with-copy"><code class="sourceCode systemverilog"><span id="cb182-1"><a href="#cb182-1" aria-hidden="true" tabindex="-1"></a><span class="co">// domain A</span></span>
+<span id="cb182-2"><a href="#cb182-2" aria-hidden="true" tabindex="-1"></a><span class="kw">assign</span> req_a = start_a_i &amp; ready_a_q;</span>
+<span id="cb182-3"><a href="#cb182-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb182-4"><a href="#cb182-4" aria-hidden="true" tabindex="-1"></a><span class="co">// domain B</span></span>
+<span id="cb182-5"><a href="#cb182-5" aria-hidden="true" tabindex="-1"></a><span class="kw">always_ff</span> @(<span class="kw">posedge</span> clk_b_i <span class="kw">or</span> <span class="kw">negedge</span> rst_b_ni) <span class="kw">begin</span></span>
+<span id="cb182-6"><a href="#cb182-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">if</span> (!rst_b_ni) <span class="kw">begin</span></span>
+<span id="cb182-7"><a href="#cb182-7" aria-hidden="true" tabindex="-1"></a>    s1_q &lt;= <span class="bn">1'b0</span>;</span>
+<span id="cb182-8"><a href="#cb182-8" aria-hidden="true" tabindex="-1"></a>    s2_q &lt;= <span class="bn">1'b0</span>;</span>
+<span id="cb182-9"><a href="#cb182-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">end</span> <span class="kw">else</span> <span class="kw">begin</span></span>
+<span id="cb182-10"><a href="#cb182-10" aria-hidden="true" tabindex="-1"></a>    s1_q &lt;= req_a;</span>
+<span id="cb182-11"><a href="#cb182-11" aria-hidden="true" tabindex="-1"></a>    s2_q &lt;= s1_q &amp; en_b_i;</span>
+<span id="cb182-12"><a href="#cb182-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">end</span></span>
+<span id="cb182-13"><a href="#cb182-13" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
 </ol>
 
 
@@ -11320,29 +11501,64 @@ YosysHQ. 2026a. <em><span>EQY</span>: Equivalence Checking with <span>Yosys</spa
 <div id="ref-MCY" class="csl-entry" role="listitem">
 YosysHQ. 2026b. <em><span>MCY</span>: Mutation Cover with <span>Yosys</span></em>. <a href="https://github.com/YosysHQ/mcy" class="uri">Https://github.com/YosysHQ/mcy</a>.
 </div>
-</div></section><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div>Apache-2.0 license</div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{dorrer2026,
+</div></section><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div>Apache-2.0 license</div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><div class="code-copy-outer-scaffold"><pre class="sourceCode quarto-appendix-bibtex code-with-copy"><code class="sourceCode bibtex">@online{dorrer2026,
   author = {Dorrer, Simon},
   title = {VLSI {Design}},
-  date = {2026-11-01},
+  date = {2026-11-03},
   url = {https://iic-jku.github.io/vlsi-design},
   langid = {en-US}
 }
-</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-dorrer2026" class="csl-entry quarto-appendix-citeas" role="listitem">
-Dorrer, Simon. 2026. <span>“VLSI Design.”</span> November 1. <a href="https://iic-jku.github.io/vlsi-design">https://iic-jku.github.io/vlsi-design</a>.
+</code></pre><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-dorrer2026" class="csl-entry quarto-appendix-citeas" role="listitem">
+Dorrer, Simon. 2026. <span>“VLSI Design.”</span> November 3. <a href="https://iic-jku.github.io/vlsi-design">https://iic-jku.github.io/vlsi-design</a>.
 </div></div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
     // Ensure there is a toggle, if there isn't float one in the top right
     if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
-      const a = window.document.createElement('a');
-      a.classList.add('top-right');
-      a.classList.add('quarto-color-scheme-toggle');
-      a.href = "";
-      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const toggle = window.document.createElement('button');
+      toggle.type = "button";
+      toggle.setAttribute("role", "switch");
+      toggle.setAttribute("aria-checked", "false");
+      toggle.classList.add('top-right');
+      toggle.classList.add('quarto-color-scheme-toggle');
+      toggle.setAttribute("aria-label", "Toggle dark mode");
+      toggle.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
       const i = window.document.createElement("i");
       i.classList.add('bi');
-      a.appendChild(i);
-      window.document.body.appendChild(a);
+      toggle.appendChild(i);
+      // Put the toggle in a landmark of its own, so that landmark navigation
+      // can reach it.
+      //
+      // The container is always a fresh direct child of body, and the toggle is
+      // never moved into page furniture that the theme or the author controls.
+      // The toggle is positioned against the page, so any ancestor that
+      // establishes a containing block captures it: a positioned element or a
+      // grid for position: absolute, and transform, filter, will-change or
+      // contain for position: fixed. A direct child of body has none of these
+      // to inherit, and the shift when one appears is silent and visual.
+      //
+      // ARIA says a document should have at most one banner, and axe reports a
+      // duplicate whether or not the banners carry distinct labels. So use a
+      // header when the page has no banner yet, and a named region otherwise.
+      //
+      // A header is a banner wherever it sits, unless it is inside sectioning
+      // content, so this cannot just look at the children of body: a custom
+      // page layout wraps the title block header in a plain div. An explicit
+      // role="banner" always counts.
+      const sectioning = 'article, aside, main, nav, section, [role="article"], [role="complementary"], [role="main"], [role="navigation"], [role="region"]';
+      const hasBanner = Array.from(
+        window.document.querySelectorAll('header:not([role]), [role="banner"]')
+      ).some(function(el) {
+        return el.hasAttribute("role") || el.closest(sectioning) === null;
+      });
+      const container = window.document.createElement(hasBanner ? "div" : "header");
+      if (hasBanner) {
+        container.setAttribute("role", "region");
+        container.setAttribute("aria-label", "Toggle dark mode");
+      }
+      container.classList.add('quarto-color-scheme-toggle-container');
+      container.appendChild(toggle);
+      window.document.body.appendChild(container);
     }
     setColorSchemeToggle(hasAlternateSentinel())
     const icon = "";
@@ -11421,7 +11637,8 @@ Dorrer, Simon. 2026. <span>“VLSI Design.”</span> November 1. <a href="https:
           return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
       }
       // Inspect non-navigation links and adorn them if external
-     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
       for (var i=0; i<links.length; i++) {
         const link = links[i];
         if (!isInternal(link.href)) {
@@ -11430,8 +11647,69 @@ Dorrer, Simon. 2026. <span>“VLSI Design.”</span> November 1. <a href="https:
           if (link.dataset.originalHref !== undefined) {
             link.href = link.dataset.originalHref;
           }
+          if (!link.classList.contains('no-external-icon')) {
+          }
         }
       }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
     function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
       const config = {
         allowHTML: true,
@@ -11445,6 +11723,7 @@ Dorrer, Simon. 2026. <span>“VLSI Design.”</span> November 1. <a href="https:
         interactiveBorder: 10,
         theme: 'quarto',
         placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
       };
       if (contentFn) {
         config.content = contentFn;
@@ -11607,44 +11886,54 @@ Dorrer, Simon. 2026. <span>“VLSI Design.”</span> November 1. <a href="https:
           const lineIds = lines.map((line) => {
             return targetCell + "-" + line;
           })
-          let top = null;
-          let height = null;
-          let parent = null;
+          // Each band is positioned against its own containing block, which is
+          // not the offsetParent of the lines, so place it from client rects.
+          const placeBand = (band, firstEl, lastEl, codeBlock) => {
+            const container = band.offsetParent;
+            if (container === null) {
+              return;
+            }
+            const containerRect = container.getBoundingClientRect();
+            // Reveal.js scales slides with a transform, so convert client
+            // pixels back to the CSS pixels of the container.
+            const scale = containerRect.height / container.offsetHeight || 1;
+            const firstRect = firstEl.getBoundingClientRect();
+            const lastRect = lastEl.getBoundingClientRect();
+            const top = (firstRect.top - containerRect.top) / scale - container.clientTop + container.scrollTop;
+            const height = (lastRect.bottom - firstRect.top) / scale;
+            band.style.top = top - 2 + "px";
+            band.style.height = height + 4 + "px";
+            if (codeBlock) {
+              // Without the copy button wrapper, the containing block is wider
+              // than the code block, so span the code block explicitly.
+              const blockRect = codeBlock.getBoundingClientRect();
+              band.style.left = (blockRect.left - containerRect.left) / scale - container.clientLeft + container.scrollLeft + "px";
+              band.style.width = blockRect.width / scale + "px";
+            }
+          };
           if (lineIds.length > 0) {
-              //compute the position of the single el (top and bottom and make a div)
-              const el = window.document.getElementById(lineIds[0]);
-              top = el.offsetTop;
-              height = el.offsetHeight;
-              parent = el.parentElement.parentElement;
-            if (lineIds.length > 1) {
-              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
-              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
-              height = bottom - top;
+            const el = window.document.getElementById(lineIds[0]);
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const parent = el.parentElement.parentElement;
+            // cook up a div (if necessary) and position it
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
             }
-            if (top !== null && height !== null && parent !== null) {
-              // cook up a div (if necessary) and position it 
-              let div = window.document.getElementById("code-annotation-line-highlight");
-              if (div === null) {
-                div = window.document.createElement("div");
-                div.setAttribute("id", "code-annotation-line-highlight");
-                div.style.position = 'absolute';
-                parent.appendChild(div);
-              }
-              div.style.top = top - 2 + "px";
-              div.style.height = height + 4 + "px";
-              div.style.left = 0;
-              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
-              if (gutterDiv === null) {
-                gutterDiv = window.document.createElement("div");
-                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
-                gutterDiv.style.position = 'absolute';
-                const codeCell = window.document.getElementById(targetCell);
-                const gutter = codeCell.querySelector('.code-annotation-gutter');
-                gutter.appendChild(gutterDiv);
-              }
-              gutterDiv.style.top = top - 2 + "px";
-              gutterDiv.style.height = height + 4 + "px";
+            placeBand(div, el, lastEl, parent.closest("div.sourceCode") || parent);
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
             }
+            placeBand(gutterDiv, el, lastEl);
             selectedAnnoteEl = annoteEl;
           }
         };
@@ -11742,6 +12031,9 @@ Dorrer, Simon. 2026. <span>“VLSI Design.”</span> November 1. <a href="https:
       }
     }
   });
+  </script>
+  <script type="application/javascript">
+  window.quartoScrollableRegionsLabels = {"code":"Scrollable code","output":"Scrollable output"};
   </script>
 </div> <!-- /content -->
 <footer class="footer">
