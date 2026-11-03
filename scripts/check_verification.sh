@@ -272,6 +272,8 @@ check "mux2_1" "$(sed -n '/Chip area/q;p' syn.log | awk '$NF=="sg13cmos5l_mux2_1
 check "mux4_1" "$(sed -n '/Chip area/q;p' syn.log | awk '$NF=="sg13cmos5l_mux4_1" {n=$1} END {print n}')" "8"
 check "area (um2)" "$(grep 'Chip area' syn.log | tail -1 | awk '{print $NF}')" "3008.275200"
 check "flip-flops with RESET_B tied to 1 (storage)" "$(grep -c "RESET_B(1'h1)" fifo.nl.v)" "32"
+check "cells driven by each bit of data_i" \
+  "$(for b in 0 1 2 3 4 5 6 7; do grep -c "(data_i\[$b\])" fifo.nl.v; done | sort -u | tr '\n' ' ')" "4 "
 cat > x_after_reset.sv <<'EOF'
 `timescale 1ns/1ps
 module x_after_reset;

@@ -7,7 +7,7 @@
 #   bash scripts/check_digital_flow.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter. It runs LibreLane
-# seven times, at most two at a time, about 25 minutes in total.
+# seven times, at most two at a time, about 30 minutes in total.
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -55,6 +55,7 @@ check "Yosys" "$(yosys -V | awk '{print $2}')" "0.70"
 check "Magic" "$(magic --version)" "8.3.685"
 check "KLayout" "$(klayout -v | awk '{print $2}')" "0.30.12"
 check "Netgen" "$(netgen -batch quit 2>&1 | head -1 | awk '{print $2}')" "1.5.324"
+check "Icarus Verilog" "$(iverilog -V 2>&1 | head -1 | awk '{print $4}')" "14.0"
 
 echo "== PDK defaults for LibreLane"
 pdk() { grep -h "set ::env($1)" "$PDKLL/config.tcl" "$PDKLL/sg13cmos5l_stdcell/config.tcl" | head -1 | sed 's/.*) *//' | tr -d '"'; }
@@ -267,6 +268,194 @@ check "EQY with one cell replaced: verdict, failed partitions" \
   "$(grep -o 'DONE (FAIL, rc=2)' mut.log) $(grep -o 'Failed to prove equivalence of partition [^ ]*' mut.log | awk '{print $NF}' | sort | tr '\n' ' ')" \
   "DONE (FAIL, rc=2) bs_reg.data_o.1 bs_reg.data_o.17 "
 
+echo "== Post-layout simulation"
+CELLS=$D/verilog
+SDF_T=runs/base/final/sdf/nom_typ_1p20V_25C/bs_reg__nom_typ_1p20V_25C.sdf
+SDF_S=runs/base/final/sdf/nom_slow_1p08V_125C/bs_reg__nom_slow_1p08V_125C.sdf
+GLS="$CELLS/sg13cmos5l_udp.v $CELLS/sg13cmos5l_stdcell.v runs/base/final/nl/bs_reg.nl.v tb/tb_bs_reg.sv"
+errs() { grep -o '[0-9]* cycles, [0-9]* errors' "$@"; }
+check "SDF files, INTERCONNECT entries (typical)" \
+  "$(ls runs/base/final/sdf | tr '\n' ' ')$(grep -c INTERCONNECT $SDF_T)" \
+  "nom_fast_1p32V_m40C nom_slow_1p08V_125C nom_typ_1p20V_25C 2672"
+iverilog -g2012 -o rtl.vvp $W/content/verification/code/barrel_shift/rtl/barrel_shift.sv \
+  $W/content/sequential/code/bs_reg/rtl/bs_reg.sv tb/tb_bs_reg.sv > rtl_comp.log 2>&1
+check "RTL: warning about \$sdf_annotate, result" \
+  "$(grep -c 'Omitting \$sdf_annotate()' rtl_comp.log) $(vvp -n rtl.vvp | errs)" "1 2000 cycles, 0 errors"
+iverilog -g2012 -gspecify -ginterconnect -o pl.vvp $GLS > pl_comp.log 2>&1
+check "netlist: compile status, sorry messages, timing-check warnings" \
+  "$? $(grep -c 'sorry: ifnone' pl_comp.log) $(grep -c 'Timing checks are not supported' pl_comp.log)" "0 68 108"
+t0=$(date +%s.%N); vvp -n rtl.vvp > /dev/null; t1=$(date +%s.%N)
+vvp -n pl.vvp +SDF=$SDF_T > pl_typ.log 2>&1; t2=$(date +%s.%N)
+check "netlist, typical: result, TIMINGCHECK warnings, flip-flops, SDF errors, their lines" \
+  "$(errs pl_typ.log) $(grep -c 'TIMINGCHECK not supported' pl_typ.log) $(grep -c 'sg13cmos5l_dfrbpq_1 ' runs/base/final/nl/bs_reg.nl.v) $(grep -c 'SDF ERROR' pl_typ.log) $(grep 'Chosen value not defined' pl_typ.log | sed 's/.*sdf:\([0-9]*\):.*/\1/' | while read n; do sed -n "${n}p" $SDF_T | awk '{print $1}'; done | tr -d '(' | tr '\n' ' ')" \
+  "2000 cycles, 0 errors 71 71 2 VOLTAGE TEMPERATURE "
+check "run time: netlist at least 100 times the RTL" "$(calc "print (($t2 - $t1) > 100 * ($t1 - $t0)) ? 1 : 0")" "1"
+echo "        (RTL $(calc "printf \"%.2f\", $t1 - $t0") s, netlist $(calc "printf \"%.1f\", $t2 - $t1") s)"
+iverilog -g2012 -gspecify -o noic.vvp $GLS > /dev/null 2>&1
+vvp -n noic.vvp +SDF=$SDF_T > noic.log 2>&1
+check "without -ginterconnect: errors, result" \
+  "$(grep -c 'Could not find net' noic.log) $(errs noic.log)" "2672 2000 cycles, 0 errors"
+python3 - "$R/final/nl/bs_reg.nl.v" "$SDF_T" > clk.txt << 'EOF'
+import re
+import sys
+s = open(sys.argv[1]).read()
+cells = re.findall(r'\n\s*(sg13cmos5l_\w+)\s+(\S+)\s*\((.*?)\);', s, re.S)
+pins = {n: dict((p, v.strip()) for p, v in re.findall(r'\.(\w+)\(([^()]*)\)', b)) for t, n, b in cells}
+typ = {n: t for t, n, b in cells}
+drv = {v: n for n, p in pins.items() for k, v in p.items() if k in ('X', 'Y', 'Q')}
+t = open(sys.argv[2]).read()
+TRI = r'\(([\d.]+):([\d.]+):([\d.]+)\) \(([\d.]+):([\d.]+):([\d.]+)\)'
+def ic(a, b):  # typical rise and fall of a wire
+    m = re.search(r'\(INTERCONNECT %s %s %s\)' % (re.escape(a), re.escape(b), TRI), t)
+    return (float(m.group(2)), float(m.group(5))) if m else (0.0, 0.0)
+def cell(inst):  # typical rise and fall of a buffer, rounded to 10 ps as in Icarus
+    i = t.index('(INSTANCE %s)' % inst)
+    g = re.search(r'\(IOPATH A X %s\)' % TRI, t[i:i + 600]).groups()
+    return float(g[1]), float(g[4])
+def path(ff, pin):  # arcs from the start net to ff.pin through buffers
+    arcs, net, sink = [], pins[ff][pin], ff + '.' + pin
+    while net in drv and typ[drv[net]].startswith('sg13cmos5l_buf'):
+        d = drv[net]
+        arcs = [(d, cell(d)), ('wire', ic(d + '.X', sink))] + arcs
+        sink, net = d + '.A', pins[d]['A']
+    return net, [('wire', ic(net, sink))] + arcs
+def sim(arcs, k):  # delay in Icarus: cells rounded to 10 ps, half up
+    return sum(v[k] if n == 'wire' else (round(v[k] * 1000) + 5) // 10 / 100 for n, v in arcs)
+net, arcs = path('_1537_', 'CLK')
+print('clk', pins['_1537_']['CLK'], ' '.join('%s:%.3f' % (n, v[0]) for n, v in arcs),
+      '%.3f %.3f' % (sum(v[0] for n, v in arcs), sim(arcs, 0)))
+rows = []
+for ff in pins:
+    if typ[ff].endswith('dfrbpq_1'):
+        start, d = path(ff, 'D')
+        if start.startswith(('data_i', 'shamt_i', 'mode_i')):
+            c = path(ff, 'CLK')[1]
+            rows.append((sim(c, 0) - min(sim(d, 0), sim(d, 1)), ff, start, sim(c, 0), sim(d, 0),
+                         ' '.join('%s:%.3f' % (n, v[0]) for n, v in d)))
+rows.sort(reverse=True)
+print('inputs', len(rows))
+for r in [rows[0]] + [r for r in rows if r[1] == '_1537_']:
+    print('in %s %s %.3f %.3f %.3f %s' % (r[1], r[2], r[3], r[4], r[0], r[5]))
+EOF
+check "clock path of _1537_: net, arcs (typical rise), sum, in Icarus" "$(grep '^clk' clk.txt)" \
+  "clk clknet_4_10_0_clk_i wire:0.002 clkbuf_0_clk_i:0.111 wire:0.013 clkbuf_4_10_0_clk_i:0.107 wire:0.002 0.235 0.237"
+check "input path of _1537_: flip-flop, input, clock, input path, limit, arcs" "$(grep '^in _1537_' clk.txt)" \
+  "in _1537_ shamt_i[1] 0.237 0.055 0.182 wire:0.005 input37:0.052 wire:0.000"
+check "flip-flops of the input register, the one that sets the limit" "$(grep '^inputs' clk.txt) $(grep '^in _' clk.txt | grep -v '_1537_' | awk '{print $2, $3, $4, $5, $6}')" \
+  "inputs 39 _1542_ mode_i[1] 0.242 0.056 0.186"
+for c in typ_1p20V_25C slow_1p08V_125C; do
+  cat > hold_$c.tcl << EOF
+read_liberty $D/lib/sg13cmos5l_stdcell_$c.lib
+read_verilog $R/final/nl/bs_reg.nl.v
+link_design bs_reg
+read_spef $R/final/spef/nom/bs_reg.nom.spef
+read_sdc $R/final/sdc/bs_reg.sdc
+set_propagated_clock [all_clocks]
+set ins [delete_from_list [all_inputs] [get_ports {clk_i rst_ni}]]
+report_checks -path_delay min -from \$ins -format full -digits 3
+EOF
+  sta -no_init -exit hold_$c.tcl > hold_$c.rpt 2>&1
+done
+hold() {  # hold <corner>: worst hold path from an input: start, end, clock, uncertainty, hold time, data, slack, limit
+  awk '/^Startpoint/ {s = $2} /^Endpoint/ {e = $2} /data arrival time/ && !a {a = $1} /clock uncertainty/ {u = $1; c = $2 - $1}
+       /library hold time/ {h = $1} /slack/ {printf "%s %s %.3f %.3f %.3f %.3f %.3f %.3f", s, e, c, u, h, a - 1.0, $1, 1.0 - $1}' hold_$1.rpt
+}
+check "STA hold from the inputs (typical): start, end, clock, uncertainty, hold time, data, slack, limit" \
+  "$(hold typ_1p20V_25C)" "mode_i[1] _1542_ 0.247 0.100 -0.031 0.060 0.745 0.255"
+check "STA hold from the inputs (slow): start, end, slack, limit" \
+  "$(hold slow_1p08V_125C | awk '{print $1, $2, $7, $8}')" "shamt_i[0] _1536_ 0.666 0.334"
+cat > probe.sv << 'EOF'
+`timescale 1ns / 1ps
+module probe;
+  realtime tc, tf;
+  initial begin
+    @(posedge tb_bs_reg.clk_i) tc = $realtime;
+    @(posedge tb_bs_reg.dut._1537_.CLK) tf = $realtime;
+    $display("PROBE %0.3f %0.3f", tc, tf - tc);
+    @(negedge tb_bs_reg.clk_i) tc = $realtime;
+    @(negedge tb_bs_reg.dut._1537_.CLK) tf = $realtime;
+    $display("PROBE %0.3f", tf - tc);
+  end
+endmodule
+EOF
+iverilog -g2012 -gspecify -ginterconnect -o probe.vvp $GLS probe.sv > /dev/null 2>&1
+check "simulated clock edge at _1537_: first edge, rise, fall latency" \
+  "$(vvp -n probe.vvp +SDF=$SDF_T +CYCLES=10 | grep PROBE | cut -d' ' -f2- | tr '\n' ' ')" "4.000 0.237 0.236 "
+iverilog -g2012 -gspecify -o probe_noic.vvp $GLS probe.sv > /dev/null 2>&1
+check "without -ginterconnect, the wire delays are lost: rise latency" \
+  "$(vvp -n probe_noic.vvp +SDF=$SDF_T +CYCLES=10 2>/dev/null | grep PROBE | head -1 | awk '{print $3}')" "0.220"
+rm -f tb_bs_reg.fst
+vvp -n pl.vvp +SDF=$SDF_T +CYCLES=10 +WAVES -fst > /dev/null 2>&1
+check "waveform with the pins of _1537_" "$(fst2vcd tb_bs_reg.fst 2>/dev/null | grep -c 'scope module _1537_ ')" "1"
+check "drive at 0.1 ns: RTL, netlist, first wrong words" \
+  "$(vvp -n rtl.vvp +DRIVE=0.1 | errs) / $(vvp -n pl.vvp +SDF=$SDF_T +DRIVE=0.1 | grep -E 'errors|data_o' | head -2 | tr '\n' ' ' | sed 's/ *$//') / $(vvp -n pl.vvp +SDF=$SDF_T +DRIVE=0.1 | errs)" \
+  "2000 cycles, 0 errors / 23.000 ns: data_o = 00018f82, expected 490a9a92 27.000 ns: data_o = 00000cb0, expected 00018f82 / 2000 cycles, 1998 errors"
+check "earliest drive time (typical): 0.185 fails, 0.186 passes" \
+  "$(vvp -n pl.vvp +SDF=$SDF_T +DRIVE=0.185 | errs | grep -vc ' 0 errors') $(vvp -n pl.vvp +SDF=$SDF_T +DRIVE=0.186 | errs)" "1 2000 cycles, 0 errors"
+check "earliest drive time (slow): 0.268 fails, 0.270 passes" \
+  "$(vvp -n pl.vvp +SDF=$SDF_S +DRIVE=0.268 | errs | grep -vc ' 0 errors') $(vvp -n pl.vvp +SDF=$SDF_S +DRIVE=0.270 | errs)" "1 2000 cycles, 0 errors"
+iverilog -g2012 -gspecify -ginterconnect -Tmax -o pl_max.vvp $GLS > /dev/null 2>&1
+check "slow corner at 4 ns: typical, maximum values, first wrong word" \
+  "$(vvp -n pl.vvp +SDF=$SDF_S | errs) / $(vvp -n pl_max.vvp +SDF=$SDF_S | errs) / $(vvp -n pl_max.vvp +SDF=$SDF_S | grep -m1 data_o)" \
+  "2000 cycles, 0 errors / 2000 cycles, 3 errors / 995.000 ns: data_o = aac56072, expected aac56062"
+bits() {  # bits <log>: failing bits of data_o and how often
+  python3 -c "
+import re, sys
+n = {}
+for l in open('$1'):
+    m = re.match(r'[\d.]+ ns: data_o = (\w+), expected (\w+)', l)
+    if m:
+        d = int(m.group(1), 16) ^ int(m.group(2), 16)
+        for b in range(32):
+            n[b] = n.get(b, 0) + (d >> b & 1)
+print(' '.join('%d:%d' % (b, k) for b, k in sorted(n.items()) if k))"
+}
+vvp -n pl_max.vvp +SDF=$SDF_S +SHOW=100 > max2k.log 2>&1
+vvp -n pl_max.vvp +SDF=$SDF_S +CYCLES=20000 +SHOW=100 > max20k.log 2>&1
+vvp -n pl.vvp +SDF=$SDF_S +CYCLES=20000 > typ20k.log 2>&1
+check "slow, maximum values: failing bits in 2000 and 20,000 cycles; typical in 20,000" \
+  "$(bits max2k.log) / $(errs max20k.log) $(bits max20k.log) / $(errs typ20k.log)" \
+  "4:3 / 20000 cycles, 29 errors 4:24 12:5 / 20000 cycles, 0 errors"
+check "slow SDF: triples whose typical value is not the mean of minimum and maximum" \
+  "$(python3 -c "
+import re
+t = open('$SDF_S').read()
+v = [tuple(map(float, m)) for m in re.findall(r'\(([\d.]+):([\d.]+):([\d.]+)\)', t)]
+print(len(v) > 10000, sum(abs(b - (a + c) / 2) > 0.0011 for a, b, c in v))")" "True 0"
+check "slow max.rpt: failing paths, of them data after the capture edge, the latest, the others below 0.1 ns" \
+  "$(python3 -c "
+import re
+t = open('$R/55-openroad-stapostpnr/nom_slow_1p08V_125C/max.rpt').read()
+d = []
+for b in t.split('Startpoint:')[1:]:
+    if 'VIOLATED' in b and 'Path Type: max' in b and 'flip-flop' in b.split(chr(10))[1]:
+        e = re.search(r'Endpoint: (\S+)', b).group(1)
+        a = float(re.search(r'([-\d.]+)\s+data arrival time', b).group(1))
+        c = float(re.findall(r'([-\d.]+) \^ %s/CLK' % re.escape(e), b)[-1])
+        d.append((round(a - c, 3), e))
+d.sort(reverse=True)
+late = [x for x in d if x[0] > 0]
+print(len(d), len(late), *['%s:%.3f' % (e, x) for x, e in late[:2]], all(x < 0.1 for x, e in late[2:]))")" \
+  "31 6 _1516_:0.208 _1508_:0.191 True"
+python3 - "$R/final/nl/bs_reg.nl.v" \
+  "$R/55-openroad-stapostpnr/nom_slow_1p08V_125C/violator_list.rpt" > vio.txt << 'EOF'
+import re
+import sys
+s = open(sys.argv[1]).read()
+cells = re.findall(r'\n\s*(sg13cmos5l_\w+)\s+(\S+)\s*\((.*?)\);', s, re.S)
+pins = {n: dict((p, v.strip()) for p, v in re.findall(r'\.(\w+)\(([^()]*)\)', b)) for t, n, b in cells}
+drv = {v: n for n, p in pins.items() for k, v in p.items() if k in ('X', 'Y', 'Q')}
+vio = re.findall(r'\[setup reg-reg\] \S+ -> (_\d+_)/D : (\S+)', open(sys.argv[2]).read())
+rank = {ff: (i + 1, sl) for i, (ff, sl) in enumerate(vio)}
+for b in (4, 12):
+    buf = drv['data_o[%d]' % b]
+    ff = drv[pins[buf]['A']]
+    print(b, buf, ff, *rank[ff], end=' ')
+print(len(vio))
+EOF
+check "bits 4 and 12: output buffer, flip-flop, rank and slack in the violator list; violators" \
+  "$(cat vio.txt)" "4 output67 _1508_ 2 -0.504289 12 output44 _1516_ 1 -0.585889 31"
+
 echo "== A clock gate in the tree (cg_mix)"
 printf 'module sg13cmos5l_lgcp_1 (input logic CLK, GATE, output logic GCLK);
   assign GCLK = CLK & GATE;
@@ -339,7 +528,7 @@ check "global density window Metal1, Metal2 to Metal4" \
 
 echo "== Code listings"
 check "longest line of the code files" \
-  "$(cd "$REPO/content/digital_flow/code" && cat bs_reg/config.yaml bs_reg/lec.eqy cg_mix/config.yaml cg_mix/rtl/cg_mix.sv div_mix/config.yaml div_mix/div_mix.sdc div_mix/rtl/div_mix.sv | awk '{ if (length > m) m = length } END { print (m <= 70) ? "<= 70" : m }')" "<= 70"
+  "$(cd "$REPO/content/digital_flow/code" && cat bs_reg/config.yaml bs_reg/lec.eqy bs_reg/tb/tb_bs_reg.sv cg_mix/config.yaml cg_mix/rtl/cg_mix.sv div_mix/config.yaml div_mix/div_mix.sdc div_mix/rtl/div_mix.sv | awk '{ if (length > m) m = length } END { print (m <= 70) ? "<= 70" : m }')" "<= 70"
 
 echo
 if [ $fails -eq 0 ]; then

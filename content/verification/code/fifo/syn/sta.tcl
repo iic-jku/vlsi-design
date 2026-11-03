@@ -27,7 +27,7 @@ set_load 0.01 [all_outputs]
 report_checks -path_delay max
 report_worst_slack -max -digits 3
 
-# Icarus Verilog annotates only the typical value of each delay triple
+# By default, Icarus Verilog annotates the typical value of a triple
 write_sdf -include_typ -no_timestamp fifo.sdf
 
 # Icarus Verilog cannot read the VOLTAGE and TEMPERATURE lines and
