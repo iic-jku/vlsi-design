@@ -201,7 +201,7 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 
 ## FPGA Habits That Break on an ASIC {#sec-modeling-fpga}
 
-Many of you have designed for FPGAs, and FPGA tools are forgiving. The bitstream initializes every flip-flop of an FPGA based on static RAM (SRAM), the synthesis tool maps arrays and multiplications onto the block RAMs and multipliers of the FPGA, and clock managers and global clock buffers are available as primitives. On an ASIC, every gate comes from the standard-cell library, and the only larger blocks are the macros of the PDK, such as SRAMs and I/O cells. @tbl-modeling-fpga lists the habits that do not carry over.
+Many of you have designed for FPGAs, and FPGA tools are forgiving. The bitstream initializes every flip-flop of an FPGA based on static RAM (SRAM), the synthesis tool maps arrays and multiplications onto the block RAMs and multipliers of the FPGA, and clock managers and global clock buffers are available as primitives. On an ASIC, every gate comes from the standard-cell library, and the only larger blocks are the macros of the PDK, such as SRAMs and IO cells. @tbl-modeling-fpga lists the habits that do not carry over.
 
 | FPGA habit | On an ASIC | Instead |
 |------------------|----------------------|------------------|
