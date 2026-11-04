@@ -34,12 +34,12 @@ def register(y, enable):
 
 def toggle_feedback(yd, y):
     ''' Q to led_o, and back through an inverter to D '''
-    xo, xf, yt = 8.5, 5.8, y + 1.45
+    xo, xf, yt = 8.5, 5.5, y + 1.7
     flow.Line().at((RX1, yd)).to((xo, yd))
     elm.Dot(radius=0.06).at((xo, yd))
     flow.Arrow().at((xo, yd)).to((9.6, yd)).label('led_o', 'top', color='black')
     flow.Line().at((xo, yd)).to((xo, yt))
-    inv = logic.Not().left().scale(0.6).at((xo - 0.6, yt))
+    inv = logic.Not().left().scale(0.6).at(((RX0 + RX1)/2, yt)).anchor('center')
     flow.Line().at((xo, yt)).to(inv.start)
     flow.Line().at(inv.end).to((xf, yt))
     flow.Line().at((xf, yt)).to((xf, yd))
@@ -52,33 +52,28 @@ with sd.Drawing(canvas='svg') as d:
     # (a) divided clock
     ya = 0
     elm.Label().at((-0.8, ya + 2.3)).label('(a) divided clock: two clock domains', halign='left', color='black')
-    div = flow.Box(w=2.8, h=1.3).at((2.2, ya)).anchor('center').fill(GREEN_L).color(GREEN) \
-        .label('clock divider', color='black')
-    flow.Arrow().at((-0.6, ya)).to(div.W)
-    elm.Label().at((-0.6, ya + 0.25)).label('clk_i', halign='left', color='black')
     yd, _, yc = register(ya, enable=False)
-    xr = 4.8
-    flow.Line().at(div.E).to((xr, ya)).color(RED)
-    flow.Line().at((xr, ya)).to((xr, yc)).color(RED)
-    flow.Arrow().at((xr, yc)).to((RX0, yc)).color(RED)
-    elm.Label().at((div.E[0] + 0.1, ya + 0.25)).label('slow_clk_q', halign='left', color=RED)
+    div = flow.Box(w=2.8, h=1.3).at((2.2, yc)).anchor('center').fill(GREEN_L).color(GREEN) \
+        .label('clock divider', color='black')
+    flow.Arrow().at((-0.6, yc)).to(div.W)
+    elm.Label().at((-0.6, yc + 0.25)).label('clk_i', halign='left', color='black')
+    flow.Arrow().at(div.E).to((RX0, yc)).color(RED)
+    elm.Label().at((div.E[0] + 0.1, yc + 0.25)).label('slow_clk_q', halign='left', color=RED)
     toggle_feedback(yd, ya)
 
     # (b) clock enable
     yb = -5.0
     elm.Label().at((-0.8, yb + 2.3)).label('(b) clock enable: one clock', halign='left', color='black')
-    tg = flow.Box(w=2.8, h=1.3).at((2.2, yb + 0.4)).anchor('center').fill(GREEN_L).color(GREEN) \
-        .label('tick generator', color='black')
     yd, ye, yc = register(yb, enable=True)
-    flow.Line().at(tg.E).to((xr, tg.E[1]))
-    flow.Line().at((xr, tg.E[1])).to((xr, ye))
-    flow.Arrow().at((xr, ye)).to((RX0, ye))
-    elm.Label().at((tg.E[0] + 0.1, tg.E[1] + 0.25)).label('tick', halign='left', color='black')
+    tg = flow.Box(w=2.8, h=1.3).at((2.2, ye)).anchor('center').fill(GREEN_L).color(GREEN) \
+        .label('tick generator', color='black')
+    flow.Arrow().at(tg.E).to((RX0, ye))
+    elm.Label().at((tg.E[0] + 0.1, ye + 0.25)).label('tick', halign='left', color='black')
     yclk = yb - 1.6
-    flow.Line().at((-0.6, yclk)).to((5.3, yclk))
+    flow.Line().at((-0.6, yclk)).to((5.5, yclk))
     elm.Label().at((-0.6, yclk + 0.25)).label('clk_i', halign='left', color='black')
-    flow.Line().at((5.3, yclk)).to((5.3, yc))
-    flow.Arrow().at((5.3, yc)).to((RX0, yc))
+    flow.Line().at((5.5, yclk)).to((5.5, yc))
+    flow.Arrow().at((5.5, yc)).to((RX0, yc))
     elm.Dot(radius=0.06).at((tg.S[0], yclk))
     flow.Arrow().at((tg.S[0], yclk)).to(tg.S)
     toggle_feedback(yd, yb)
