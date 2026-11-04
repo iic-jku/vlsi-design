@@ -19,7 +19,7 @@ YEL, YEL_L = '#d6b656', '#fff2cc'       # testbench
 GREY, GREY_L = '#666666', '#f5f5f5'     # results
 
 W, H = 2.9, 1.1
-c0, c1, c2, c3, c4 = 0.0, 3.6, 7.2, 10.8, 14.4
+c0, c1, c2, c3, c4 = -0.5, 3.6, 7.2, 10.8, 14.4
 yt, yb, ylec = 1.5, -1.5, -3.0
 
 
