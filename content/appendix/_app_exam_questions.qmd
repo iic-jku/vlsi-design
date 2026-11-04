@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 This appendix collects possible questions for the written exam (@sec-intro-grading), grouped by the chapters of the course. The last two sections hold calculation problems and problems in which you read, write, or fix code, constraints, and reports. The exam is based on these questions, partly with other numbers, circuits, or code.
 
-The exam is written and allows no technical aids. Most questions therefore ask for an explanation, often with a sketch, and the calculations need only simple arithmetic, with every value and constant given in the question. If you have worked through the exercises of the chapters, you have practiced most of what these questions ask. The practical work with the tools is assessed in the project (@sec-project).
+The written exam is closed book and allows no technical aids. Most questions therefore ask for an explanation, often with a sketch, and the calculations need only simple arithmetic, with every value and constant given in the question. If you have worked through the exercises of the chapters, you have practiced most of what these questions ask. The practical work with the tools is assessed in the project (@sec-project).
 
 ## Introduction {#sec-app-exam-intro}
 
@@ -231,7 +231,7 @@ The exam is written and allows no technical aids. Most questions therefore ask f
     tc_o <= '1' when cnt = 7 else '0';
     ```
 
-77. **Clock Enable Instead of a Divided Clock**: The following code counts at half the clock frequency. Rewrite it with only one clock, an asynchronous active-low reset `rst_ni`, and a clock enable, so that the counter still advances at every second rising edge of `clk_i`. What does a simulation of the original show, since `div_q` has no reset, and why does your version not have this problem?
+77. **Clock Enable Instead of a Divided Clock**: The following code counts at half the clock frequency. Rewrite it with only one clock, an asynchronous active-low reset `rst_ni`, and a clock enable, so that the counter still advances at every second rising edge of `clk_i`. What does a simulation of the original with Icarus Verilog show, since `div_q` has no reset, and why does your version not have this problem?
 
     ```systemverilog
     always_ff @(posedge clk_i) begin
