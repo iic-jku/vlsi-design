@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Simon Dorrer">
-<meta name="dcterms.date" content="2026-11-03">
+<meta name="dcterms.date" content="2026-11-04">
 
 <title>VLSI Design</title>
 <style>
@@ -665,7 +665,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">November 3, 2026</p>
+      <p class="date">November 4, 2026</p>
     </div>
   </div>
   
@@ -708,7 +708,7 @@ Important
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Please use the IIC-OSIC-TOOLS image with tag <code>2026.10</code> or later. It contains all tools and the PDK used in this course. Inside the container, <code>echo $IIC_OSIC_TOOLS_VERSION</code> prints the tag. An existing container keeps its image when it is started again, so to update, remove the container (the start script offers this), pull the new image with <code>docker pull hpretl/iic-osic-tools:latest</code>, and run the start script again. Your designs in <code>/foss/designs</code> are kept (<a href="#sec-intro-install-local" class="quarto-xref">Section&nbsp;1.13.1</a>).</p>
+<p>Please use the IIC-OSIC-TOOLS image with tag <code>2026.10</code> or later. It contains all tools and the PDK used in this course. Inside the container, <code>echo $IIC_OSIC_TOOLS_VERSION</code> prints the tag. An existing container keeps its image when it is started again, so to update, remove the container (the <code>.sh</code> start scripts offer this, the <code>.bat</code> scripts print the command), pull the new image with <code>docker pull hpretl/iic-osic-tools:latest</code>, and run the start script again. Your designs in <code>/foss/designs</code> are kept (<a href="#sec-intro-install-local" class="quarto-xref">Section&nbsp;1.13.1</a>).</p>
 </div>
 </div>
 <section id="sec-intro-ai" class="level2" data-number="1.1">
@@ -790,7 +790,7 @@ Important
 <h2 data-number="1.5" class="anchored" data-anchor-id="sec-intro-grading"><span class="header-section-number">1.5</span> Grading</h2>
 <p>The grade consists of two equally weighted parts:</p>
 <ul>
-<li><strong>Part 1, Theory (50 %)</strong>: The theoretical lectures are mixed with small examples. This part is assessed by a <strong>written exam before Christmas</strong>. The exact date is announced in the lecture. The exam is closed book, allows no technical aids, and is assembled from the questions in <a href="#sec-app-exam" class="quarto-xref">Section&nbsp;12</a>.</li>
+<li><strong>Part 1, Theory (50 %)</strong>: The theoretical lectures are mixed with small examples. This part is assessed by a <strong>written exam before Christmas, on December 17, 2026</strong>. The exam is closed book, allows no technical aids, and is based on the questions in <a href="#sec-app-exam" class="quarto-xref">Section&nbsp;12</a>, partly with other numbers, circuits, or code.</li>
 <li><strong>Part 2, Project (50 %)</strong>: You implement a complete, <strong>tapeout-ready RISC-V SoC</strong> with your <strong>own extension</strong> (analog or digital) and present your work in an <strong>oral presentation</strong> (<a href="#sec-project" class="quarto-xref">Section&nbsp;11</a>).</li>
 </ul>
 <div class="callout callout-style-default callout-tip callout-titled">
@@ -819,7 +819,7 @@ Tip
 </section>
 <section id="sec-intro-taxonomy" class="level2" data-number="1.7">
 <h2 data-number="1.7" class="anchored" data-anchor-id="sec-intro-taxonomy"><span class="header-section-number">1.7</span> A Taxonomy of ASICs</h2>
-<p>ASIC implementation styles trade off non-recurring engineering (NRE) cost, unit cost, performance, and design effort. <a href="#tbl-asic-styles" class="quarto-xref">Table&nbsp;1</a> compares them, from programmable logic devices (PLDs) and field-programmable gate arrays (FPGAs) to full-custom ICs. The more masks a style needs, the higher its NRE cost, and the lower its unit cost at high volume.</p>
+<p>ASIC implementation styles trade off non-recurring engineering (NRE) cost, unit cost, performance, and design effort. <a href="#tbl-asic-styles" class="quarto-xref">Table&nbsp;1</a> compares them, from programmable logic devices (PLDs) and field-programmable gate arrays (FPGAs) to full-custom ICs. The more masks and design effort a style needs, the higher its NRE cost, and the lower its unit cost at high volume.</p>
 <div id="tbl-asic-styles" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-asic-styles-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -927,7 +927,7 @@ Table&nbsp;2: Steps of the RTL-to-GDSII flow, the open-source tools used for the
 </tr>
 <tr class="even">
 <td style="text-align: left;">RTL, pre- and post-layout simulation</td>
-<td style="text-align: left;">cocotb with Icarus Verilog or Verilator, waveforms in GTKWave or Surfer</td>
+<td style="text-align: left;">cocotb or a SystemVerilog testbench with Icarus Verilog or Verilator, waveforms in GTKWave or Surfer</td>
 <td style="text-align: left;"><a href="#sec-verification" class="quarto-xref">Section&nbsp;4</a>, <a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a></td>
 </tr>
 <tr class="odd">
@@ -937,7 +937,7 @@ Table&nbsp;2: Steps of the RTL-to-GDSII flow, the open-source tools used for the
 </tr>
 <tr class="even">
 <td style="text-align: left;">Logic equivalence checking</td>
-<td style="text-align: left;">EQY (Yosys)</td>
+<td style="text-align: left;">EQY, Yosys <code>equiv_*</code> commands</td>
 <td style="text-align: left;"><a href="#sec-synthesis-lib" class="quarto-xref">Section&nbsp;5</a>, <a href="#sec-dft" class="quarto-xref">Section&nbsp;9</a>, <a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a></td>
 </tr>
 <tr class="odd">
@@ -1069,8 +1069,8 @@ Table&nbsp;3: A selection of the tools and PDKs in the IIC-OSIC-TOOLS container
 <li>layout checks of the analog and digital blocks (DRC, LVS, and parasitic extraction, PEX)</li>
 <li>digital-on-top assembly of the chip top level and its layout check (DRC), including
 <ul>
-<li>seal ring and padframe generation,</li>
-<li>macro placement and wiring, also with non-default rules (NDRs), and</li>
+<li>seal ring and padframe generation</li>
+<li>macro placement and wiring, also with non-default rules (NDRs)</li>
 <li>logo and fill insertion</li>
 </ul></li>
 <li>full top-level LVS and simulation without black-boxing</li>
@@ -1085,7 +1085,7 @@ Table&nbsp;3: A selection of the tools and PDKs in the IIC-OSIC-TOOLS container
 <li><code>make build-all</code> builds the bondpad, the logos, all enabled macros, and finally the chip top level (LibreLane assembly, reports, GDS, netlists, logo and fill insertion, and renders)</li>
 <li><code>make magic-drc</code> (or <code>make klayout-drc</code>) checks the final layout of the chip</li>
 <li><code>make sim-all</code> simulates the chip (RTL and gate-level simulation with cocotb, gate-level simulation with Xschem)</li>
-<li><code>make bondplan</code> generates the bonding diagram for packaging.</li>
+<li><code>make bondplan</code> generates the bonding diagram for packaging</li>
 </ol>
 <p>Targets that build an intellectual property (IP) block or a macro recursively call the <code>Makefile</code> of that block.</p>
 </section>
@@ -5489,7 +5489,7 @@ cycle 3: busy_o=1 done_o=0</code></pre>
 </section>
 <section id="sec-modeling-fpga" class="level2" data-number="3.4">
 <h2 data-number="3.4" class="anchored" data-anchor-id="sec-modeling-fpga"><span class="header-section-number">3.4</span> FPGA Habits That Break on an ASIC</h2>
-<p>Many of you have designed for FPGAs, and FPGA tools are forgiving. The bitstream initializes every flip-flop of an FPGA based on static RAM (SRAM), the synthesis tool maps arrays and multiplications onto the block RAMs and multipliers of the FPGA, and clock managers and global clock buffers are available as primitives. On an ASIC, every gate comes from the standard-cell library, and the only larger blocks are the macros of the PDK, such as SRAMs and I/O cells. <a href="#tbl-modeling-fpga" class="quarto-xref">Table&nbsp;22</a> lists the habits that do not carry over.</p>
+<p>Many of you have designed for FPGAs, and FPGA tools are forgiving. The bitstream initializes every flip-flop of an FPGA based on static RAM (SRAM), the synthesis tool maps arrays and multiplications onto the block RAMs and multipliers of the FPGA, and clock managers and global clock buffers are available as primitives. On an ASIC, every gate comes from the standard-cell library, and the only larger blocks are the macros of the PDK, such as SRAMs and IO cells. <a href="#tbl-modeling-fpga" class="quarto-xref">Table&nbsp;22</a> lists the habits that do not carry over.</p>
 <div id="tbl-modeling-fpga" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-modeling-fpga-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -10743,7 +10743,7 @@ Figure&nbsp;44: A floorplan, not to scale. The core inside the die holds rows of
 <div class="callout-body-container callout-body">
 <ol type="1">
 <li>The synthesized cells take 13,008.1 µm², so the core needs 26,016 µm², an edge of 161.3 µm. That fits 42 rows of 3.78 µm (158.76 µm) and 336 sites of 0.48 µm (161.28 µm). Metal1 rails run along the rows. Over the 161 µm of the core, the Metal4 straps every 50 µm make 4 for <code>VDD</code> and 3 for <code>VSS</code>, alternating, and TopMetal1 has 3 pairs. The pins sit on all four edges.</li>
-<li>The rows fill 161.28 × 158.76 µm, 25,604.8 µm², with 42 rows of 336 sites. The die is 172.82 × 191.54 µm: the computed edge of 161.30 µm plus margins of 12 sites (5.76 µm) left and right and of 4 rows (15.12 µm) at the bottom and top. Of the computed square, 0.02 µm at the right and 2.54 µm at the top do not fill a whole site or row and stay empty. The finished layout reports 58.7 % utilization, 15,023.2 µm² of cells, because placement, clock tree synthesis, and timing repair added 2015 µm² of buffers and larger cells.</li>
+<li>The rows fill 161.28 µm × 158.76 µm, 25,604.8 µm², with 42 rows of 336 sites. The die is 172.82 µm × 191.54 µm: the computed edge of 161.30 µm plus margins of 12 sites (5.76 µm) left and right and of 4 rows (15.12 µm) at the bottom and top. Of the computed square, 0.02 µm at the right and 2.54 µm at the top do not fill a whole site or row and stay empty. The finished layout reports 58.7 % utilization, 15,023.2 µm² of cells, because placement, clock tree synthesis, and timing repair added 2015 µm² of buffers and larger cells.</li>
 <li>With 75 %, the core shrinks to 16,903 µm², and the finished layout fills 89.2 % of it. The detailed router starts with 1139 instead of 683 violations and needs 6 instead of 4 iterations, the wire length grows from 40,693 to 45,974 µm, and the worst setup slack in the typical corner drops from 1.075 to 0.997 ns. The core is 34 % smaller, but harder to route and slower. For a macro that the parent places in a fixed slot, the margin is worth more.</li>
 </ol>
 </div>
@@ -10815,10 +10815,10 @@ Figure&nbsp;44: A floorplan, not to scale. The core inside the die holds rows of
 <div id="fig-digital-flow-layout" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Layout of a rectangular block, slightly taller than wide, densely filled with rows of standard cells and covered by a mesh of vertical and horizontal wires, with pins along all four edges.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-digital-flow-layout-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="./figures/digital_flow/bs_reg_layout.png" class="lightbox" data-gallery="quarto-lightbox-gallery-46" title="Figure&nbsp;45: The finished layout of bs_reg, 172.82 × 191.54 µm, rendered by LibreLane. The rows of cells fill the core, the signal wires run vertically on Metal2 and Metal4 and horizontally on Metal3 and TopMetal1, and the pins sit on the edges of the die."><img src="./figures/digital_flow/bs_reg_layout.png" class="img-fluid figure-img" style="width:80.0%" alt="Layout of a rectangular block, slightly taller than wide, densely filled with rows of standard cells and covered by a mesh of vertical and horizontal wires, with pins along all four edges."></a>
+<a href="./figures/digital_flow/bs_reg_layout.png" class="lightbox" data-gallery="quarto-lightbox-gallery-46" title="Figure&nbsp;45: The finished layout of bs_reg, 172.82 µm × 191.54 µm, rendered by LibreLane. The rows of cells fill the core, the signal wires run vertically on Metal2 and Metal4 and horizontally on Metal3 and TopMetal1, and the pins sit on the edges of the die."><img src="./figures/digital_flow/bs_reg_layout.png" class="img-fluid figure-img" style="width:80.0%" alt="Layout of a rectangular block, slightly taller than wide, densely filled with rows of standard cells and covered by a mesh of vertical and horizontal wires, with pins along all four edges."></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-digital-flow-layout-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;45: The finished layout of <code>bs_reg</code>, 172.82 × 191.54 µm, rendered by LibreLane. The rows of cells fill the core, the signal wires run vertically on Metal2 and Metal4 and horizontally on Metal3 and TopMetal1, and the pins sit on the edges of the die.
+Figure&nbsp;45: The finished layout of <code>bs_reg</code>, 172.82 µm × 191.54 µm, rendered by LibreLane. The rows of cells fill the core, the signal wires run vertically on Metal2 and Metal4 and horizontally on Metal3 and TopMetal1, and the pins sit on the edges of the die.
 </figcaption>
 </figure>
 </div>
@@ -11105,7 +11105,7 @@ Figure&nbsp;46: Worst setup slack of <code>bs_reg</code> at 250 MHz in the typic
 <h2 data-number="10.9" class="anchored" data-anchor-id="sec-digital-flow-chip"><span class="header-section-number">10.9</span> Chip Assembly</h2>
 <p>A macro is not yet a chip. The chip top level of the AMS chip template (<a href="#sec-intro-template" class="quarto-xref">Section&nbsp;1.10</a>) places the macros into a core and surrounds it with a <strong>padframe</strong>: a ring of IO cells, each with its bondpad, which drive the signals off the chip, protect the inputs against electrostatic discharge, and bring in the supplies (<a href="#fig-digital-flow-chip" class="quarto-xref">Figure&nbsp;47</a>). It runs LibreLane’s <strong>Chip</strong> flow, the Classic flow with additional steps: one builds the padframe, one draws the <strong>seal ring</strong>, a wall of all metal and via layers along the edge of the die that stops cracks from the sawing and keeps moisture out, and two insert the fill and check its density. In its configuration, <code>flow/librelane/config.yaml</code> of the template:</p>
 <ul>
-<li>The die is 1.6 × 1.6 mm, with the core from 365 to 1235 µm in both directions, and the clock is 20 ns.</li>
+<li>The die is 1.6 mm × 1.6 mm, with the core from 365 to 1235 µm in both directions, and the clock is 20 ns.</li>
 <li>Four lists, <code>PAD_WEST</code>, <code>PAD_NORTH</code>, <code>PAD_SOUTH</code>, and <code>PAD_EAST</code>, name the 32 pad instances of the RTL in the order in which they line up on each side: inputs, outputs, bidirectional pads with the tri-state drivers of <a href="#sec-modeling-tristate" class="quarto-xref">Section&nbsp;3.4.4</a>, analog pads, and the supply pads for the core (<code>VDD</code>, <code>VSS</code>, 1.5 V) and for the IO cells (<code>IOVDD</code>, <code>IOVSS</code>, 3.3 V).</li>
 <li>The timing is signed off for both core supplies of the PDK, in the typical, slow, and fast corners at 1.2 V and at 1.5 V, with the typical corner at 1.5 V as the default.</li>
 <li>The block <code>MACROS</code> lists each macro with its GDSII and LEF and, where they exist, its netlists, parasitics, and timing models per corner, and places its instances at fixed positions and orientations. <code>PDN_MACRO_CONNECTIONS</code> connects the two supply pairs of the SRAM to the grid of the core, and the other macros get their supplies through their power pins in the RTL.</li>
@@ -11116,10 +11116,10 @@ Figure&nbsp;46: Worst setup slack of <code>bs_reg</code> at 250 MHz in the typic
 <div id="fig-digital-flow-chip" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Layout of a square chip with a ring of bondpads and IO cells along the four edges, a supply ring inside it, and several rectangular macros in the core, the largest one an SRAM.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-digital-flow-chip-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="./figures/digital_flow/chip_top_librelane.png" class="lightbox" data-gallery="quarto-lightbox-gallery-48" title="Figure&nbsp;47: The chip top level of the AMS chip template on SG13CMOS5L, 1.6 × 1.6 mm, rendered by LibreLane before the seal ring and the fill: 32 bondpads with their IO cells on four sides, the core ring, and in the core the macros, an SRAM (green), two instances of the hardened counter, and two of the inverter, and the two logo macros in the upper corners."><img src="./figures/digital_flow/chip_top_librelane.png" class="img-fluid figure-img" style="width:80.0%" alt="Layout of a square chip with a ring of bondpads and IO cells along the four edges, a supply ring inside it, and several rectangular macros in the core, the largest one an SRAM."></a>
+<a href="./figures/digital_flow/chip_top_librelane.png" class="lightbox" data-gallery="quarto-lightbox-gallery-48" title="Figure&nbsp;47: The chip top level of the AMS chip template on SG13CMOS5L, 1.6 mm × 1.6 mm, rendered by LibreLane before the seal ring and the fill: 32 bondpads with their IO cells on four sides, the core ring, and in the core the macros, an SRAM (green), two instances of the hardened counter, and two of the inverter, and the two logo macros in the upper corners."><img src="./figures/digital_flow/chip_top_librelane.png" class="img-fluid figure-img" style="width:80.0%" alt="Layout of a square chip with a ring of bondpads and IO cells along the four edges, a supply ring inside it, and several rectangular macros in the core, the largest one an SRAM."></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-digital-flow-chip-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;47: The chip top level of the AMS chip template on SG13CMOS5L, 1.6 × 1.6 mm, rendered by LibreLane before the seal ring and the fill: 32 bondpads with their IO cells on four sides, the core ring, and in the core the macros, an SRAM (green), two instances of the hardened counter, and two of the inverter, and the two logo macros in the upper corners.
+Figure&nbsp;47: The chip top level of the AMS chip template on SG13CMOS5L, 1.6 mm × 1.6 mm, rendered by LibreLane before the seal ring and the fill: 32 bondpads with their IO cells on four sides, the core ring, and in the core the macros, an SRAM (green), two instances of the hardened counter, and two of the inverter, and the two logo macros in the upper corners.
 </figcaption>
 </figure>
 </div>
@@ -11157,7 +11157,7 @@ Note
 <section id="sec-app-exam" class="level1" data-number="12">
 <h1 data-number="12"><span class="header-section-number">12</span> Appendix: Exam Questions</h1>
 <p>This appendix collects possible questions for the written exam (<a href="#sec-intro-grading" class="quarto-xref">Section&nbsp;1.5</a>), grouped by the chapters of the course. The last two sections hold calculation problems and problems in which you read, write, or fix code, constraints, and reports. The exam is based on these questions, partly with other numbers, circuits, or code.</p>
-<p>The exam is written and allows no technical aids. Most questions therefore ask for an explanation, often with a sketch, and the calculations need only simple arithmetic, with every value and constant given in the question. If you have worked through the exercises of the chapters, you have practiced most of what these questions ask. The practical work with the tools is assessed in the project (<a href="#sec-project" class="quarto-xref">Section&nbsp;11</a>).</p>
+<p>The written exam is closed book and allows no technical aids. Most questions therefore ask for an explanation, often with a sketch, and the calculations need only simple arithmetic, with every value and constant given in the question. If you have worked through the exercises of the chapters, you have practiced most of what these questions ask. The practical work with the tools is assessed in the project (<a href="#sec-project" class="quarto-xref">Section&nbsp;11</a>).</p>
 <section id="sec-app-exam-intro" class="level2" data-number="12.1">
 <h2 data-number="12.1" class="anchored" data-anchor-id="sec-app-exam-intro"><span class="header-section-number">12.1</span> Introduction</h2>
 <ol type="1">
@@ -11332,7 +11332,7 @@ Note
 <span id="cb178-18"><a href="#cb178-18" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span> <span class="kw">process</span> cnt_logic;</span>
 <span id="cb178-19"><a href="#cb178-19" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb178-20"><a href="#cb178-20" aria-hidden="true" tabindex="-1"></a>tc_o <span class="ot">&lt;=</span> <span class="bn">'1'</span> <span class="kw">when</span> cnt <span class="ot">=</span> <span class="dv">7</span> <span class="kw">else</span> <span class="bn">'0'</span>;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
-<li><p><strong>Clock Enable Instead of a Divided Clock</strong>: The following code counts at half the clock frequency. Rewrite it with only one clock, an asynchronous active-low reset <code>rst_ni</code>, and a clock enable, so that the counter still advances at every second rising edge of <code>clk_i</code>. What does a simulation of the original show, since <code>div_q</code> has no reset, and why does your version not have this problem?</p>
+<li><p><strong>Clock Enable Instead of a Divided Clock</strong>: The following code counts at half the clock frequency. Rewrite it with only one clock, an asynchronous active-low reset <code>rst_ni</code>, and a clock enable, so that the counter still advances at every second rising edge of <code>clk_i</code>. What does a simulation of the original with Icarus Verilog show, since <code>div_q</code> has no reset, and why does your version not have this problem?</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb179"><pre class="sourceCode systemverilog code-with-copy"><code class="sourceCode systemverilog"><span id="cb179-1"><a href="#cb179-1" aria-hidden="true" tabindex="-1"></a><span class="kw">always_ff</span> @(<span class="kw">posedge</span> clk_i) <span class="kw">begin</span></span>
 <span id="cb179-2"><a href="#cb179-2" aria-hidden="true" tabindex="-1"></a>  div_q &lt;= ~div_q;</span>
 <span id="cb179-3"><a href="#cb179-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
@@ -11504,12 +11504,12 @@ YosysHQ. 2026b. <em><span>MCY</span>: Mutation Cover with <span>Yosys</span></em
 </div></section><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div>Apache-2.0 license</div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><div class="code-copy-outer-scaffold"><pre class="sourceCode quarto-appendix-bibtex code-with-copy"><code class="sourceCode bibtex">@online{dorrer2026,
   author = {Dorrer, Simon},
   title = {VLSI {Design}},
-  date = {2026-11-03},
+  date = {2026-11-04},
   url = {https://iic-jku.github.io/vlsi-design},
   langid = {en-US}
 }
 </code></pre><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-dorrer2026" class="csl-entry quarto-appendix-citeas" role="listitem">
-Dorrer, Simon. 2026. <span>“VLSI Design.”</span> November 3. <a href="https://iic-jku.github.io/vlsi-design">https://iic-jku.github.io/vlsi-design</a>.
+Dorrer, Simon. 2026. <span>“VLSI Design.”</span> November 4. <a href="https://iic-jku.github.io/vlsi-design">https://iic-jku.github.io/vlsi-design</a>.
 </div></div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
