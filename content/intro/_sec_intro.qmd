@@ -101,7 +101,7 @@ These notes are self-contained but kept concise. For depth we recommend:
 
 The grade consists of two equally weighted parts:
 
-- **Part 1, Theory (50 %)**: The theoretical lectures are mixed with small examples. This part is assessed by a **written exam before Christmas**. The exact date is announced in the lecture. The exam is closed book, allows no technical aids, and is based on the questions in @sec-app-exam, partly with other numbers, circuits, or code.
+- **Part 1, Theory (50 %)**: The theoretical lectures are mixed with small examples. This part is assessed by a **written exam before Christmas, on December 17, 2026**. The exam is closed book, allows no technical aids, and is based on the questions in @sec-app-exam, partly with other numbers, circuits, or code.
 - **Part 2, Project (50 %)**: You implement a complete, **tapeout-ready RISC-V SoC** with your **own extension** (analog or digital) and present your work in an **oral presentation** (@sec-project).
 
 ::: {.callout-tip}
