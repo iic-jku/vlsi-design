@@ -27,7 +27,7 @@ Please feel free to submit pull requests on GitHub to fix errors and omissions!
 :::
 
 ::: {.callout-important}
-Please use the IIC-OSIC-TOOLS image with tag `2026.10` or later. It contains all tools and the PDK used in this course. Inside the container, `echo $IIC_OSIC_TOOLS_VERSION` prints the tag. An existing container keeps its image when it is started again, so to update, remove the container (the start script offers this), pull the new image with `docker pull hpretl/iic-osic-tools:latest`, and run the start script again. Your designs in `/foss/designs` are kept (@sec-intro-install-local).
+Please use the IIC-OSIC-TOOLS image with tag `2026.10` or later. It contains all tools and the PDK used in this course. Inside the container, `echo $IIC_OSIC_TOOLS_VERSION` prints the tag. An existing container keeps its image when it is started again, so to update, remove the container (the `.sh` start scripts offer this, the `.bat` scripts print the command), pull the new image with `docker pull hpretl/iic-osic-tools:latest`, and run the start script again. Your designs in `/foss/designs` are kept (@sec-intro-install-local).
 :::
 
 ## Preamble on the Use of AI {#sec-intro-ai}
@@ -101,7 +101,7 @@ These notes are self-contained but kept concise. For depth we recommend:
 
 The grade consists of two equally weighted parts:
 
-- **Part 1, Theory (50 %)**: The theoretical lectures are mixed with small examples. This part is assessed by a **written exam before Christmas**. The exact date is announced in the lecture. The exam is closed book, allows no technical aids, and is assembled from the questions in @sec-app-exam.
+- **Part 1, Theory (50 %)**: The theoretical lectures are mixed with small examples. This part is assessed by a **written exam before Christmas**. The exact date is announced in the lecture. The exam is closed book, allows no technical aids, and is based on the questions in @sec-app-exam, partly with other numbers, circuits, or code.
 - **Part 2, Project (50 %)**: You implement a complete, **tapeout-ready RISC-V SoC** with your **own extension** (analog or digital) and present your work in an **oral presentation** (@sec-project).
 
 ::: {.callout-tip}
@@ -120,7 +120,7 @@ Historically, the cost *per transistor* has fallen by orders of magnitude as int
 
 ## A Taxonomy of ASICs {#sec-intro-taxonomy}
 
-ASIC implementation styles trade off non-recurring engineering (NRE) cost, unit cost, performance, and design effort. @tbl-asic-styles compares them, from programmable logic devices (PLDs) and field-programmable gate arrays (FPGAs) to full-custom ICs. The more masks a style needs, the higher its NRE cost, and the lower its unit cost at high volume.
+ASIC implementation styles trade off non-recurring engineering (NRE) cost, unit cost, performance, and design effort. @tbl-asic-styles compares them, from programmable logic devices (PLDs) and field-programmable gate arrays (FPGAs) to full-custom ICs. The more masks and design effort a style needs, the higher its NRE cost, and the lower its unit cost at high volume.
 
 | Style | Masks | Effort | NRE / unit cost | Typical use |
 |:-----------------------|:-----------------|:------------|:--------------------|:----------------------------|
@@ -150,9 +150,9 @@ Besides these steps, **design for test** inserts scan chains so that every fabri
 | Flow step | Open-source tool | Covered in |
 |:----------------------------------|:------------------------------------|:------------------------------|
 | HDL | SystemVerilog | @sec-sv-crashcourse, @sec-modeling |
-| RTL, pre- and post-layout simulation | cocotb with Icarus Verilog or Verilator, waveforms in GTKWave or Surfer | @sec-verification, @sec-digital-flow |
+| RTL, pre- and post-layout simulation | cocotb or a SystemVerilog testbench with Icarus Verilog or Verilator, waveforms in GTKWave or Surfer | @sec-verification, @sec-digital-flow |
 | Logic synthesis | Yosys | @sec-synthesis-lib, @sec-synth-opt |
-| Logic equivalence checking | EQY (Yosys) | @sec-synthesis-lib, @sec-dft, @sec-digital-flow |
+| Logic equivalence checking | EQY, Yosys `equiv_*` commands | @sec-synthesis-lib, @sec-dft, @sec-digital-flow |
 | Scan insertion and test generation | OpenROAD, Fault | @sec-dft |
 | Floorplanning, placement, CTS, routing | OpenROAD | @sec-digital-flow |
 | Parasitic extraction | OpenRCX | @sec-digital-flow |
@@ -204,8 +204,8 @@ The Makefile-driven flow of the template covers:
 - simulation of all analog testbenches, including process, voltage, and temperature (PVT) corners and Monte Carlo (MC) analysis
 - layout checks of the analog and digital blocks (DRC, LVS, and parasitic extraction, PEX)
 - digital-on-top assembly of the chip top level and its layout check (DRC), including
-    - seal ring and padframe generation,
-    - macro placement and wiring, also with non-default rules (NDRs), and
+    - seal ring and padframe generation
+    - macro placement and wiring, also with non-default rules (NDRs)
     - logo and fill insertion
 - full top-level LVS and simulation without black-boxing
 - generation of the bonding diagram
@@ -219,7 +219,7 @@ At the top level, `make all` runs four steps:
 1. `make build-all` builds the bondpad, the logos, all enabled macros, and finally the chip top level (LibreLane assembly, reports, GDS, netlists, logo and fill insertion, and renders)
 2. `make magic-drc` (or `make klayout-drc`) checks the final layout of the chip
 3. `make sim-all` simulates the chip (RTL and gate-level simulation with cocotb, gate-level simulation with Xschem)
-4. `make bondplan` generates the bonding diagram for packaging.
+4. `make bondplan` generates the bonding diagram for packaging
 
 Targets that build an intellectual property (IP) block or a macro recursively call the `Makefile` of that block.
 
