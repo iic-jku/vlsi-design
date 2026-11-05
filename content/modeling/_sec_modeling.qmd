@@ -333,6 +333,8 @@ An **exclusive counter** has eight outputs `q_o[7:0]`, of which exactly one is h
 - The synchronous clear `clr_i` makes `q_o[0]` high at the next rising clock edge. It has priority over `en_i`.
 - While `en_i` is high, the high bit moves up by one position at every rising clock edge and wraps around from `q_o[7]` to `q_o[0]`. While `en_i` is low, `q_o` keeps its value.
 
+For example, a 3-bit one-hot counter cycles through this repeating sequence: `001`, `010`, `100` and then loops back to `001`. A valid one-hot counter never displays `000` or multiple `1` simultaneously during normal operation.
+
 @fig-modeling-excl shows two architectures for this function. The first one counts in binary with three flip-flops and decodes the count into the one-hot code:
 
 {{< include /content/modeling/_fig_excl.qmd >}}
