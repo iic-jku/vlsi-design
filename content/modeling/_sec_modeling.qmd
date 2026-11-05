@@ -229,7 +229,7 @@ The RTL simulation honors the initial values, and the counter starts at zero in 
 
 ### Clock Dividers and Clock Enables {#sec-modeling-clken}
 
-On an FPGA, it is common to divide a clock with a register and to clock another register with its output, as in @fig-modeling-clkdiv (a). On an ASIC, such a divided clock causes several problems:
+On an FPGA, it is sometimes common (but not recommended) to divide a clock with a register and to clock another register with its output, as in @fig-modeling-clkdiv (a). On an ASIC, such a divided clock causes several problems:
 
 - **A second clock.** All registers clocked by `slow_clk_q` run on a clock of their own. It is derived from `clk_i`, so the paths between the two clocks are synchronous and can be timed, but each of them must be timed with the delay between the two clock edges.
 - **A second clock tree.** Clock tree synthesis (@sec-digital-flow) builds a balanced tree for every clock. The divided clock arrives later than `clk_i` by the clock-to-output delay of the divider and the delay of its own tree, so the two clocks are skewed, which leads to hold violations on the paths between them unless the trees are balanced against each other.
