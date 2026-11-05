@@ -381,10 +381,11 @@ Neither architecture is better in general: the requirements decide. Note what di
 ::: {.callout-tip title="Exercise: A Third Architecture, the Johnson Counter"}
 A **Johnson counter** (twisted ring counter) of four flip-flops `s_q[3:0]` shifts left and feeds the inverted most significant bit back into the least significant bit: `s_d = {s_q[2:0], ~s_q[3]}`. As an exclusive counter, the reset and `clr_i` load `0000`, and the k-th state of the sequence (counted from 0) drives `q_o[k]`. Change into the folder `content/modeling/code` of the course repository. The folder `excl_cnt/rtl` already holds the solution, so move it out of the way first with `mv excl_cnt/rtl/excl_cnt_johnson.sv excl_cnt_johnson_solution.sv`.
 
-1. Starting from `0000`, write down the sequence of its states. After how many steps does it repeat? Draw the block diagram of an exclusive counter built from a Johnson counter and a decoder, in the style of @fig-modeling-excl.
-2. In the sequence, every state differs from the next one in exactly one bit. Show that two neighboring bits of the ring identify every state (`s_q[3]` and `s_q[0]` count as neighbors too), and write down the decoder for the eight outputs with one 2-input AND gate each (inputs may be inverted).
-3. Implement `excl_cnt_johnson` in `excl_cnt/rtl/excl_cnt_johnson.sv` with the same ports and behavior as the other two architectures. Lint it and run the testbench in `excl_cnt/testbenches/cocotb` with `TOPLEVEL=excl_cnt_johnson python3 excl_cnt_tb.py`.
-4. Synthesize your design onto SG13CMOS5L cells and analyze its timing, both in the folder `excl_cnt`:
+1. Draw the Johnson counter with its four flip-flops, in the style of @fig-modeling-excl (b): the connections between the flip-flops, the inverted feedback, and a decoder block that generates `q_o`. As in that figure, leave out the clock and reset wires and the multiplexers for `clr_i` and `en_i`.
+2. Starting from `0000`, write down the sequence of its states. After how many steps does it repeat?
+3. In the sequence, every state differs from the next one in exactly one bit. Show that two neighboring bits of the ring identify every state (`s_q[3]` and `s_q[0]` count as neighbors too), and write down the decoder for the eight outputs with one 2-input AND gate each (inputs may be inverted).
+4. Implement `excl_cnt_johnson` in `excl_cnt/rtl/excl_cnt_johnson.sv` with the same ports and behavior as the other two architectures. Lint it and run the testbench in `excl_cnt/testbenches/cocotb` with `TOPLEVEL=excl_cnt_johnson python3 excl_cnt_tb.py`.
+5. Synthesize your design onto SG13CMOS5L cells and analyze its timing, both in the folder `excl_cnt`:
 
    ```bash
    yosys -p "read_verilog -sv rtl/excl_cnt_johnson.sv; \
@@ -395,22 +396,26 @@ A **Johnson counter** (twisted ring counter) of four flip-flops `s_q[3:0]` shift
    ```
 
    Add a column to @tbl-modeling-excl.
-5. Rank the three architectures by area and by speed. Which one would you choose (a) for the smallest area, (b) for outputs that go to another clock domain, where a glitch can be captured as a pulse, and (c) for the highest clock frequency?
+6. Rank the three architectures by area and by speed. Which one would you choose (a) for the smallest area, (b) for outputs that go to another clock domain, where a glitch can be captured as a pulse, and (c) for the highest clock frequency?
 :::
 
 Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
 
 ::: {.callout-tip title="Solution: A Third Architecture, the Johnson Counter" collapse="true"}
-1. The sequence is `0000`, `0001`, `0011`, `0111`, `1111`, `1110`, `1100`, `1000`, and then `0000` again: four flip-flops pass through eight states. The block diagram is @fig-modeling-excl (a) with a 4-bit register `s_q` in place of `cnt_q`, a shift with the inverted feedback in place of the incrementer, and a decoder from 4 to 8 bits.
-2. Within the sequence, the ones fill up from the right and then the zeros. A state is therefore identified by the position of its single 0-1 or 1-0 edge between two neighboring bits, or, for `0000` and `1111`, by the equal bits `s_q[3]` and `s_q[0]` at both ends. Each output is one 2-input AND gate, as in the decoder of the following listing.
+1. @fig-modeling-johnson shows the counter. It is the ring of @fig-modeling-excl (b) with four flip-flops and an inverter in the feedback, plus a decoder as in @fig-modeling-excl (a), here from 4 to 8 bits.
+
+{{< include /content/modeling/_fig_johnson.qmd >}}
+
+2. The sequence is `0000`, `0001`, `0011`, `0111`, `1111`, `1110`, `1100`, `1000`, and then `0000` again: four flip-flops pass through eight states.
+3. Within the sequence, the ones fill up from the right and then the zeros. A state is therefore identified by the position of its single 0-1 or 1-0 edge between two neighboring bits, or, for `0000` and `1111`, by the equal bits `s_q[3]` and `s_q[0]` at both ends. Each output is one 2-input AND gate, as in the decoder of the following listing.
 
 ```{.systemverilog filename="excl_cnt/rtl/excl_cnt_johnson.sv"}
 {{< include /content/modeling/code/excl_cnt/rtl/excl_cnt_johnson.sv >}}
 ```
 
-3. Lint and all three tests pass (`TESTS=3 PASS=3 FAIL=0 SKIP=0`).
-4. The Johnson counter needs 4 flip-flops and 24 cells with 368.3 µm². Its longest path from the clock to an output and its longest path between two flip-flops are both 0.35 ns.
-5. By area, the binary version is the smallest (308.4 µm²), followed by the Johnson counter (368.3 µm²) and the ring (553.2 µm²). By speed, the ring is the fastest (0.23 ns from the clock to an output), followed by the Johnson counter (0.35 ns) and the binary version (0.49 ns). (a) The binary version is the smallest, and its outputs are one-hot by construction. (b) Only the ring has outputs that come directly from flip-flops and never glitch. The Johnson counter comes close: while it counts, only one bit of its state changes per step, and each output depends on only two bits, so a decoder of 2-input gates cannot glitch, unlike the binary decoder, where up to three bits change at once. A clear from, e.g., `0111` to `0000`, however, changes three bits at once, and then the Johnson decoder can glitch as well. (c) For the highest clock frequency, the ring is the best choice. Like the ring, the Johnson counter needs its reset: its eight unused states form a second cycle of their own, e.g., `0010`, `0101`, `1011`, in which several outputs are high, and the counter never leaves it without `clr_i`.
+4. Lint and all three tests pass (`TESTS=3 PASS=3 FAIL=0 SKIP=0`).
+5. The Johnson counter needs 4 flip-flops and 24 cells with 368.3 µm². Its longest path from the clock to an output and its longest path between two flip-flops are both 0.35 ns.
+6. By area, the binary version is the smallest (308.4 µm²), followed by the Johnson counter (368.3 µm²) and the ring (553.2 µm²). By speed, the ring is the fastest (0.23 ns from the clock to an output), followed by the Johnson counter (0.35 ns) and the binary version (0.49 ns). (a) The binary version is the smallest, and its outputs are one-hot by construction. (b) Only the ring has outputs that come directly from flip-flops and never glitch. The Johnson counter comes close: while it counts, only one bit of its state changes per step, and each output depends on only two bits, so a decoder of 2-input gates cannot glitch, unlike the binary decoder, where up to three bits change at once. A clear from, e.g., `0111` to `0000`, however, changes three bits at once, and then the Johnson decoder can glitch as well. (c) For the highest clock frequency, the ring is the best choice. Like the ring, the Johnson counter needs its reset: its eight unused states form a second cycle of their own, e.g., `0010`, `0101`, `1011`, in which several outputs are high, and the counter never leaves it without `clr_i`.
 :::
 
 ## Checklist for Synthesizable, ASIC-Ready RTL {#sec-modeling-checklist}
