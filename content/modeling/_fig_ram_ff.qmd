@@ -1,0 +1,106 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-modeling-ram-ff
+#| echo: false
+#| fig-cap: "`ram_ff` with `DEPTH = 2` and `WIDTH = 1` after synthesis with Yosys: three `sg13cmos5l_dfrbpq_1` flip-flops, three `sg13cmos5l_mux2_1` multiplexers, and two gates for the write decoder, whose functions label the selects of `mem_q[0]` and `mem_q[1]`. Input 0 of such a multiplexer feeds the output of the flip-flop back, so the bit keeps its value. Input 1 loads `wdata_i` while this word is written. The read multiplexer selects the word at `addr_i`, and `rdata_q` holds it for the next clock cycle. ABC maps the multiplexer of `mem_q[1]` with swapped inputs and an inverted select, which is the same function."
+#| fig-alt: "Schematic of three flip-flops and three multiplexers. wdata_i goes to input 1 of two multiplexers, one per stored bit. Each of them drives the D input of a flip-flop, mem_q[0] and mem_q[1], whose Q output returns to input 0 of the same multiplexer. The selects are we_i and not addr_i for mem_q[0], and we_i and addr_i for mem_q[1]. Both Q outputs go to a read multiplexer selected by addr_i, which drives the D input of the flip-flop rdata_q, whose output is rdata_o. clk_i clocks all three flip-flops."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+from schemdraw.elements import Element
+from schemdraw.segments import SegmentPoly, SegmentText
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+GREEN, GREEN_L = '#82b366', '#d5e8d4'
+Y0, Y1, YR = 2.4, -1.6, 0.4        # data rows of the two stored bits and of the read path
+XW, XF, XM, XC, XR = 0, 0.8, 1.5, 3.4, 4.1  # wdata_i, feedback, hold multiplexers, clock riser, flip-flops
+XQ, XV, XRM, XCR, XRF = 6.3, 6.9, 7.6, 8.8, 9.5  # Q nodes, read lane, read multiplexer, clock riser, rdata_q
+YCLK = -3.7                        # clock lane
+FW = 1.7                           # width of a flip-flop
+YL = 1.08                          # select labels below the select pins
+
+
+class Mux2(Element):
+    ''' 2:1 multiplexer as a trapezoid, input 0 on top, input 1 below, select at the bottom '''
+    def __init__(self, w: float = 0.6, h: float = 1.2, s: float = 0.25, **kwargs):
+        super().__init__(**kwargs)
+        self.segments.append(SegmentPoly([(0, -h/2), (0, h/2), (w, h/2 - s), (w, -h/2 + s)]))
+        self.segments.append(SegmentText((0.14, h/4), '0', fontsize=9, color='black'))
+        self.segments.append(SegmentText((0.14, -h/4), '1', fontsize=9, color='black'))
+        self.anchors['in0'] = (0, h/4)
+        self.anchors['in1'] = (0, -h/4)
+        self.anchors['out'] = (w, 0)
+        self.anchors['selbot'] = (w/2, -h/2 + s/2)
+        self.params['theta'] = 0
+
+
+def flop(x, y, name):
+    ''' Flip-flop with D and Q at row y and the clock pin below, returns the clock pin '''
+    flow.Box(w=FW, h=2.0).at((x + FW/2, y - 0.45)).anchor('center').fill(BLUE_L).color(BLUE)
+    elm.Label().at((x + 0.25, y)).label('D', color='black')
+    elm.Label().at((x + FW - 0.25, y)).label('Q', color='black')
+    elm.Label().at((x + FW/2, y - 0.5)).label(name, color='black')
+    yc = y - 1.0
+    flow.Line().at((x, yc + 0.2)).to((x + 0.3, yc)).color('black')
+    flow.Line().at((x + 0.3, yc)).to((x, yc - 0.2)).color('black')
+    return x, yc
+
+
+def stored_bit(y, name, select):
+    ''' One stored bit: multiplexer, flip-flop, and the feedback from Q to input 0, returns the clock pin '''
+    m = Mux2().at((XM, y + 0.3)).anchor('in0').fill(GREEN_L).color(GREEN)
+    flow.Arrow().at(m.out).to((XR, y))
+    clk = flop(XR, y, name)
+    flow.Line().at((XR + FW, y)).to((XQ, y))
+    elm.Dot(radius=0.06).at((XQ, y))
+    yt = y + 1.0
+    flow.Line().at((XQ, y)).to((XQ, yt))
+    flow.Line().at((XQ, yt)).to((XF, yt))
+    flow.Line().at((XF, yt)).to((XF, m.in0[1]))
+    flow.Arrow().at((XF, m.in0[1])).to(m.in0)
+    flow.Arrow().at((XW, m.in1[1])).to(m.in1)
+    flow.Arrow().at((m.selbot[0], m.selbot[1] - 0.75)).to(m.selbot)
+    elm.Label().at((m.selbot[0], m.selbot[1] - YL)).label(select, color='black')
+    return clk
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    clk0 = stored_bit(Y0, 'mem_q[0]', 'we_i &amp; !addr_i')   # the label text goes through an XML parser
+    clk1 = stored_bit(Y1, 'mem_q[1]', 'we_i &amp; addr_i')
+
+    # wdata_i reaches input 1 of both multiplexers
+    flow.Line().at((XW, Y0 - 0.3)).to((XW, Y1 - 0.3))
+    flow.Line().at((XW - 1.2, YR)).to((XW, YR)).label('wdata_i', 'top', color='black')
+    elm.Dot(radius=0.06).at((XW, YR))
+
+    # the read path: a multiplexer per output bit, and the register rdata_q
+    rm = Mux2().at((XRM, YR + 0.3)).anchor('in0').fill(GREEN_L).color(GREEN)
+    flow.Line().at((XQ, Y0)).to((XV, Y0))
+    flow.Line().at((XV, Y0)).to((XV, rm.in0[1]))
+    flow.Arrow().at((XV, rm.in0[1])).to(rm.in0)
+    flow.Line().at((XQ, Y1)).to((XV, Y1))
+    flow.Line().at((XV, Y1)).to((XV, rm.in1[1]))
+    flow.Arrow().at((XV, rm.in1[1])).to(rm.in1)
+    flow.Arrow().at((rm.selbot[0], rm.selbot[1] - 0.75)).to(rm.selbot)
+    elm.Label().at((rm.selbot[0], rm.selbot[1] - YL)).label('addr_i', color='black')
+    flow.Arrow().at(rm.out).to((XRF, YR))
+    clkr = flop(XRF, YR, 'rdata_q')
+    flow.Arrow().at((XRF + FW, YR)).to((XRF + FW + 1.2, YR)).label('rdata_o', 'top', color='black')
+
+    # clk_i clocks all flip-flops
+    flow.Line().at((XW - 1.2, YCLK)).to((XCR, YCLK))
+    elm.Label().at((XW - 1.2, YCLK + 0.25)).label('clk_i', halign='left', color='black')
+    flow.Line().at((XC, YCLK)).to((XC, clk0[1]))
+    flow.Arrow().at((XC, clk0[1])).to(clk0)
+    flow.Arrow().at((XC, clk1[1])).to(clk1)
+    elm.Dot(radius=0.06).at((XC, clk1[1]))
+    elm.Dot(radius=0.06).at((XC, YCLK))
+    flow.Line().at((XCR, YCLK)).to((XCR, clkr[1]))
+    flow.Arrow().at((XCR, clkr[1])).to(clkr)
+```

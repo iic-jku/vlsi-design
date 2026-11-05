@@ -282,13 +282,19 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 
 ### Memories: Flip-Flops or SRAM Macros {#sec-modeling-memory}
 
-On an FPGA, an array with a synchronous write and read infers a block RAM:
+On an FPGA, an array with a synchronous write and read, as in the following listing, infers the block RAM of @fig-modeling-bram:
+
+{{< include /content/modeling/_fig_bram.qmd >}}
 
 ```{.systemverilog filename="ram_ff/rtl/ram_ff.sv"}
 {{< include /content/modeling/code/ram_ff/rtl/ram_ff.sv >}}
 ```
 
-On an ASIC, Yosys builds the same RTL from standard cells: a flip-flop for every bit, a multiplexer in front of each flip-flop that keeps its value while the word is not written (the library has no flip-flop with an enable input), and a tree of multiplexers for the read port. For 256 words of 8 bits, it needs 2056 `sg13cmos5l_dfrbpq_1` flip-flops (2048 for the content and 8 for the read data), 2074 `sg13cmos5l_mux2_1` cells, most of them the multiplexers that keep the values, and 368 `sg13cmos5l_mux4_1` cells, most of them the read tree. In total, that is 165,743 µm² of cell area, or 81 µm² per bit. The SG13CMOS5L PDK, however, also provides SRAM macros (`$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_sram`). The single-port macro `RM_IHPSG13_1P_256x8_c3_bm_bist` stores the same 256 words of 8 bits in 236.8 µm × 74.1 µm = 17,547 µm², 8.6 µm² per bit, which is about 9.4 times less, even before the routing of the flip-flop version is counted. Even a memory of 32 words of 8 bits needs 20,944 µm² of flip-flops and multiplexers, more than the smallest SRAM macro of the PDK, `RM_IHPSG13_1P_64x16_c2` with 1024 bits in 236.8 µm × 64.36 µm = 15,240 µm².
+On an ASIC, Yosys builds the same RTL from standard cells: a flip-flop for every bit, a multiplexer in front of each flip-flop that keeps its value while the word is not written (the library has no flip-flop with an enable input), and a tree of multiplexers for the read port. @fig-modeling-ram-ff shows this structure for a very small memory of two words of one bit.
+
+{{< include /content/modeling/_fig_ram_ff.qmd >}}
+
+For 256 words of 8 bits, Yosys needs 2056 `sg13cmos5l_dfrbpq_1` flip-flops (2048 for the content and 8 for the read data), 2074 `sg13cmos5l_mux2_1` cells, most of them the multiplexers that keep the values, and 368 `sg13cmos5l_mux4_1` cells, most of them the read tree. In total, that is 165,743 µm² of cell area, or 81 µm² per bit. The SG13CMOS5L PDK, however, also provides SRAM macros (`$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_sram`). The single-port macro `RM_IHPSG13_1P_256x8_c3_bm_bist` stores the same 256 words of 8 bits in 236.8 µm × 74.1 µm = 17,547 µm², 8.6 µm² per bit, which is about 9.4 times less, even before the routing of the flip-flop version is counted. Even a memory of 32 words of 8 bits needs 20,944 µm² of flip-flops and multiplexers, more than the smallest SRAM macro of the PDK, `RM_IHPSG13_1P_64x16_c2` with 1024 bits in 236.8 µm × 64.36 µm = 15,240 µm².
 
 Use flip-flops for small memories, e.g., a first-in first-out buffer (FIFO) of a few words, and for memories with several read ports, such as the register file of a CPU with two read ports and one write port. The PDK has single-port macros (`RM_IHPSG13_1P_*`) and two-port macros (`RM_IHPSG13_2P_*`), but none with more ports. For everything larger, use an SRAM macro. It is a hard macro, like the macros of the AMS chip template: the RTL instantiates it by name, and the PDK provides its simulation model, its timing library, its abstract in the Library Exchange Format (LEF) for place and route, and its layout. Its read data appear one clock cycle after the address, as in `ram_ff`, but details such as the behavior when a read and a write hit the same address can differ, so check them in the simulation model before you replace an array. The macros with `_bm_bist` in their names also offer a bit mask for the write data and a second set of ports for a memory test, which a test controller in the design drives (@sec-dft).
 

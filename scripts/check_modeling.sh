@@ -227,6 +227,13 @@ check "256x8 flip-flop memory area (um2)" "$(area ram)" "165742.945200"
 check "256x8 flip-flops" "$(ncell ram sg13cmos5l_dfrbpq_1)" "2056"
 check "256x8 mux2_1 cells" "$(ncell ram sg13cmos5l_mux2_1)" "2074"
 check "256x8 mux4_1 cells" "$(ncell ram sg13cmos5l_mux4_1)" "368"
+yosys -q -l ram2.syn.log -p "read_verilog -sv rtl/ram_ff.sv; chparam -set DEPTH 2 -set WIDTH 1 ram_ff; synth -top ram_ff; \
+  dfflibmap -liberty $LIB; abc -liberty $LIB; opt_clean; stat -liberty $LIB; write_verilog -noattr ram2.nl.v" > /dev/null
+check "2x1 memory cells" "$(ncells ram2)" "8"
+check "2x1 memory flip-flops" "$(ncell ram2 sg13cmos5l_dfrbpq_1)" "3"
+check "2x1 memory mux2_1 cells" "$(ncell ram2 sg13cmos5l_mux2_1)" "3"
+check "2x1 memory read multiplexer selected by addr_i" "$(grep -c '\.S(addr_i)' ram2.nl.v)" "1"
+check "2x1 memory: one hold multiplexer with swapped inputs" "$(grep -c '\.A0(wdata_i)' ram2.nl.v) $(grep -c '\.A1(wdata_i)' ram2.nl.v)" "1 1"
 check "SRAM 256x8 macro size (um)" "$(grep -m1 -E '^\s*SIZE' $SRAM/RM_IHPSG13_1P_256x8_c3_bm_bist.lef | awk '{print $2, $4}')" "236.8 74.1"
 yosys -q -l ram32.syn.log -p "read_verilog -sv rtl/ram_ff.sv; chparam -set DEPTH 32 ram_ff; synth -top ram_ff; \
   dfflibmap -liberty $LIB; abc -liberty $LIB; opt_clean; stat -liberty $LIB" > /dev/null

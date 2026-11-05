@@ -1,0 +1,30 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-modeling-bram
+#| echo: false
+#| fig-cap: "The block RAM that an FPGA tool infers from the following listing, with `DEPTH` words of `WIDTH` bits. At a rising edge of `clk_i`, it stores `wdata_i` at the address `addr_i` if `we_i` is high, and it reads the word at `addr_i` to `rdata_o`, so the read data appear one clock cycle after the address."
+#| fig-alt: "Block symbol labeled block RAM, DEPTH by WIDTH. The inputs wdata_i, addr_i, we_i and the clock clk_i enter from the left, the clock at a triangle. The output rdata_o leaves on the right."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+X0, X1, Y0, Y1 = 0, 2.6, -2.1, 0.6   # box of the block RAM
+ARROW = 1.3
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    flow.Box(w=X1 - X0, h=Y1 - Y0).at(((X0 + X1)/2, (Y0 + Y1)/2)).anchor('center').fill(BLUE_L).color(BLUE) \
+        .label('block RAM\nDEPTH × WIDTH', color='black')
+    for k, name in enumerate(('wdata_i', 'addr_i', 'we_i', 'clk_i')):
+        flow.Arrow().at((X0 - ARROW, -0.65*k)).to((X0, -0.65*k)).label(name, 'top', color='black')
+    yc = -0.65*3   # clock input with the triangle of an edge-triggered flip-flop
+    flow.Line().at((X0, yc + 0.15)).to((X0 + 0.25, yc)).color('black')
+    flow.Line().at((X0 + 0.25, yc)).to((X0, yc - 0.15)).color('black')
+    flow.Arrow().at((X1, 0)).to((X1 + ARROW, 0)).label('rdata_o', 'top', color='black')
+```
