@@ -1,0 +1,46 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-modeling-tristate
+#| echo: false
+#| fig-cap: "The tri-state bus of the following listing, for one of its eight bits. A tri-state buffer passes its input while its enable is high. Otherwise, its output is high impedance (`z`) and leaves the net `bus` to the other driver."
+#| fig-alt: "Two tri-state buffers, one above the other. The upper buffer has the input a_i and the enable sel_a_i from above. The lower buffer has the input b_i and the enable !sel_a_i from below. Both outputs connect to the net bus, drawn in red, which continues to the output y_o."
+import schemdraw as sd
+from schemdraw import flow, logic
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+GREEN, GREEN_L = '#82b366', '#d5e8d4'
+RED = '#b85450'
+yd, xb = 0.9, 2.0   # drivers above and below the output, the bus to their right
+LEAD = 0.175        # the body of a gate sits in the middle of its anchors, 1.0 apart at unit=1
+
+
+def driver(y, sign, name, enable):
+    ''' Non-inverting tri-state buffer, enable from above (sign=1) or below (sign=-1), returns its tip '''
+    buf = logic.Tristate(outputnot=False).right().at((0, y)).fill(GREEN_L).color(GREEN)
+    if sign < 0:
+        buf.flip()
+    flow.Arrow().at((buf.start[0] - 1.0, y)).to((buf.start[0] + LEAD, y)).label(name, 'top', color='black')
+    xc, yc = buf.c
+    flow.Arrow().at((xc, yc + sign*0.3)).to((xc, yc - sign*0.42))
+    elm.Label().at((xc, yc + sign*0.55)).label(enable, color='black')
+    return buf.end[0] - LEAD, y
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    tip_a = driver(yd, 1, 'a_i', 'sel_a_i')
+    tip_b = driver(-yd, -1, 'b_i', '!sel_a_i')
+
+    # both drivers meet on one net
+    flow.Line().at(tip_a).to((xb, yd)).color(RED)
+    flow.Line().at(tip_b).to((xb, -yd)).color(RED)
+    flow.Line().at((xb, yd)).to((xb, -yd)).color(RED)
+    elm.Dot(radius=0.06).at((xb, 0)).color(RED)
+    elm.Label().at((xb - 0.2, 0.45)).label('bus', halign='right', color=RED)
+    flow.Arrow().at((xb, 0)).to((xb + 1.0, 0)).label('y_o', 'top', color='black')
+```

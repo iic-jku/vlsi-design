@@ -294,7 +294,9 @@ Use flip-flops for small memories, e.g., a first-in first-out buffer (FIFO) of a
 
 ### Tri-States {#sec-modeling-tristate}
 
-On a circuit board, several chips share a bus through tri-state drivers. Inside an FPGA, the tools convert such a bus into multiplexers. Inside an ASIC, a tri-state bus is a real tri-state bus:
+On a circuit board, several chips share a bus through tri-state drivers. Inside an FPGA, the tools convert such a bus into multiplexers. Inside an ASIC, a tri-state bus is a real tri-state bus, as @fig-modeling-tristate and the following listing show:
+
+{{< include /content/modeling/_fig_tristate.qmd >}}
 
 ```{.systemverilog filename="pitfalls/bus_tri.sv"}
 {{< include /content/modeling/code/pitfalls/bus_tri.sv >}}
