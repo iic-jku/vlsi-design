@@ -61,7 +61,9 @@ A perfect simulator would set a signal to `x` only if it could really be `0` or 
 - **X-optimism**: the simulation shows a known value where the hardware could have either. An `if` treats an unknown condition as false and takes the `else` branch, and a `case` item never matches an unknown expression, so the `default` branch runs.
 - **X-pessimism**: the simulation shows `x` where the hardware has a known value, e.g., because an `x` that cancels out in the hardware is still propagated.
 
-The following testbench describes a 2:1 multiplexer in three ways, plus an AND gate, and sets the select `sel` to `x`. The `default` branch of the `case` assigns `x` only for this demonstration.
+The following testbench describes the 2:1 multiplexer of @fig-modeling-mux in three ways, plus an AND gate, and sets the select `sel` to `x`. The `default` branch of the `case` assigns `x` only for this demonstration.
+
+{{< include /content/modeling/_fig_mux.qmd >}}
 
 ```{.systemverilog filename="xprop/testbenches/verilog/xprop_tb.sv"}
 {{< include /content/modeling/code/xprop/testbenches/verilog/xprop_tb.sv >}}

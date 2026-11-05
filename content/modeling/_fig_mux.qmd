@@ -1,0 +1,44 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-modeling-mux
+#| echo: false
+#| fig-cap: "The 2:1 multiplexer of the following testbench. `sel = 0` selects `a`, and `sel = 1` selects `b`. The output `y` stands for `y_if`, `y_case`, and `y_cond` in the testbench, which sets `sel` to `x`. In the hardware, `sel` is low or high, so `y` is either `a` or `b`."
+#| fig-alt: "Multiplexer symbol as a trapezoid. Input a enters at the pin marked 0, and input b at the pin marked 1. The select sel enters from below, drawn in red and labeled sel = x. The output on the right is labeled y."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+from schemdraw.elements import Element
+from schemdraw.segments import SegmentPoly, SegmentText
+sd.svgconfig.svg2 = False
+
+GREEN, GREEN_L = '#82b366', '#d5e8d4'
+RED = '#b85450'
+
+
+class Mux2(Element):
+    ''' 2:1 multiplexer as a trapezoid, input 0 on top, input 1 below, select at the bottom '''
+    def __init__(self, w: float = 0.9, h: float = 1.8, s: float = 0.35, **kwargs):
+        super().__init__(**kwargs)
+        self.segments.append(SegmentPoly([(0, -h/2), (0, h/2), (w, h/2 - s), (w, -h/2 + s)]))
+        self.segments.append(SegmentText((0.2, h/4), '0', fontsize=11, color='black'))
+        self.segments.append(SegmentText((0.2, -h/4), '1', fontsize=11, color='black'))
+        self.anchors['in0'] = (0, h/4)
+        self.anchors['in1'] = (0, -h/4)
+        self.anchors['out'] = (w, 0)
+        self.anchors['selbot'] = (w/2, -h/2 + s/2)
+        self.params['theta'] = 0
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    mux = Mux2().at((0, 0)).anchor('in0').fill(GREEN_L).color(GREEN)
+    flow.Arrow().at((mux.in0[0] - 1.0, mux.in0[1])).to(mux.in0).label('a', 'top', color='black')
+    flow.Arrow().at((mux.in1[0] - 1.0, mux.in1[1])).to(mux.in1).label('b', 'top', color='black')
+    flow.Arrow().at(mux.out).to((mux.out[0] + 1.0, mux.out[1])).label('y', 'top', color='black')
+    flow.Arrow().at((mux.selbot[0], mux.selbot[1] - 0.8)).to(mux.selbot).color(RED)
+    elm.Label().at((mux.selbot[0], mux.selbot[1] - 1.05)).label('sel = x', color=RED)
+```
