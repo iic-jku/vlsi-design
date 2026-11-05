@@ -149,6 +149,29 @@ EOF
 iverilog -g2012 -gno-specify -o gl.vvp "$CELLS/sg13cmos5l_udp.v" "$CELLS/sg13cmos5l_stdcell.v" \
   led_blink_fpga.nl.v gl_tb.sv > /dev/null 2>&1
 check "GL of the FPGA version" "$(vvp -n gl.vvp | grep led_o)" "led_o after 40 cycles: x"
+cat > clkdiv_tb.sv <<'EOF'
+`timescale 1ns / 1ps
+module clkdiv_tb;
+  logic clk = 1'b1, rst_n = 1'b1;
+  wire led_a, led_b;
+  led_blink_fpga #(.DIV(2)) dut_a (.clk_i(clk), .led_o(led_a));
+  led_blink #(.DIV(2)) dut_b (.clk_i(clk), .rst_ni(rst_n), .led_o(led_b));
+  always #5 clk = ~clk;
+  initial begin
+    #1 rst_n = 1'b0;
+    #1 rst_n = 1'b1;
+    repeat (8) begin
+      @(negedge clk);
+      $write("%b%b%b%b ", dut_a.slow_clk_q, led_a, dut_b.tick, led_b);
+    end
+    $display;
+    $finish;
+  end
+endmodule
+EOF
+iverilog -g2012 -o clkdiv.vvp exercise/led_blink_fpga.sv rtl/led_blink.sv clkdiv_tb.sv
+check "fig-modeling-clkdiv-timing: slow_clk_q, led_o (a), tick, led_o (b) in cycles 0 to 7" \
+  "$(vvp -n clkdiv.vvp | head -1 | xargs)" "0000 0010 1101 1101 0101 0111 1000 1000"
 gstat() {  # gstat <top> <file> <cell type>: count of a generic cell type after synth
   yosys -q -l "g_$1.log" -p "read_verilog -sv $2; synth -top $1; stat" > /dev/null
   sed -n '/Printing statistics/,$p' "g_$1.log" | awk -v c="$3" '$2==c {n=$1} END {print n+0}'

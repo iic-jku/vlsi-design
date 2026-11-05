@@ -241,6 +241,10 @@ The solution is a **clock enable**, @fig-modeling-clkdiv (b). Every rising edge 
 
 {{< include /content/modeling/_fig_clkdiv.qmd >}}
 
+@fig-modeling-clkdiv-timing compares the two circuits over time. In (a), the register sees every clock edge one clock-to-output delay late, so `led_o` changes after two of these delays. In (b), `tick` is an ordinary synchronous signal: it changes shortly after a rising edge of `clk_i`, and the next rising edge samples it like any other register input. `led_o` then changes after one clock-to-output delay.
+
+{{< include /content/modeling/_fig_clkdiv_timing.qmd >}}
+
 ::: {.callout-tip title="Exercise: An LED Blinker from FPGA to ASIC"}
 The file `content/modeling/code/led_blink/exercise/led_blink_fpga.sv` is an LED blinker written with FPGA habits:
 

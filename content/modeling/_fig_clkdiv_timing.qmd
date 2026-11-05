@@ -1,0 +1,44 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-modeling-clkdiv-timing
+#| echo: false
+#| fig-cap: "The two circuits of @fig-modeling-clkdiv over eight clock cycles, for the LED blinker of the following exercise with `DIV = 2`. A register output does not change exactly at the clock edge, but one clock-to-output delay after it. The figure exaggerates this delay and leaves out the delay of a clock tree. `led_o` toggles in the same cycles in both circuits. (a) `slow_clk_q` lags `clk_i` by one clock-to-output delay, and `led_o` by two, because `slow_clk_q` clocks its register. (b) `tick` comes from registers on `clk_i`, so it lags `clk_i` as well. It is high in the cycle before the clock edge at which `led_o` toggles, and it falls only after this edge, so the edge still samples it high. `led_o` lags `clk_i` by one clock-to-output delay."
+#| fig-alt: "Timing diagram over eight clock cycles. clk_i has a rising edge between all cycles. For circuit (a), slow_clk_q is high in cycles 2, 3, 6 and 7, with each edge shortly after the rising edge of clk_i, and led_o is high from cycle 2 to cycle 5, with each edge later than the edge of slow_clk_q. For circuit (b), tick is high in cycles 1 and 5, and led_o is high from cycle 2 to cycle 5, both with each edge shortly after the rising edge of clk_i."
+import schemdraw as sd
+from schemdraw import logic
+from schemdraw import elements as elm
+from schemdraw.util import Point
+sd.svgconfig.svg2 = False
+
+RED = '#b85450'
+ncyc = 8
+tcq = 0.15   # clock-to-output delay in clock periods, exaggerated
+waves = {'signal': [
+    {'name': 'clk_i', 'wave': '10' * ncyc, 'period': 0.5},
+    {'name': 'slow_clk_q (a)', 'wave': '0101', 'async': [0, 2 + tcq, 4 + tcq, 6 + tcq, ncyc], 'color': RED},
+    {'name': 'led_o (a)', 'wave': '010', 'async': [0, 2 + 2*tcq, 6 + 2*tcq, ncyc]},
+    {'name': 'tick (b)', 'wave': '01010', 'async': [0, 1 + tcq, 2 + tcq, 5 + tcq, 6 + tcq, ncyc]},
+    {'name': 'led_o (b)', 'wave': '010', 'async': [0, 2 + tcq, 6 + tcq, ncyc]},
+], 'config': {'hscale': 1.5}}
+
+period, x0 = 2.1, 0.075   # one clock period in drawing units (1.4 per hscale), start of cycle 0
+with sd.Drawing(canvas='svg') as d:
+    d.config(fontsize=11, lw=1.5, bgcolor='white', margin=0.15)
+    td = logic.TimingDiagram(waves, ygap=0.45, risetime=0.15, yheight=0.7, fontsize=11, namecolor='black',
+                             grid=False)
+    for seg in td.segments:
+        if getattr(seg, 'align', None) == ('right', 'bottom'):   # signal names, onto the wave centers
+            seg.xy = Point((seg.xy[0], seg.xy[1] + 0.2))
+            if seg.text == 'slow_clk_q (a)':   # red as in the block diagram
+                seg.color = RED
+    ybot = 0.5 - 1.15*len(waves['signal'])   # 1.15 = yheight + ygap per row
+    for k in range(1, ncyc):   # rising clock edges between the cycles
+        x = x0 + k*period
+        elm.Line().at((x, 0.9)).to((x, ybot)).color('#A6A6A6').linestyle('--').linewidth(1)
+    for k in range(ncyc):      # cycle numbers
+        elm.Label().at((x0 + (k + 0.5)*period, 1.25)).label(f'cycle {k}', color='#595959')
+```
