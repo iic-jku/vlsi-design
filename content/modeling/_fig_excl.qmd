@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 ```{python}
 #| label: fig-modeling-excl
 #| echo: false
-#| fig-cap: "Two architectures of the exclusive counter. (a) A 3-bit binary counter `cnt_q` and a decoder: few flip-flops, but the outputs come from combinational logic. (b) A one-hot ring of eight flip-flops: each output comes directly from a flip-flop. All flip-flops run on `clk_i` with the reset `rst_ni`. In (b), the multiplexers in front of the D inputs that implement `clr_i` and `en_i` are not drawn."
+#| fig-cap: "Two architectures of the exclusive counter. (a) A 3-bit binary counter `cnt_q` and a decoder: few flip-flops, but the outputs come from combinational logic. (b) A one-hot ring of eight flip-flops: each output comes directly from a flip-flop. All flip-flops run on `clk_i` with the reset `rst_ni` (not drawn for simplicity). In (b), the multiplexers in front of the D inputs that implement `clr_i` and `en_i` are not drawn."
 #| fig-alt: "Two block diagrams. (a) Next-state logic with the inputs clr_i and en_i feeds a register cnt_q of three flip-flops, whose output is fed back to the logic and drives a decoder from 3 to 8 bits with the output q_o of 8 bits. (b) Eight flip-flops in a row, each output feeding the D input of the next one, with the output of the last one fed back to the first. Each flip-flop output is also one bit of q_o, from q_o[0] to q_o[7]."
 import schemdraw as sd
 from schemdraw import flow
