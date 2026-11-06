@@ -150,7 +150,7 @@ Besides these steps, **design for test** inserts scan chains so that every fabri
 | Flow step | Open-source tool | Covered in |
 |:----------------------------------|:------------------------------------|:------------------------------|
 | HDL | SystemVerilog | @sec-sv-crashcourse, @sec-modeling |
-| RTL, pre- and post-layout simulation | cocotb or a SystemVerilog testbench with Icarus Verilog or Verilator, waveforms in GTKWave or Surfer | @sec-verification, @sec-digital-flow |
+| RTL, pre- and post-layout simulation | cocotb or a SystemVerilog testbench with Icarus Verilog, or Verilator for RTL, waveforms in GTKWave or Surfer | @sec-verification, @sec-digital-flow |
 | Logic synthesis | Yosys | @sec-synthesis-lib, @sec-synth-opt |
 | Logic equivalence checking | EQY, Yosys `equiv_*` commands | @sec-synthesis-lib, @sec-dft, @sec-digital-flow |
 | Scan insertion and test generation | OpenROAD, Fault | @sec-dft |
