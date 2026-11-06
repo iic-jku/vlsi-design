@@ -190,7 +190,7 @@ As @tbl-iic-osic-tools shows, the container covers much more than this course ne
 
 ### Open-Source and Commercial Tools {#sec-intro-tools-commercial}
 
-Industry builds most chips with commercial tools, and you will meet their names in job descriptions. @tbl-tools-gaps lists examples of them for each step of the flow and the main gap of the open-source tool. Many of its terms come up only in later chapters (@tbl-flow-tools says where), so take it as a reference to come back to. This course does not use OpenCDC [@OpenCDC] or `read_upf`, which reads the Unified Power Format (UPF). We ran no commercial tools: the table rests on public documentation, on runs of the open-source tools, and on the two comparisons below.
+Industry builds most chips with commercial tools, and you will meet their names in job descriptions. @tbl-tools-gaps lists examples of them for each step of the flow and the main gap of the open-source tool. Many of its terms come up only in later chapters (@tbl-flow-tools says where), so take it as a reference to come back to. This course does not use OpenCDC [@OpenCDC], Difetto [@Difetto], or `read_upf`, which reads the Unified Power Format (UPF). We ran no commercial tools: the table rests on public documentation, on runs of the open-source tools, and on the two comparisons below.
 
 The gaps are of two kinds. The first is missing features. Some of them matter more in an advanced node or a large chip than in the small blocks of this course at 130 nm, e.g., crosstalk, where a switching neighbor changes the delay of a wire, dynamic IR drop, the short dips of the supply voltage when many cells switch at once, and electromigration, the wear of a wire at a high current density.
 
@@ -205,7 +205,7 @@ All of this is a snapshot of tools that change quickly. Both comparisons used ol
 | Clock domain crossings (CDC) | [OpenCDC](https://github.com/Ayoubbelguellaoui/CDC) | Siemens Questa CDC, Synopsys VC SpyGlass CDC | Under development: false errors on correct designs, missed crossings (@sec-cdc-sdc) |
 | Logic synthesis | Yosys, ABC | Synopsys Design Compiler, Cadence Genus | Larger area, higher power, retiming only through ABC |
 | Logic equivalence checking | EQY, Yosys `equiv_*` | Cadence Conformal, Synopsys Formality | Language coverage of the Yosys front ends, the EQY step of LibreLane prepares cell models only for sky130 |
-| Scan and test generation | OpenROAD, Fault | Synopsys TestMAX, Siemens Tessent | Stuck-at faults only, mostly on whole nets |
+| Scan and test generation | OpenROAD, Fault, [Difetto](https://github.com/donn/difetto) | Synopsys TestMAX, Siemens Tessent | Stuck-at faults only. Fault: mostly on whole nets. Difetto: early stage, not in the image (@sec-dft-beyond) |
 | Place and route | OpenROAD | Cadence Innovus, Synopsys Fusion Compiler | Larger area, higher power, longer run times |
 | Parasitic extraction | OpenRCX | Cadence Quantus, Synopsys StarRC | Rule-based, accuracy depends on the calibrated rules of the PDK |
 | Static timing analysis | OpenSTA | Synopsys PrimeTime, Cadence Tempus | No crosstalk delay analysis |

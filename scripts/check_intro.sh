@@ -86,6 +86,11 @@ openroad -no_init -no_splash -exit p.tcl > p.log 2>&1
 check "analyze_power_grid exists, with no activity or time step option" \
   "$(grep -c 'analyze_power_grid -net' p.log) $(grep -c -i -E 'dynamic|vcd|saif|time_step' p.log)" "1 0"
 
+echo "== Difetto"
+check "Difetto: LibreLane plugin not in the image" \
+  "$(python3 -c 'import importlib.util as u; print(u.find_spec("librelane_plugin_difetto"))')" "None"
+check "Difetto: Quaigh not in the image" "$(command -v quaigh | wc -l)" "0"
+
 echo "== OpenCDC"
 S=$W/cdc
 cd "$S/fifo" || exit 1
