@@ -188,6 +188,36 @@ As @tbl-iic-osic-tools shows, the container covers much more than this course ne
 
 : A selection of the tools and PDKs in the IIC-OSIC-TOOLS container {#tbl-iic-osic-tools}
 
+### Open-Source and Commercial Tools {#sec-intro-tools-commercial}
+
+Industry builds most chips with commercial tools, and you will meet their names in job descriptions. @tbl-tools-gaps lists examples of them for each step of the flow and the main gap of the open-source tool. Many of its terms come up only in later chapters (@tbl-flow-tools says where), so take it as a reference to come back to. This course does not use OpenCDC [@OpenCDC] or `read_upf`, which reads the Unified Power Format (UPF). We ran no commercial tools: the table rests on public documentation, on runs of the open-source tools, and on the two comparisons below.
+
+The gaps are of two kinds. The first is missing features. Some of them matter more in an advanced node or a large chip than in the small blocks of this course at 130 nm, e.g., crosstalk, where a switching neighbor changes the delay of a wire, dynamic IR drop, the short dips of the supply voltage when many cells switch at once, and electromigration, the wear of a wire at a high current density.
+
+The second is the quality of the results. For a finite-state machine at 50 MHz in the IHP 130 nm open PDK, with the same constraints and the same switching activity, an open-source flow with Yosys and OpenROAD needed 53 % more area and 118 % more power than a commercial flow with Cadence Genus and Innovus [@Freitas_2025]. An earlier comparison of RISC-V designs reports 1.24 times the area of a commercial tool after synthesis with Yosys at 130 nm and 1.49 times at 40 nm. Yosys ran faster than the commercial tool there, while the place-and-route steps of OpenROAD took 2.13 times as long [@Sanchez_Lopera_2022].
+
+All of this is a snapshot of tools that change quickly. Both comparisons used older tool versions, and within weeks after image `2026.10` was built, OpenSTA gained an experimental crosstalk delay analysis, which needs library models that SG13CMOS5L does not have, and OpenROAD a reordering of the scan chains. The script [`scripts/check_intro.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_intro.sh) tests what it can of the table in the image, and the [sv-tests results](https://chipsalliance.github.io/sv-tests-results/) show the language coverage of each tool.
+
+| Flow step | Open-source tool | Commercial tools (examples) | Main gap of the open-source tool |
+|:------------------|:------------------|:----------------------------|:------------------------------------|
+| Lint | Verilator | Synopsys VC SpyGlass, Siemens Questa Lint | No testability rules, configurable naming rules only in Verible |
+| Simulation | Icarus Verilog, Verilator | Cadence Xcelium, Synopsys VCS, Siemens Questa One Sim | Verilator: two-state, no SDF. Icarus Verilog: no SDF timing checks. Neither covers all of SystemVerilog |
+| Clock domain crossings (CDC) | [OpenCDC](https://github.com/Ayoubbelguellaoui/CDC) | Siemens Questa CDC, Synopsys VC SpyGlass CDC | Under development: false errors on correct designs, missed crossings (@sec-cdc-sdc) |
+| Logic synthesis | Yosys, ABC | Synopsys Design Compiler, Cadence Genus | Larger area, higher power, retiming only through ABC |
+| Logic equivalence checking | EQY, Yosys `equiv_*` | Cadence Conformal, Synopsys Formality | Language coverage of the Yosys front ends, the EQY step of LibreLane prepares cell models only for sky130 |
+| Scan and test generation | OpenROAD, Fault | Synopsys TestMAX, Siemens Tessent | Stuck-at faults only, mostly on whole nets |
+| Place and route | OpenROAD | Cadence Innovus, Synopsys Fusion Compiler | Larger area, higher power, longer run times |
+| Parasitic extraction | OpenRCX | Cadence Quantus, Synopsys StarRC | Rule-based, accuracy depends on the calibrated rules of the PDK |
+| Static timing analysis | OpenSTA | Synopsys PrimeTime, Cadence Tempus | No crosstalk delay analysis |
+| Power analysis | OpenSTA | Synopsys PrimePower, Cadence Voltus, Cadence Joules | Average power only, no peak power, no estimate at RTL |
+| IR drop and electromigration | OpenROAD (PDNSim) | Cadence Voltus | Static IR drop of the power grid only, no electromigration limits, no signal wires |
+| DRC and LVS | Magic, KLayout, Netgen | Siemens Calibre, Cadence Pegasus, Synopsys IC Validator | A commercial PDK usually ships its rule decks only for commercial tools |
+| Power intent (UPF) | OpenROAD `read_upf` | Cadence Conformal Low Power, Synopsys VC LP | Subset of UPF, no open-source UPF checker known to us |
+
+: Examples of commercial tools for each step of the flow and the main gap of the open-source tool, as of image `2026.10` {#tbl-tools-gaps}
+
+For this course, the gaps are a fair price. Every student gets the same tools without a license or a non-disclosure agreement, you can read what each tool does, and the flow takes a design all the way to tapeout (@sec-intro-tinywhisper).
+
 ## The AMS Chip Template {#sec-intro-template}
 
 Hardening a single digital block is only part of the way to a chip. A tapeout-ready chip additionally needs a padframe and a seal ring, the placement and wiring of all macros on the top level, logo and metal-fill insertion, full-chip verification, and finally a bonding diagram for packaging. To get there without fighting the tools, this course builds on the **[ihp-sg13cmos5l-ams-chip-template](https://github.com/iic-jku/ihp-sg13cmos5l-ams-chip-template)** [@AMS_Chip_Template], an open-source GitHub template repository for analog mixed-signal (AMS) chips developed at JKU:
