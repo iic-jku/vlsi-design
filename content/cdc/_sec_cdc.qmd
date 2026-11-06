@@ -225,6 +225,10 @@ report_checks -from [get_clocks wclk] -to [get_clocks rclk] \
 
 Together with the other direction, `async_fifo` has 14 such endpoints: the 8 outputs `data_o`, which the protocol of the FIFO protects, and the 6 first flip-flops of the two synchronizers. Any other endpoint would be a crossing without a synchronizer.
 
+::: {.callout-note title="OpenCDC"}
+The IIC-OSIC-TOOLS image also contains [OpenCDC](https://github.com/Ayoubbelguellaoui/CDC) (`opencdc`), an open-source tool that checks the structure of clock domain crossings in RTL. It is still at an early stage and does not yet judge all designs of this chapter correctly, so this course stays with the design rules and the endpoint list above.
+:::
+
 A stricter alternative limits the delay of every crossing path instead of removing it, so that the bits of a Gray pointer arrive within one period of their source clock of each other, and the memory data within less than a read period, before the read domain can use the entry:
 
 ```
