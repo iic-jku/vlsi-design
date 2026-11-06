@@ -99,7 +99,7 @@ Each tool of the flow needs a different description of the same cells, called a 
 
 : Views of the standard-cell library {#tbl-synthesis-lib-views}
 
-LEF (Library Exchange Format) is an abstract of the layout: placement and routing only need to know where a cell's pins are and where the router must not place wires, not the transistors inside. The PDK also contains Xschem symbols and schematics of the cells (`sym/`, `sch/`), which let you use them in a schematic.
+LEF (Library Exchange Format) is an abstract of the layout: placement and routing only need to know where a cell's pins are and where the router must not place wires, not the transistors inside. The PDK also contains Xschem symbols and schematics of the cells (`sym/`, `sch/`), which let you use them in a schematic. All these views describe one fixed layout per cell, a static cell. @sec-digital-flow-pcells contrasts it with a PCell, which draws a layout from parameters.
 
 ### Gate Equivalents {#sec-synthesis-lib-ge}
 

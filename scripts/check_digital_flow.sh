@@ -7,10 +7,13 @@
 #   bash scripts/check_digital_flow.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter. It runs LibreLane
-# seven times, at most two at a time, about 30 minutes in total.
+# seven times, at most two at a time, about 30 minutes in total. The AMS
+# chip template is checked only if a clone of the template lies next to
+# the repository (or in TEMPLATE_DIR).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
+TPL=${TEMPLATE_DIR:-$REPO/../ihp-sg13cmos5l-ams-chip-template}
 W=${CHECK_DIR:-/tmp/vlsi_check_flow}
 D=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
 LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
@@ -525,6 +528,83 @@ check "steps of the Chip flow beyond Classic" \
   "OpenROAD.PadRing KLayout.SealRing KLayout.Filler KLayout.Density"
 check "global density window Metal1, Metal2 to Metal4" \
   "$(grep -oE '"(M1|Mn)_[jk]": [0-9.]+' $PDK_ROOT/ihp-sg13cmos5l/libs.tech/klayout/tech/drc/rule_decks/sg13cmos5l_tech_default.json | awk '{print $2}' | tr '\n' ' ')" "0.35 0.6 0.35 0.6 "
+
+echo "== Static cells and PCells"
+TECH=$PDK_ROOT/ihp-sg13cmos5l
+kl() { KLAYOUT_PATH=$TECH/libs.tech/klayout:$TECH/libs.tech/klayout/tech klayout -n sg13cmos5l -zz -r "$@" 2>&1 | grep -v '^registered'; }
+ctx() { grep -a -c CONTEXT_INFO "$1"; }
+check "stored PCell parameters: standard cells, IO cells, SRAM, hardened macro" \
+  "$(ctx $TECH/libs.ref/sg13cmos5l_stdcell/gds/sg13cmos5l_stdcell.gds) $(ctx $TECH/libs.ref/sg13cmos5l_io/gds/sg13cmos5l_io.gds) $(ctx $TECH/libs.ref/sg13cmos5l_sram/gds/RM_IHPSG13_1P_256x8_c3_bm_bist.gds) $(ctx $R/final/gds/bs_reg.gds)" \
+  "0 0 0 0"
+mkdir -p "$W/pcell" && cd "$W/pcell" || exit 1
+cat > draw.py <<'EOF'
+import pya
+lib = pya.Library.library_by_name('SG13_dev', 'sg13cmos5l')
+print(*[n for n in ('nmos', 'rhigh', 'via_stack', 'bondpad', 'sealring') if n in lib.layout().pcell_names()])
+def draw(name, params):
+    ly = pya.Layout()
+    ly.technology_name = 'sg13cmos5l'
+    return ly, ly.cell(ly.add_pcell_variant(lib, lib.layout().pcell_declaration(name).id(), params))
+ly, c = draw('nmos', {'w': '10u', 'l': '0.13u', 'ng': 4})
+act, gat, con = (pya.Region(c.begin_shapes_rec(ly.layer(n, 0))).merged() for n in (1, 5, 6))
+ch = sorted({(p.bbox().width() * ly.dbu, p.bbox().height() * ly.dbu) for p in (gat & act).each()})
+print((gat & act).count(), ch, act.count(), (con & act).count() > 0, (con & gat).count())
+ly.write('nmos.gds')
+_, b = draw('bondpad', {'diameter': '70u', 'shape': 'square', 'bottomMetal': '3'})
+print(b.dbbox().width(), b.dbbox().height())
+EOF
+cat > mark.py <<'EOF'
+import pya
+ly = pya.Layout()
+ly.read('nmos.gds')
+ly.cell('nmos').shapes(ly.layer(200, 0)).insert(pya.Box(0, 0, 100, 100))
+ly.write('marked.gds')
+opt = pya.SaveLayoutOptions()
+opt.write_context_info = False
+ly.write('static.gds', opt)
+EOF
+cat > read.py <<'EOF'
+import pya
+ly = pya.Layout()
+ly.technology_name = 'sg13cmos5l'
+ly.read(f)
+print(ly.cell('nmos').shapes(ly.layer(200, 0)).size())
+EOF
+cat > bbox.py <<'EOF'
+import pya
+ly = pya.Layout()
+ly.read(f)
+print(ly.top_cell().dbbox().width(), ly.top_cell().dbbox().height())
+EOF
+kl draw.py > draw.txt
+check "PCells of the library" "$(sed -n 1p draw.txt)" "nmos rhigh via_stack bondpad sealring"
+check "nmos: channels, size, active areas, contacts on source and drain, on the gates" \
+  "$(sed -n 2p draw.txt)" "4 [(0.13, 2.5)] 1 True 0"
+check "bondpad as the template builds it" "$(sed -n 3p draw.txt)" "70.0 70.0"
+klayout -b -r mark.py > /dev/null 2>&1
+check "marker in the stored nmos: without the PDK, with it, exported without parameters" \
+  "$(klayout -b -rd f=marked.gds -r read.py 2>&1 | tail -1) $(kl read.py -rd f=marked.gds | tail -1) $(kl read.py -rd f=static.gds | tail -1)" "1 0 1"
+for d in 500 1600; do
+  kl $TECH/libs.tech/klayout/tech/scripts/sealring.py -rd width=$d -rd height=$d -rd output=ring$d.gds > /dev/null
+done
+check "seal ring of the PDK script for a die of 500 and 1600 um" \
+  "$(klayout -b -rd f=ring500.gds -r bbox.py 2>&1 | tail -1) $(klayout -b -rd f=ring1600.gds -r bbox.py 2>&1 | tail -1)" "500.0 500.0 1600.0 1600.0"
+check "seal ring: script in the PDK config, its PCell, die size from LibreLane" \
+  "$(grep -c 'scripts/sealring.py' $PDKLL/sg13cmos5l_io/config.tcl) $(grep -c "PCELL = 'sealring'" $TECH/libs.tech/klayout/tech/scripts/sealring.py) $(python3 -c "import inspect, librelane.steps.klayout as k; print(inspect.getsource(k.SealRing.run_ihp_sg13g2).count('DIE_AREA'))")" \
+  "1 1 2"
+PLUGIN=/headless/.klayout/salt/LibraryManagerPlugin/pymacros/library_manager_plugin.py
+check "export command, written without parameters" \
+  "$(grep -c 'Export Layout For Tapeout' $PLUGIN) $(grep -c 'write_context_info = False' $PLUGIN)" "1 1"
+check "PCell code is Python in the PDK" "$(ls $TECH/libs.tech/klayout/python/sg13cmos5l_pycell_lib/ihp/nmos_code.py | wc -l)" "1"
+if [ ! -d "$TPL/macros/inverter" ]; then
+  echo "  skip  no clone of the template at $TPL"
+else
+  check "template: bondpad target, its PCell, size, shape" \
+    "$(grep -c '^build-bondpad:' $TPL/Makefile) $(grep -oE "^PCELL = '[a-z]+'" $TPL/ip/sg13cmos5l_ip__bondpad_70x70/script/bondpad.py) $(grep -E '^(DIAMETER|SHAPE) ' $TPL/ip/sg13cmos5l_ip__bondpad_70x70/Makefile | tr -d '\r' | awk '{print $3}' | tr '\n' ' ')" \
+    "1 PCELL = 'bondpad' 70.0 square "
+  check "template: stored PCell parameters in inverter_top.klay.gds, inverter_top.gds" \
+    "$(ctx $TPL/macros/inverter/layout/inverter_top.klay.gds) $(ctx $TPL/macros/inverter/layout/inverter_top.gds)" "1 0"
+fi
 
 echo "== Code listings"
 check "longest line of the code files" \
