@@ -406,7 +406,10 @@ window.Quarto = {
   <li><a href="#sec-intro-why-asic" id="toc-sec-intro-why-asic" class="nav-link" data-scroll-target="#sec-intro-why-asic"><span class="header-section-number">1.6</span> Why ASICs?</a></li>
   <li><a href="#sec-intro-taxonomy" id="toc-sec-intro-taxonomy" class="nav-link" data-scroll-target="#sec-intro-taxonomy"><span class="header-section-number">1.7</span> A Taxonomy of ASICs</a></li>
   <li><a href="#sec-intro-flow" id="toc-sec-intro-flow" class="nav-link" data-scroll-target="#sec-intro-flow"><span class="header-section-number">1.8</span> The Digital Design Flow</a></li>
-  <li><a href="#sec-intro-tools" id="toc-sec-intro-tools" class="nav-link" data-scroll-target="#sec-intro-tools"><span class="header-section-number">1.9</span> The IIC-OSIC-TOOLS Container</a></li>
+  <li><a href="#sec-intro-tools" id="toc-sec-intro-tools" class="nav-link" data-scroll-target="#sec-intro-tools"><span class="header-section-number">1.9</span> The IIC-OSIC-TOOLS Container</a>
+  <ul class="collapse">
+  <li><a href="#sec-intro-tools-commercial" id="toc-sec-intro-tools-commercial" class="nav-link" data-scroll-target="#sec-intro-tools-commercial"><span class="header-section-number">1.9.1</span> Open-Source and Commercial Tools</a></li>
+  </ul></li>
   <li><a href="#sec-intro-template" id="toc-sec-intro-template" class="nav-link" data-scroll-target="#sec-intro-template"><span class="header-section-number">1.10</span> The AMS Chip Template</a>
   <ul class="collapse">
   <li><a href="#sec-intro-template-flow" id="toc-sec-intro-template-flow" class="nav-link" data-scroll-target="#sec-intro-template-flow"><span class="header-section-number">1.10.1</span> Flow Overview</a></li>
@@ -612,7 +615,10 @@ window.Quarto = {
   <li><a href="#sec-digital-flow-route" id="toc-sec-digital-flow-route" class="nav-link" data-scroll-target="#sec-digital-flow-route"><span class="header-section-number">10.6</span> Routing</a></li>
   <li><a href="#sec-digital-flow-signoff" id="toc-sec-digital-flow-signoff" class="nav-link" data-scroll-target="#sec-digital-flow-signoff"><span class="header-section-number">10.7</span> Signoff</a></li>
   <li><a href="#sec-digital-flow-postlayout" id="toc-sec-digital-flow-postlayout" class="nav-link" data-scroll-target="#sec-digital-flow-postlayout"><span class="header-section-number">10.8</span> Post-Layout Simulation</a></li>
-  <li><a href="#sec-digital-flow-chip" id="toc-sec-digital-flow-chip" class="nav-link" data-scroll-target="#sec-digital-flow-chip"><span class="header-section-number">10.9</span> Chip Assembly</a></li>
+  <li><a href="#sec-digital-flow-chip" id="toc-sec-digital-flow-chip" class="nav-link" data-scroll-target="#sec-digital-flow-chip"><span class="header-section-number">10.9</span> Chip Assembly</a>
+  <ul class="collapse">
+  <li><a href="#sec-digital-flow-pcells" id="toc-sec-digital-flow-pcells" class="nav-link" data-scroll-target="#sec-digital-flow-pcells"><span class="header-section-number">10.9.1</span> Static Cells and PCells</a></li>
+  </ul></li>
   <li><a href="#sec-digital-flow-summary" id="toc-sec-digital-flow-summary" class="nav-link" data-scroll-target="#sec-digital-flow-summary"><span class="header-section-number">10.10</span> Summary</a></li>
   </ul></li>
   <li><a href="#sec-project" id="toc-sec-project" class="nav-link" data-scroll-target="#sec-project"><span class="header-section-number">11</span> Capstone Project: A Small RISC-V SoC</a></li>
@@ -885,26 +891,27 @@ Table&nbsp;1: ASIC implementation styles
 <p>The core of this course is the digital design flow that turns a hardware description into a manufacturable layout. Since this layout is traditionally handed over to the foundry in the GDSII file format, it is called the <strong>RTL-to-GDSII</strong> (or simply RTL-to-GDS) flow. <a href="#fig-design-flow" class="quarto-xref">Figure&nbsp;1</a> shows its main steps.</p>
 <div id="cell-fig-design-flow" class="cell" data-execution_count="1">
 <div class="cell-output cell-output-display">
-<div id="fig-design-flow" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Flowchart. A main column runs from RTL Design through HDL, Logic Synthesis, Floorplanning, Placement, Clock Tree Synthesis, and Routing to Physical Verification and Tapeout. Logic Synthesis feeds Pre-Layout Simulation on the right, which points back to HDL. After Routing, a branch on the left runs up through Parasitic Extraction, Static Timing Analysis, and Post-Layout Simulation, which feeds back to Floorplanning, Placement, and, through Design Iteration, to the top of the flow.">
+<div id="fig-design-flow" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Flowchart. A main column runs from RTL Design through the oval RTL (SystemVerilog), Logic Synthesis, the oval Gate-Level Netlist, Floorplanning, Placement, Clock Tree Synthesis, Routing, and the oval GDSII to Physical Verification and Tapeout. A dashed region labeled LibreLane encloses the column from Logic Synthesis to Physical Verification, and Parasitic Extraction and Static Timing Analysis on the left. To the right of the RTL, a stack holds Lint, RTL Simulation, and CDC Review. To the right of the netlist, a stack holds Static Timing Analysis, Gate-Level Simulation, Power Analysis, Equivalence Checking, and Scan, ATPG. The oval Constraints (SDC) between the stacks feeds Logic Synthesis and the Static Timing Analysis of the netlist. The oval Testbench feeds RTL Simulation, Gate-Level Simulation, and Post-Layout Simulation. After Routing, a branch on the left runs up through Parasitic Extraction, Static Timing Analysis, and Post-Layout Simulation. Static Timing Analysis and Post-Layout Simulation feed back to Floorplanning, Placement, and, through Design Iteration, to the RTL. Physical Verification feeds back to Routing.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-design-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<a href="vlsi_files/figure-html/fig-design-flow-output-1.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;1: The RTL-to-GDSII design flow. The synthesized gate-level netlist is checked by pre-layout simulation. After routing, parasitic extraction, static timing analysis, and post-layout simulation feed back to floorplanning and placement or, if necessary, to the RTL (design iteration). Only a design that passes physical verification is taped out."><img src="vlsi_files/figure-html/fig-design-flow-output-1.svg" class="img-fluid figure-img" alt="Flowchart. A main column runs from RTL Design through HDL, Logic Synthesis, Floorplanning, Placement, Clock Tree Synthesis, and Routing to Physical Verification and Tapeout. Logic Synthesis feeds Pre-Layout Simulation on the right, which points back to HDL. After Routing, a branch on the left runs up through Parasitic Extraction, Static Timing Analysis, and Post-Layout Simulation, which feeds back to Floorplanning, Placement, and, through Design Iteration, to the top of the flow."></a>
+<a href="vlsi_files/figure-html/fig-design-flow-output-1.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;1: The RTL-to-GDSII design flow, adapted from [@Dorrer_Thesis]. Ovals are design data, and boxes are steps. The checks on the right test the RTL and the synthesized netlist, and a bug found there leads back to the RTL. After routing, static timing analysis and post-layout simulation lead back to floorplanning and placement or, if necessary, to the RTL (design iteration), and a failed physical verification leads back to routing. One testbench drives all three simulations. LibreLane runs the steps in the dashed region, and also lint and static timing analysis of the netlist. Only a design that passes physical verification is taped out."><img src="vlsi_files/figure-html/fig-design-flow-output-1.svg" class="img-fluid figure-img" alt="Flowchart. A main column runs from RTL Design through the oval RTL (SystemVerilog), Logic Synthesis, the oval Gate-Level Netlist, Floorplanning, Placement, Clock Tree Synthesis, Routing, and the oval GDSII to Physical Verification and Tapeout. A dashed region labeled LibreLane encloses the column from Logic Synthesis to Physical Verification, and Parasitic Extraction and Static Timing Analysis on the left. To the right of the RTL, a stack holds Lint, RTL Simulation, and CDC Review. To the right of the netlist, a stack holds Static Timing Analysis, Gate-Level Simulation, Power Analysis, Equivalence Checking, and Scan, ATPG. The oval Constraints (SDC) between the stacks feeds Logic Synthesis and the Static Timing Analysis of the netlist. The oval Testbench feeds RTL Simulation, Gate-Level Simulation, and Post-Layout Simulation. After Routing, a branch on the left runs up through Parasitic Extraction, Static Timing Analysis, and Post-Layout Simulation. Static Timing Analysis and Post-Layout Simulation feed back to Floorplanning, Placement, and, through Design Iteration, to the RTL. Physical Verification feeds back to Routing."></a>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-design-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;1: The RTL-to-GDSII design flow. The synthesized gate-level netlist is checked by pre-layout simulation. After routing, parasitic extraction, static timing analysis, and post-layout simulation feed back to floorplanning and placement or, if necessary, to the RTL (design iteration). Only a design that passes physical verification is taped out.
+Figure&nbsp;1: The RTL-to-GDSII design flow, adapted from <span class="citation" data-cites="Dorrer_Thesis">(<a href="#ref-Dorrer_Thesis" role="doc-biblioref">Dorrer 2025</a>)</span>. Ovals are design data, and boxes are steps. The checks on the right test the RTL and the synthesized netlist, and a bug found there leads back to the RTL. After routing, static timing analysis and post-layout simulation lead back to floorplanning and placement or, if necessary, to the RTL (design iteration), and a failed physical verification leads back to routing. One testbench drives all three simulations. LibreLane runs the steps in the dashed region, and also lint and static timing analysis of the netlist. Only a design that passes physical verification is taped out.
 </figcaption>
 </figure>
 </div>
 </div>
 </div>
-<p>The flow starts with the <strong>RTL design</strong>, described in a hardware description language (HDL) such as SystemVerilog. <strong>Logic synthesis</strong> translates the RTL into a gate-level netlist of standard cells of the target technology, guided by constraints such as the clock frequency. Long before any layout exists, the design is simulated extensively: first at RTL, and then as a synthesized netlist (<strong>pre-layout simulation</strong>). Every bug found here leads back to the HDL.</p>
+<p>The flow starts with the <strong>RTL design</strong>, described in a hardware description language (HDL) such as SystemVerilog. Long before any layout exists, the RTL is checked: <strong>lint</strong> finds suspicious code without running it, <strong>RTL simulation</strong> runs it against a testbench, and designs with several clocks need a <strong>review</strong> of their <strong>clock domain crossings (CDC)</strong> (<a href="#sec-cdc" class="quarto-xref">Section&nbsp;8</a>).</p>
+<p><strong>Logic synthesis</strong> translates the RTL into a gate-level netlist of standard cells of the target technology, guided by constraints such as the clock frequency, written in SDC (Synopsys Design Constraints). The netlist is checked as well: <strong>static timing analysis (STA)</strong> checks the timing of every path with an ideal clock, <strong>gate-level simulation</strong> (<strong>pre-layout simulation</strong>) repeats the tests with the same testbench, <strong>power analysis</strong> estimates the power consumption, <strong>logic equivalence checking</strong> proves that the netlist implements the RTL, and <strong>design for test</strong> inserts scan chains and generates test patterns (automatic test pattern generation, ATPG), so that every fabricated chip can be tested (<a href="#sec-dft" class="quarto-xref">Section&nbsp;9</a>). Every bug found here leads back to the RTL.</p>
 <p>The physical implementation then turns the netlist into a layout. <strong>Floorplanning</strong> defines the size of the die and the core, the placement of I/Os and macros, and the power grid. <strong>Placement</strong> positions the standard cells, <strong>clock tree synthesis (CTS)</strong> builds a balanced clock distribution network, and <strong>routing</strong> connects all cells with metal wires.</p>
-<p>Only after routing are the resistances and capacitances of the wires known. <strong>Parasitic extraction</strong> annotates them to the netlist, on which <strong>static timing analysis (STA)</strong> and <strong>post-layout simulation</strong> check whether the design still meets its timing and functional specification. Violations are fixed by revisiting floorplanning and placement or, if this is not enough, by changing the RTL itself (<strong>design iteration</strong>), e.g., by pipelining a critical path. Finally, <strong>physical verification</strong> checks the layout against the design rules of the foundry (design rule check, DRC) and against the netlist (layout versus schematic, LVS). Only a design that passes all checks goes to <strong>tapeout</strong>, i.e., is sent to the foundry for fabrication.</p>
-<p>Besides these steps, <strong>design for test</strong> inserts scan chains so that every fabricated chip can be tested (<a href="#sec-dft" class="quarto-xref">Section&nbsp;9</a>), and designs with several clocks need safe <strong>clock domain crossings</strong> (<a href="#sec-cdc" class="quarto-xref">Section&nbsp;8</a>). For a complete chip, the hardened digital macro is finally integrated into a <strong>padframe</strong> and assembled into the chip top level (<a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a>). <a href="#tbl-flow-tools" class="quarto-xref">Table&nbsp;2</a> lists the open-source tools used in this course for each step and where the step is covered.</p>
+<p>Only after routing are the resistances and capacitances of the wires known. <strong>Parasitic extraction</strong> annotates them to the netlist, on which STA and <strong>post-layout simulation</strong> check whether the design still meets its timing and functional specification. Violations are fixed by revisiting floorplanning and placement or, if this is not enough, by changing the RTL itself (<strong>design iteration</strong>), e.g., by pipelining a critical path. Finally, the layout is written in the GDSII format, and <strong>physical verification</strong> checks it against the design rules of the foundry (design rule check, DRC) and against the netlist (layout versus schematic, LVS). A failed check leads back to routing. Only a design that passes all checks goes to <strong>tapeout</strong>, i.e., is sent to the foundry for fabrication.</p>
+<p>LibreLane (<a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a>) runs the steps in the dashed region of <a href="#fig-design-flow" class="quarto-xref">Figure&nbsp;1</a>. In this course, the checks beside it run separately, although LibreLane also runs lint and STA on its own. For a complete chip, the hardened digital macro is finally integrated into a <strong>padframe</strong> and assembled into the chip top level (<a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a>). <a href="#tbl-flow-tools" class="quarto-xref">Table&nbsp;2</a> lists the open-source tools used in this course for each step and where the step is covered.</p>
 <div id="tbl-flow-tools" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-flow-tools-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;2: Steps of the RTL-to-GDSII flow, the open-source tools used for them in this course, and where they are covered. LibreLane orchestrates all steps from synthesis to GDSII. The PDK is IHP SG13CMOS5L (130 nm).
+Table&nbsp;2: Steps of the RTL-to-GDSII flow, the open-source tools used for them in this course, and where they are covered. LibreLane orchestrates the steps in the dashed region of <a href="#fig-design-flow" class="quarto-xref">Figure&nbsp;1</a>. The PDK is IHP SG13CMOS5L (130 nm).
 </figcaption>
 <div aria-describedby="tbl-flow-tools-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -927,9 +934,19 @@ Table&nbsp;2: Steps of the RTL-to-GDSII flow, the open-source tools used for the
 <td style="text-align: left;"><a href="#sec-sv-crashcourse" class="quarto-xref">Section&nbsp;2</a>, <a href="#sec-modeling" class="quarto-xref">Section&nbsp;3</a></td>
 </tr>
 <tr class="even">
+<td style="text-align: left;">Lint</td>
+<td style="text-align: left;">Verilator</td>
+<td style="text-align: left;"><a href="#sec-sv-crashcourse" class="quarto-xref">Section&nbsp;2</a>, <a href="#sec-modeling" class="quarto-xref">Section&nbsp;3</a></td>
+</tr>
+<tr class="odd">
 <td style="text-align: left;">RTL, pre- and post-layout simulation</td>
 <td style="text-align: left;">cocotb or a SystemVerilog testbench with Icarus Verilog, or Verilator for RTL, waveforms in GTKWave or Surfer</td>
 <td style="text-align: left;"><a href="#sec-verification" class="quarto-xref">Section&nbsp;4</a>, <a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CDC review</td>
+<td style="text-align: left;">by hand, no tool in this course</td>
+<td style="text-align: left;"><a href="#sec-cdc" class="quarto-xref">Section&nbsp;8</a></td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Logic synthesis</td>
@@ -1049,6 +1066,113 @@ Table&nbsp;3: A selection of the tools and PDKs in the IIC-OSIC-TOOLS container
 </div>
 </figure>
 </div>
+<section id="sec-intro-tools-commercial" class="level3" data-number="1.9.1">
+<h3 data-number="1.9.1" class="anchored" data-anchor-id="sec-intro-tools-commercial"><span class="header-section-number">1.9.1</span> Open-Source and Commercial Tools</h3>
+<p>Industry builds most chips with commercial tools, and you will meet their names in job descriptions. <a href="#tbl-tools-gaps" class="quarto-xref">Table&nbsp;4</a> lists examples of them for each step of the flow and the main gap of the open-source tool. Many of its terms come up only in later chapters (<a href="#tbl-flow-tools" class="quarto-xref">Table&nbsp;2</a> says where), so take it as a reference to come back to. This course does not use OpenCDC <span class="citation" data-cites="OpenCDC">(<a href="#ref-OpenCDC" role="doc-biblioref">OpenCDC developers 2026</a>)</span> or <code>read_upf</code>, which reads the Unified Power Format (UPF). We ran no commercial tools: the table rests on public documentation, on runs of the open-source tools, and on the two comparisons below.</p>
+<p>The gaps are of two kinds. The first is missing features. Some of them matter more in an advanced node or a large chip than in the small blocks of this course at 130 nm, e.g., crosstalk, where a switching neighbor changes the delay of a wire, dynamic IR drop, the short dips of the supply voltage when many cells switch at once, and electromigration, the wear of a wire at a high current density.</p>
+<p>The second is the quality of the results. For a finite-state machine at 50 MHz in the IHP 130 nm open PDK, with the same constraints and the same switching activity, an open-source flow with Yosys and OpenROAD needed 53 % more area and 118 % more power than a commercial flow with Cadence Genus and Innovus <span class="citation" data-cites="Freitas_2025">(<a href="#ref-Freitas_2025" role="doc-biblioref">Freitas et al. 2025</a>)</span>. An earlier comparison of RISC-V designs reports 1.24 times the area of a commercial tool after synthesis with Yosys at 130 nm and 1.49 times at 40 nm. Yosys ran faster than the commercial tool there, while the place-and-route steps of OpenROAD took 2.13 times as long <span class="citation" data-cites="Sanchez_Lopera_2022">(<a href="#ref-Sanchez_Lopera_2022" role="doc-biblioref">Sánchez Lopera et al. 2022</a>)</span>.</p>
+<p>All of this is a snapshot of tools that change quickly. Both comparisons used older tool versions, and within weeks after image <code>2026.10</code> was built, OpenSTA gained an experimental crosstalk delay analysis, which needs library models that SG13CMOS5L does not have, and OpenROAD a reordering of the scan chains. The script <a href="https://github.com/iic-jku/vlsi-design/blob/main/scripts/check_intro.sh"><code>scripts/check_intro.sh</code></a> tests what it can of the table in the image, and the <a href="https://chipsalliance.github.io/sv-tests-results/">sv-tests results</a> show the language coverage of each tool.</p>
+<div id="tbl-tools-gaps" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-tools-gaps-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;4: Examples of commercial tools for each step of the flow and the main gap of the open-source tool, as of image <code>2026.10</code>
+</figcaption>
+<div aria-describedby="tbl-tools-gaps-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Flow step</th>
+<th style="text-align: left;">Open-source tool</th>
+<th style="text-align: left;">Commercial tools (examples)</th>
+<th style="text-align: left;">Main gap of the open-source tool</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Lint</td>
+<td style="text-align: left;">Verilator</td>
+<td style="text-align: left;">Synopsys VC SpyGlass, Siemens Questa Lint</td>
+<td style="text-align: left;">No testability rules, configurable naming rules only in Verible</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Simulation</td>
+<td style="text-align: left;">Icarus Verilog, Verilator</td>
+<td style="text-align: left;">Cadence Xcelium, Synopsys VCS, Siemens Questa One Sim</td>
+<td style="text-align: left;">Verilator: two-state, no SDF. Icarus Verilog: no SDF timing checks. Neither covers all of SystemVerilog</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Clock domain crossings (CDC)</td>
+<td style="text-align: left;"><a href="https://github.com/Ayoubbelguellaoui/CDC">OpenCDC</a></td>
+<td style="text-align: left;">Siemens Questa CDC, Synopsys VC SpyGlass CDC</td>
+<td style="text-align: left;">Under development: false errors on correct designs, missed crossings (<a href="#sec-cdc-sdc" class="quarto-xref">Section&nbsp;8.7</a>)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Logic synthesis</td>
+<td style="text-align: left;">Yosys, ABC</td>
+<td style="text-align: left;">Synopsys Design Compiler, Cadence Genus</td>
+<td style="text-align: left;">Larger area, higher power, retiming only through ABC</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Logic equivalence checking</td>
+<td style="text-align: left;">EQY, Yosys <code>equiv_*</code></td>
+<td style="text-align: left;">Cadence Conformal, Synopsys Formality</td>
+<td style="text-align: left;">Language coverage of the Yosys front ends, the EQY step of LibreLane prepares cell models only for sky130</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Scan and test generation</td>
+<td style="text-align: left;">OpenROAD, Fault</td>
+<td style="text-align: left;">Synopsys TestMAX, Siemens Tessent</td>
+<td style="text-align: left;">Stuck-at faults only, mostly on whole nets</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Place and route</td>
+<td style="text-align: left;">OpenROAD</td>
+<td style="text-align: left;">Cadence Innovus, Synopsys Fusion Compiler</td>
+<td style="text-align: left;">Larger area, higher power, longer run times</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Parasitic extraction</td>
+<td style="text-align: left;">OpenRCX</td>
+<td style="text-align: left;">Cadence Quantus, Synopsys StarRC</td>
+<td style="text-align: left;">Rule-based, accuracy depends on the calibrated rules of the PDK</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Static timing analysis</td>
+<td style="text-align: left;">OpenSTA</td>
+<td style="text-align: left;">Synopsys PrimeTime, Cadence Tempus</td>
+<td style="text-align: left;">No crosstalk delay analysis</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Power analysis</td>
+<td style="text-align: left;">OpenSTA</td>
+<td style="text-align: left;">Synopsys PrimePower, Cadence Voltus, Cadence Joules</td>
+<td style="text-align: left;">Average power only, no peak power, no estimate at RTL</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IR drop and electromigration</td>
+<td style="text-align: left;">OpenROAD (PDNSim)</td>
+<td style="text-align: left;">Cadence Voltus</td>
+<td style="text-align: left;">Static IR drop of the power grid only, no electromigration limits, no signal wires</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">DRC and LVS</td>
+<td style="text-align: left;">Magic, KLayout, Netgen</td>
+<td style="text-align: left;">Siemens Calibre, Cadence Pegasus, Synopsys IC Validator</td>
+<td style="text-align: left;">A commercial PDK usually ships its rule decks only for commercial tools</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Power intent (UPF)</td>
+<td style="text-align: left;">OpenROAD <code>read_upf</code></td>
+<td style="text-align: left;">Cadence Conformal Low Power, Synopsys VC LP</td>
+<td style="text-align: left;">Subset of UPF, no open-source UPF checker known to us</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>For this course, the gaps are a fair price. Every student gets the same tools without a license or a non-disclosure agreement, you can read what each tool does, and the flow takes a design all the way to tapeout (<a href="#sec-intro-tinywhisper" class="quarto-xref">Section&nbsp;1.12</a>).</p>
+</section>
 </section>
 <section id="sec-intro-template" class="level2" data-number="1.10">
 <h2 data-number="1.10" class="anchored" data-anchor-id="sec-intro-template"><span class="header-section-number">1.10</span> The AMS Chip Template</h2>
@@ -1116,7 +1240,7 @@ Figure&nbsp;2: Agentic AI chip design workflow: the designer prompts and reviews
 </section>
 <section id="chip-overview" class="level3" data-number="1.12.2">
 <h3 data-number="1.12.2" class="anchored" data-anchor-id="chip-overview"><span class="header-section-number">1.12.2</span> Chip Overview</h3>
-<p><a href="#tbl-tinywhisper" class="quarto-xref">Table&nbsp;4</a> summarizes the key parameters of the chip, and <a href="#fig-tinywhisper" class="quarto-xref">Figure&nbsp;3</a> shows renders of its layout. The custom logo on the topmost metal layer (<a href="#fig-tinywhisper-tm2" class="quarto-xref">Figure&nbsp;3 (b)</a>) was generated with the tool <a href="https://arxiv.org/abs/2502.02626">ArtistIC</a> of the PULP platform. TinyWhisper was taped out in the IHP open multi-project wafer (MPW) run in March 2026 and, at the time of writing (October 2026), is still in fabrication.</p>
+<p><a href="#tbl-tinywhisper" class="quarto-xref">Table&nbsp;5</a> summarizes the key parameters of the chip, and <a href="#fig-tinywhisper" class="quarto-xref">Figure&nbsp;3</a> shows renders of its layout. The custom logo on the topmost metal layer (<a href="#fig-tinywhisper-tm2" class="quarto-xref">Figure&nbsp;3 (b)</a>) was generated with the tool <a href="https://arxiv.org/abs/2502.02626">ArtistIC</a> of the PULP platform. TinyWhisper was taped out in the IHP open multi-project wafer (MPW) run in March 2026 and, at the time of writing (October 2026), is still in fabrication.</p>
 <div id="fig-tinywhisper" class="quarto-layout-panel">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-tinywhisper-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -1155,7 +1279,7 @@ Figure&nbsp;3: Renders of the taped-out TinyWhisper chip (2000 µm × 2000 µm),
 <div id="tbl-tinywhisper" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-tinywhisper-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;4: Key parameters of the TinyWhisper chip
+Table&nbsp;5: Key parameters of the TinyWhisper chip
 </figcaption>
 <div aria-describedby="tbl-tinywhisper-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -1287,11 +1411,11 @@ Note
 </section>
 <section id="sec-sv-mcu-vs-hdl" class="level2" data-number="2.2">
 <h2 data-number="2.2" class="anchored" data-anchor-id="sec-sv-mcu-vs-hdl"><span class="header-section-number">2.2</span> Recap: Microcontroller Software versus Hardware Description</h2>
-<p>A C program for a microcontroller (MCU) and a SystemVerilog module may look alike: both have variables, operators, <code>if</code>, and <code>for</code>. Yet they describe fundamentally different things. The C program is a list of instructions that a fixed processor executes one after another. The program counter selects the next instruction, and the time a computation takes follows from the number of executed instructions. A hardware description, in contrast, describes the circuit itself. After synthesis, every line has become gates and flip-flops, and all of them work at the same time, all the time. Time is explicit: the registers update at the clock edge, and the combinational logic between them has one clock period to settle. <a href="#tbl-sv-mcu-vs-hdl" class="quarto-xref">Table&nbsp;5</a> summarizes the differences.</p>
+<p>A C program for a microcontroller (MCU) and a SystemVerilog module may look alike: both have variables, operators, <code>if</code>, and <code>for</code>. Yet they describe fundamentally different things. The C program is a list of instructions that a fixed processor executes one after another. The program counter selects the next instruction, and the time a computation takes follows from the number of executed instructions. A hardware description, in contrast, describes the circuit itself. After synthesis, every line has become gates and flip-flops, and all of them work at the same time, all the time. Time is explicit: the registers update at the clock edge, and the combinational logic between them has one clock period to settle. <a href="#tbl-sv-mcu-vs-hdl" class="quarto-xref">Table&nbsp;6</a> summarizes the differences.</p>
 <div id="tbl-sv-mcu-vs-hdl" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-mcu-vs-hdl-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;5: Software for a microcontroller versus a hardware description
+Table&nbsp;6: Software for a microcontroller versus a hardware description
 </figcaption>
 <div aria-describedby="tbl-sv-mcu-vs-hdl-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -1513,7 +1637,7 @@ Figure&nbsp;5: Timing of a synchronous sequential circuit. The state at the Q ou
 <h2 data-number="2.3" class="anchored" data-anchor-id="sec-sv-hdl-landscape"><span class="header-section-number">2.3</span> The HDL Landscape</h2>
 <p>VHDL and Verilog appeared in the 1980s, and for decades they were practically the only choice. In the last fifteen years, a large number of alternatives has appeared, most of them open source. They fall into four families:</p>
 <ol type="1">
-<li><strong>Standardized HDLs.</strong> VHDL (IEEE 1076), Verilog (IEEE 1364), and SystemVerilog (IEEE 1800, which absorbed Verilog in 2009) are read directly by the commercial simulation, synthesis, and verification tools. Among the open-source tools, (System)Verilog has much broader support than VHDL (<a href="#tbl-sv-vhdl-vs-sv" class="quarto-xref">Table&nbsp;8</a>).</li>
+<li><strong>Standardized HDLs.</strong> VHDL (IEEE 1076), Verilog (IEEE 1364), and SystemVerilog (IEEE 1800, which absorbed Verilog in 2009) are read directly by the commercial simulation, synthesis, and verification tools. Among the open-source tools, (System)Verilog has much broader support than VHDL (<a href="#tbl-sv-vhdl-vs-sv" class="quarto-xref">Table&nbsp;9</a>).</li>
 <li><strong>Embedded domain-specific languages (eDSLs)</strong>, also called <em>hardware construction languages</em>. The hardware is described with a library of a general-purpose language such as Scala, Python, or Haskell. Running the program <em>generates</em> the hardware as Verilog, so the classes, functions, loops, and type system of the host language are available to build parameterizable generators.</li>
 <li><strong>New standalone HDLs</strong> with their own syntax and compiler, designed to avoid the pitfalls of Verilog. They also emit (System)Verilog.</li>
 <li><strong>High-level synthesis (HLS) and compiler intermediate representations.</strong> An algorithm written in C/C++ or a dataflow language is scheduled into clock cycles by the tool, or a compiler uses an intermediate language as its hardware back end.</li>
@@ -1533,11 +1657,11 @@ Figure&nbsp;6: The four families of HDLs. Embedded DSLs, standalone HDLs, and HL
 </div>
 </div>
 </div>
-<p><a href="#tbl-sv-hdl-list" class="quarto-xref">Table&nbsp;6</a> gives an overview of the languages you are most likely to come across.</p>
+<p><a href="#tbl-sv-hdl-list" class="quarto-xref">Table&nbsp;7</a> gives an overview of the languages you are most likely to come across.</p>
 <div id="tbl-sv-hdl-list" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-hdl-list-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;6: An overview of hardware description languages. Origins and years are those of the first public release.
+Table&nbsp;7: An overview of hardware description languages. Origins and years are those of the first public release.
 </figcaption>
 <div aria-describedby="tbl-sv-hdl-list-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -1731,11 +1855,11 @@ Table&nbsp;6: An overview of hardware description languages. Origins and years a
 </div>
 </figure>
 </div>
-<p>All non-standard languages have one thing in common: their output is Verilog or SystemVerilog (sometimes VHDL), which then goes through the same simulators and synthesis tools as hand-written RTL. (System)Verilog is the common exchange format of the whole industry. <a href="#tbl-sv-hdl-compare" class="quarto-xref">Table&nbsp;7</a> compares the four families.</p>
+<p>All non-standard languages have one thing in common: their output is Verilog or SystemVerilog (sometimes VHDL), which then goes through the same simulators and synthesis tools as hand-written RTL. (System)Verilog is the common exchange format of the whole industry. <a href="#tbl-sv-hdl-compare" class="quarto-xref">Table&nbsp;8</a> compares the four families.</p>
 <div id="tbl-sv-hdl-compare" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-hdl-compare-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;7: Comparison of the HDL families
+Table&nbsp;8: Comparison of the HDL families
 </figcaption>
 <div aria-describedby="tbl-sv-hdl-compare-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -1822,11 +1946,11 @@ Table&nbsp;7: Comparison of the HDL families
 </section>
 <section id="sec-sv-vhdl-vs-sv" class="level3" data-number="2.3.2">
 <h3 data-number="2.3.2" class="anchored" data-anchor-id="sec-sv-vhdl-vs-sv"><span class="header-section-number">2.3.2</span> VHDL versus SystemVerilog</h3>
-<p><a href="#tbl-sv-vhdl-vs-sv" class="quarto-xref">Table&nbsp;8</a> compares the two languages.</p>
+<p><a href="#tbl-sv-vhdl-vs-sv" class="quarto-xref">Table&nbsp;9</a> compares the two languages.</p>
 <div id="tbl-sv-vhdl-vs-sv" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-vhdl-vs-sv-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;8: VHDL versus SystemVerilog
+Table&nbsp;9: VHDL versus SystemVerilog
 </figcaption>
 <div aria-describedby="tbl-sv-vhdl-vs-sv-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -1933,11 +2057,11 @@ Table&nbsp;8: VHDL versus SystemVerilog
 </section>
 <section id="sec-sv-basics" class="level2" data-number="2.5">
 <h2 data-number="2.5" class="anchored" data-anchor-id="sec-sv-basics"><span class="header-section-number">2.5</span> SystemVerilog for VHDL Designers</h2>
-<p><a href="#tbl-sv-rosetta" class="quarto-xref">Table&nbsp;9</a> maps the most important VHDL constructs onto SystemVerilog. The following sections go through them one by one. Where a VHDL version helps, it comes first, and the sequential designs use the two-process style you know from your VHDL courses.</p>
+<p><a href="#tbl-sv-rosetta" class="quarto-xref">Table&nbsp;10</a> maps the most important VHDL constructs onto SystemVerilog. The following sections go through them one by one. Where a VHDL version helps, it comes first, and the sequential designs use the two-process style you know from your VHDL courses.</p>
 <div id="tbl-sv-rosetta" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-rosetta-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;9: Mapping of VHDL constructs onto SystemVerilog
+Table&nbsp;10: Mapping of VHDL constructs onto SystemVerilog
 </figcaption>
 <div aria-describedby="tbl-sv-rosetta-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -2143,11 +2267,11 @@ Table&nbsp;9: Mapping of VHDL constructs onto SystemVerilog
 <li><strong>Two-state types</strong> such as <code>bit</code>, <code>int</code> (32 bits, signed), and <code>int unsigned</code> know only <code>0</code> and <code>1</code>. Use them for parameters, loop variables, and in testbenches, but not for RTL signals, where they would turn an <code>x</code> into a <code>0</code> and hide bugs.</li>
 <li><strong>Arrays.</strong> A <em>packed</em> array <code>logic [3:0][7:0] word</code> is a 32-bit vector made of four bytes and can be used as one vector. An <em>unpacked</em> array <code>logic [7:0] mem [16]</code> holds 16 separate bytes, e.g., a register file.</li>
 </ul>
-<p>Literals carry their width in front of the base, as <a href="#tbl-sv-literals" class="quarto-xref">Table&nbsp;10</a> shows. Always size your literals, because an unsized number such as <code>20</code> is a 32-bit integer.</p>
+<p>Literals carry their width in front of the base, as <a href="#tbl-sv-literals" class="quarto-xref">Table&nbsp;11</a> shows. Always size your literals, because an unsized number such as <code>20</code> is a 32-bit integer.</p>
 <div id="tbl-sv-literals" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-literals-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;10: Literals in SystemVerilog and VHDL
+Table&nbsp;11: Literals in SystemVerilog and VHDL
 </figcaption>
 <div aria-describedby="tbl-sv-literals-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -2207,11 +2331,11 @@ Table&nbsp;10: Literals in SystemVerilog and VHDL
 </section>
 <section id="sec-sv-operators" class="level3" data-number="2.5.3">
 <h3 data-number="2.5.3" class="anchored" data-anchor-id="sec-sv-operators"><span class="header-section-number">2.5.3</span> Operators and Expression Widths</h3>
-<p>Most operators exist in both languages, but SystemVerilog uses the C notation (<a href="#tbl-sv-operators" class="quarto-xref">Table&nbsp;11</a>).</p>
+<p>Most operators exist in both languages, but SystemVerilog uses the C notation (<a href="#tbl-sv-operators" class="quarto-xref">Table&nbsp;12</a>).</p>
 <div id="tbl-sv-operators" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-operators-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;11: Operators in VHDL and SystemVerilog
+Table&nbsp;12: Operators in VHDL and SystemVerilog
 </figcaption>
 <div aria-describedby="tbl-sv-operators-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -2664,11 +2788,11 @@ Table&nbsp;11: Operators in VHDL and SystemVerilog
 <span id="cb17-53"><a href="#cb17-53" aria-hidden="true" tabindex="-1"></a><span class="ot">`default_nettype</span> <span class="kw">wire</span></span>
 <span id="cb17-54"><a href="#cb17-54" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p><a href="#tbl-sv-two-process" class="quarto-xref">Table&nbsp;12</a> lists the correspondences. With the default <code>DIV = 10</code>, both versions describe the same hardware apart from the reset polarity: four flip-flops for the counter, one for the tick, and the increment and compare logic in front of them. The VHDL and SystemVerilog versions of the tick generator, the sequence detector, and the two controllers of this chapter were simulated with the same cocotb testbenches, with the reset adapted, to make sure they behave identically.</p>
+<p><a href="#tbl-sv-two-process" class="quarto-xref">Table&nbsp;13</a> lists the correspondences. With the default <code>DIV = 10</code>, both versions describe the same hardware apart from the reset polarity: four flip-flops for the counter, one for the tick, and the increment and compare logic in front of them. The VHDL and SystemVerilog versions of the tick generator, the sequence detector, and the two controllers of this chapter were simulated with the same cocotb testbenches, with the reset adapted, to make sure they behave identically.</p>
 <div id="tbl-sv-two-process" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-two-process-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;12: The two-process style in VHDL and SystemVerilog
+Table&nbsp;13: The two-process style in VHDL and SystemVerilog
 </figcaption>
 <div aria-describedby="tbl-sv-two-process-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -3216,12 +3340,12 @@ Figure&nbsp;8: State diagram of the controller as a Mealy FSM. Each arc carries 
 </div>
 <p>The 1-bit state type of the SystemVerilog version has no unused encoding, and the <code>default</code> item stays only because the guidelines ask for <code>unique case</code> with a <code>default</code> (<a href="#sec-sv-guidelines" class="quarto-xref">Section&nbsp;2.9</a>). Verilator reports no warning. Yosys 0.70 builds the Mealy controller from 4 cells with one flip-flop, against 9 cells with three flip-flops for the one-hot Moore version.</p>
 <ol start="4" type="1">
-<li><a href="#tbl-sv-moore-mealy" class="quarto-xref">Table&nbsp;13</a> lists both versions cycle by cycle. Icarus Verilog, Verilator, and GHDL show exactly these values for the VHDL and the SystemVerilog versions (the check script of this chapter runs the sequence).</li>
+<li><a href="#tbl-sv-moore-mealy" class="quarto-xref">Table&nbsp;14</a> lists both versions cycle by cycle. Icarus Verilog, Verilator, and GHDL show exactly these values for the VHDL and the SystemVerilog versions (the check script of this chapter runs the sequence).</li>
 </ol>
 <div id="tbl-sv-moore-mealy" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-moore-mealy-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;13: The Moore and the Mealy controller for the input sequence of step 4
+Table&nbsp;14: The Moore and the Mealy controller for the input sequence of step 4
 </figcaption>
 <div aria-describedby="tbl-sv-moore-mealy-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -3444,11 +3568,11 @@ Table&nbsp;13: The Moore and the Mealy controller for the input sequence of step
 </section>
 <section id="sec-sv-synthesizable" class="level3" data-number="2.5.12">
 <h3 data-number="2.5.12" class="anchored" data-anchor-id="sec-sv-synthesizable"><span class="header-section-number">2.5.12</span> What Is Synthesizable</h3>
-<p>Synthesis understands only a subset of SystemVerilog. Everything else is for simulation and testbenches only (<a href="#tbl-sv-synthesizable" class="quarto-xref">Table&nbsp;14</a>).</p>
+<p>Synthesis understands only a subset of SystemVerilog. Everything else is for simulation and testbenches only (<a href="#tbl-sv-synthesizable" class="quarto-xref">Table&nbsp;15</a>).</p>
 <div id="tbl-sv-synthesizable" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-synthesizable-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;14: The synthesizable subset of SystemVerilog
+Table&nbsp;15: The synthesizable subset of SystemVerilog
 </figcaption>
 <div aria-describedby="tbl-sv-synthesizable-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -3503,11 +3627,11 @@ Table&nbsp;14: The synthesizable subset of SystemVerilog
 <li><strong>Generated code.</strong> All alternative HDLs of <a href="#sec-sv-hdl-landscape" class="quarto-xref">Section&nbsp;2.3</a> emit Verilog or SystemVerilog.</li>
 <li><strong>Existing code.</strong> Many open-source cores, older IP blocks, textbooks, and online examples are written in Verilog-2001, as is the Verilog cheat-sheet of <a href="#sec-sv-references" class="quarto-xref">Section&nbsp;2.4</a>. AI assistants often suggest code in the same style.</li>
 </ul>
-<p><a href="#tbl-sv-verilog-vs-sv" class="quarto-xref">Table&nbsp;15</a> maps the Verilog idioms you will meet onto the SystemVerilog of this chapter.</p>
+<p><a href="#tbl-sv-verilog-vs-sv" class="quarto-xref">Table&nbsp;16</a> maps the Verilog idioms you will meet onto the SystemVerilog of this chapter.</p>
 <div id="tbl-sv-verilog-vs-sv" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-verilog-vs-sv-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;15: Plain Verilog versus SystemVerilog
+Table&nbsp;16: Plain Verilog versus SystemVerilog
 </figcaption>
 <div aria-describedby="tbl-sv-verilog-vs-sv-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -3660,7 +3784,7 @@ Table&nbsp;15: Plain Verilog versus SystemVerilog
 <span id="cb31-46"><a href="#cb31-46" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <ol type="1">
-<li>Which constructs are plain Verilog, and what are their SystemVerilog counterparts in <a href="#tbl-sv-verilog-vs-sv" class="quarto-xref">Table&nbsp;15</a>?</li>
+<li>Which constructs are plain Verilog, and what are their SystemVerilog counterparts in <a href="#tbl-sv-verilog-vs-sv" class="quarto-xref">Table&nbsp;16</a>?</li>
 <li>Save the file as <code>prio_enc.v</code>, lint it with <code>verilator --lint-only -Wall prio_enc.v</code>, and synthesize it with <code>yosys -p "read_verilog prio_enc.v; synth -top prio_enc; stat"</code>. What do the two tools report?</li>
 <li>Translate the module into SystemVerilog in <code>prio_enc.sv</code>, with the conventions of this chapter: ANSI ports with <code>_i</code> and <code>_o</code>, <code>rst_ni</code>, <code>logic</code>, and the two-process style with <code>_d</code> and <code>_q</code>. Do not fix the mistake yet. Synthesize your translation with <code>read_verilog -sv</code>. What has changed?</li>
 <li>Fix the mistake and the remaining lint warning, and lint and synthesize the module again.</li>
@@ -3942,11 +4066,11 @@ Table&nbsp;15: Plain Verilog versus SystemVerilog
 </section>
 <section id="sec-sv-tb-compare" class="level3" data-number="2.6.3">
 <h3 data-number="2.6.3" class="anchored" data-anchor-id="sec-sv-tb-compare"><span class="header-section-number">2.6.3</span> SystemVerilog or cocotb?</h3>
-<p><a href="#tbl-sv-tb-compare" class="quarto-xref">Table&nbsp;16</a> compares the two kinds of testbenches.</p>
+<p><a href="#tbl-sv-tb-compare" class="quarto-xref">Table&nbsp;17</a> compares the two kinds of testbenches.</p>
 <div id="tbl-sv-tb-compare" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-tb-compare-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;16: SystemVerilog and cocotb testbenches
+Table&nbsp;17: SystemVerilog and cocotb testbenches
 </figcaption>
 <div aria-describedby="tbl-sv-tb-compare-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -4015,11 +4139,11 @@ Table&nbsp;16: SystemVerilog and cocotb testbenches
 <h3 data-number="2.7.2" class="anchored" data-anchor-id="sec-sv-tools-lint"><span class="header-section-number">2.7.2</span> Linting with Verilator</h3>
 <p>A linter checks the code for errors and suspicious constructs without simulating it. Run it first, on every RTL file, after every change:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb37"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="ex">verilator</span> <span class="at">--lint-only</span> <span class="at">-Wall</span> rtl/tick_gen.sv</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><code>--lint-only</code> only parses and checks the code, and <code>-Wall</code> enables all warnings, including the style warnings. Without any warning, Verilator only prints a short report and exits with status 0. Otherwise, it prints the warnings with file, line, and a link to their description, and exits with an error. <a href="#tbl-sv-verilator-warnings" class="quarto-xref">Table&nbsp;17</a> lists the warnings you will meet most often.</p>
+<p><code>--lint-only</code> only parses and checks the code, and <code>-Wall</code> enables all warnings, including the style warnings. Without any warning, Verilator only prints a short report and exits with status 0. Otherwise, it prints the warnings with file, line, and a link to their description, and exits with an error. <a href="#tbl-sv-verilator-warnings" class="quarto-xref">Table&nbsp;18</a> lists the warnings you will meet most often.</p>
 <div id="tbl-sv-verilator-warnings" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-verilator-warnings-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;17: Frequent Verilator warnings
+Table&nbsp;18: Frequent Verilator warnings
 </figcaption>
 <div aria-describedby="tbl-sv-verilator-warnings-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -4662,11 +4786,11 @@ Table&nbsp;17: Frequent Verilator warnings
 </div>
 <div id="callout-28" class="callout-28-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p>Each state stores the longest prefix of <code>1011</code> that the received bits end with. A <code>0</code> after <code>1011</code> leaves <code>10</code>, and a <code>1</code> leaves <code>1</code>, which is how overlapping occurrences are detected. <a href="#tbl-sv-seq-detect" class="quarto-xref">Table&nbsp;18</a> gives the state diagram as a table, with the state names of the VHDL version. In the SystemVerilog solution, <code>DET_IDLE</code> becomes <code>StIdle</code>, <code>DET_1</code> becomes <code>St1</code>, and so on.</p>
+<p>Each state stores the longest prefix of <code>1011</code> that the received bits end with. A <code>0</code> after <code>1011</code> leaves <code>10</code>, and a <code>1</code> leaves <code>1</code>, which is how overlapping occurrences are detected. <a href="#tbl-sv-seq-detect" class="quarto-xref">Table&nbsp;19</a> gives the state diagram as a table, with the state names of the VHDL version. In the SystemVerilog solution, <code>DET_IDLE</code> becomes <code>StIdle</code>, <code>DET_1</code> becomes <code>St1</code>, and so on.</p>
 <div id="tbl-sv-seq-detect" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-seq-detect-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;18: Transitions of the sequence detector
+Table&nbsp;19: Transitions of the sequence detector
 </figcaption>
 <div aria-describedby="tbl-sv-seq-detect-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -4997,11 +5121,11 @@ Figure&nbsp;9: The counter of the AMS chip template as register and next-state l
 </div>
 <div id="callout-34" class="callout-34-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p>Every target except <code>help</code> and <code>clean</code> first checks that the environment variable <code>PDK</code> is <code>ihp-sg13cmos5l</code>, because the macro is built for this PDK. If the shell is set to another PDK (the default of the container is <code>ihp-sg13g2</code>, check it with <code>echo $PDK</code>), the Makefile stops with an error message, even for a dry run. Switch the PDK with <code>sak-pdk ihp-sg13cmos5l</code> in the same shell and try again. Your own commands did not need this, because an RTL simulation does not use the PDK. <a href="#tbl-sv-make-targets" class="quarto-xref">Table&nbsp;19</a> compares the targets with your commands.</p>
+<p>Every target except <code>help</code> and <code>clean</code> first checks that the environment variable <code>PDK</code> is <code>ihp-sg13cmos5l</code>, because the macro is built for this PDK. If the shell is set to another PDK (the default of the container is <code>ihp-sg13g2</code>, check it with <code>echo $PDK</code>), the Makefile stops with an error message, even for a dry run. Switch the PDK with <code>sak-pdk ihp-sg13cmos5l</code> in the same shell and try again. Your own commands did not need this, because an RTL simulation does not use the PDK. <a href="#tbl-sv-make-targets" class="quarto-xref">Table&nbsp;20</a> compares the targets with your commands.</p>
 <div id="tbl-sv-make-targets" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-make-targets-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;19: The make targets of the counter macro and the commands behind them
+Table&nbsp;20: The make targets of the counter macro and the commands behind them
 </figcaption>
 <div aria-describedby="tbl-sv-make-targets-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -5082,11 +5206,11 @@ Table&nbsp;19: The make targets of the counter macro and the commands behind the
 <li><strong>Use blocking assignments <code>=</code> only in <code>always_comb</code> and non-blocking assignments <code>&lt;=</code> only in <code>always_ff</code>.</strong></li>
 <li><strong>Make visible whether a control acts synchronously or asynchronously.</strong> The etiquette names synchronous set and reset <code>set</code> and <code>res</code>, and asynchronous ones <code>pre</code> (preset) and <code>clr</code> (clear). In this course, the asynchronous reset of a block is <code>rst_ni</code>, and a synchronous reset or clear is an ordinary input, such as <code>reset_i</code> in the counter of the AMS chip template.</li>
 </ol>
-<p>From the lowRISC style guide <span class="citation" data-cites="lowRISC_Style_Guide">(<a href="#ref-lowRISC_Style_Guide" role="doc-biblioref"><span class="nocase">lowRISC</span> 2026</a>)</span>, we additionally adopt the suffixes <code>_d</code> and <code>_q</code> for the next and current value of a register, <code>_e</code> for enumeration types and <code>_t</code> for other types, UpperCamelCase state names, <code>unique case</code> with a <code>default</code>, named connections for every port and parameter, and no plain <code>always</code> blocks. For parameters, however, we keep the UPPERCASE names of the etiquette (rule 7), while lowRISC uses UpperCamelCase. Finally, <a href="#tbl-sv-pitfalls" class="quarto-xref">Table&nbsp;20</a> collects the traps that VHDL designers fall into most often.</p>
+<p>From the lowRISC style guide <span class="citation" data-cites="lowRISC_Style_Guide">(<a href="#ref-lowRISC_Style_Guide" role="doc-biblioref"><span class="nocase">lowRISC</span> 2026</a>)</span>, we additionally adopt the suffixes <code>_d</code> and <code>_q</code> for the next and current value of a register, <code>_e</code> for enumeration types and <code>_t</code> for other types, UpperCamelCase state names, <code>unique case</code> with a <code>default</code>, named connections for every port and parameter, and no plain <code>always</code> blocks. For parameters, however, we keep the UPPERCASE names of the etiquette (rule 7), while lowRISC uses UpperCamelCase. Finally, <a href="#tbl-sv-pitfalls" class="quarto-xref">Table&nbsp;21</a> collects the traps that VHDL designers fall into most often.</p>
 <div id="tbl-sv-pitfalls" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sv-pitfalls-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;20: Pitfalls for VHDL designers
+Table&nbsp;21: Pitfalls for VHDL designers
 </figcaption>
 <div aria-describedby="tbl-sv-pitfalls-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -5184,7 +5308,7 @@ Table&nbsp;20: Pitfalls for VHDL designers
 <li>Use <code>logic</code>, <code>always_comb</code> with <code>=</code>, <code>always_ff</code> with <code>&lt;=</code>, sized literals, and an asynchronous active-low reset <code>rst_ni</code>. Lint every file and check it with a quick Yosys synthesis.</li>
 <li>Plain Verilog is everywhere, in netlists, cell models, generated code, and older IP. Read it, but write SystemVerilog: <code>logic</code> instead of <code>reg</code> and <code>wire</code>, <code>always_comb</code> and <code>always_ff</code> instead of <code>always</code>.</li>
 <li>Make every testbench self-checking, drive and check on the falling clock edge, and make sure that a failure sets the exit status: <code>$fatal</code> in SystemVerilog, <code>get_results()</code> in a cocotb runner.</li>
-<li>The make targets of the AMS chip template wrap the commands you typed in this chapter, with small differences, e.g., <code>-DSIM</code> and no <code>-Wall</code> (<a href="#tbl-sv-make-targets" class="quarto-xref">Table&nbsp;19</a>).</li>
+<li>The make targets of the AMS chip template wrap the commands you typed in this chapter, with small differences, e.g., <code>-DSIM</code> and no <code>-Wall</code> (<a href="#tbl-sv-make-targets" class="quarto-xref">Table&nbsp;20</a>).</li>
 </ul>
 <p>In <a href="#sec-modeling" class="quarto-xref">Section&nbsp;3</a>, we look at modeling guidelines that turn correct RTL into RTL that synthesizes well, and <a href="#sec-verification" class="quarto-xref">Section&nbsp;4</a> takes the cocotb testbenches of this chapter to a systematic verification methodology.</p>
 </section>
@@ -5320,11 +5444,11 @@ Figure&nbsp;11: The 2:1 multiplexer of the following testbench. <code>sel = 0</c
 <span id="cb56-41"><a href="#cb56-41" aria-hidden="true" tabindex="-1"></a><span class="kw">endmodule</span></span>
 <span id="cb56-42"><a href="#cb56-42" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p><a href="#tbl-modeling-xprop" class="quarto-xref">Table&nbsp;21</a> shows the results in Icarus Verilog and in Verilator, each for two input combinations. For comparison, the fourth row is the gate-level model of the SG13CMOS5L multiplexer cell <code>sg13cmos5l_mux2_1</code>, simulated in Icarus Verilog with the same inputs.</p>
+<p><a href="#tbl-modeling-xprop" class="quarto-xref">Table&nbsp;22</a> shows the results in Icarus Verilog and in Verilator, each for two input combinations. For comparison, the fourth row is the gate-level model of the SG13CMOS5L multiplexer cell <code>sg13cmos5l_mux2_1</code>, simulated in Icarus Verilog with the same inputs.</p>
 <div id="tbl-modeling-xprop" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-modeling-xprop-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;21: A multiplexer and an AND gate with the unknown select <code>sel = x</code>. Each entry gives the result for <code>a = 0</code>, <code>b = 1</code> and for <code>a = b = 1</code>.
+Table&nbsp;22: A multiplexer and an AND gate with the unknown select <code>sel = x</code>. Each entry gives the result for <code>a = 0</code>, <code>b = 1</code> and for <code>a = b = 1</code>.
 </figcaption>
 <div aria-describedby="tbl-modeling-xprop-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -5386,7 +5510,7 @@ Table&nbsp;21: A multiplexer and an AND gate with the unknown select <code>sel =
 <li><strong>The AND gate is exact.</strong> Icarus Verilog knows that <code>x &amp; 0</code> is <code>0</code>.</li>
 <li><strong>Verilator knows no <code>x</code>.</strong> It is a two-state simulator and replaces every <code>x</code> by a two-state value, here <code>0</code>, so its results are those of <code>sel = 0</code>. That makes Verilator fast, but it hides every unknown value. The option <code>--x-assign</code> selects what an explicit <code>'x</code> becomes, by default the value that simulates fastest. The option <code>--x-initial</code> selects what the variables start with. With its default, <code>unique</code>, they start at <code>0</code>, unless the run-time option <code>+verilator+rand+reset+2</code> asks for random values, and <code>+verilator+seed+&lt;n&gt;</code> selects the seed. Random start values are what silicon does: every flip-flop powers up as <code>0</code> or <code>1</code>, and nobody knows which.</li>
 </ul>
-<p>Since an <code>x</code> cannot be trusted in either direction, the guidelines are strict. <strong>Never assign <code>'x</code> in RTL.</strong> The lowRISC style guide puts it clearly: “The use of <code>X</code> literals in RTL code is strongly discouraged” <span class="citation" data-cites="lowRISC_Style_Guide">(<a href="#ref-lowRISC_Style_Guide" role="doc-biblioref"><span class="nocase">lowRISC</span> 2026</a>)</span>. An <code>'x</code> tells the synthesis tool that it may choose any value, so the netlist can implement a value that the RTL simulation never showed. Assign a defined default instead, as the two-process style does (<a href="#sec-sv-two-process" class="quarto-xref">Section&nbsp;2.5.7</a>). <strong>Do not take the absence of <code>x</code> in an RTL simulation as a proof</strong> that a design is defined. Run the regression in Verilator with random start values and several seeds, and simulate the netlist at least once (<a href="#sec-verification" class="quarto-xref">Section&nbsp;4</a>). With <code>--x-assign unique</code>, Verilator also randomizes the explicit <code>'x</code> assignments that slipped through. In testbench checks, compare with <code>!==</code> or <code>$isunknown()</code>, as in <a href="#tbl-sv-pitfalls" class="quarto-xref">Table&nbsp;20</a>.</p>
+<p>Since an <code>x</code> cannot be trusted in either direction, the guidelines are strict. <strong>Never assign <code>'x</code> in RTL.</strong> The lowRISC style guide puts it clearly: “The use of <code>X</code> literals in RTL code is strongly discouraged” <span class="citation" data-cites="lowRISC_Style_Guide">(<a href="#ref-lowRISC_Style_Guide" role="doc-biblioref"><span class="nocase">lowRISC</span> 2026</a>)</span>. An <code>'x</code> tells the synthesis tool that it may choose any value, so the netlist can implement a value that the RTL simulation never showed. Assign a defined default instead, as the two-process style does (<a href="#sec-sv-two-process" class="quarto-xref">Section&nbsp;2.5.7</a>). <strong>Do not take the absence of <code>x</code> in an RTL simulation as a proof</strong> that a design is defined. Run the regression in Verilator with random start values and several seeds, and simulate the netlist at least once (<a href="#sec-verification" class="quarto-xref">Section&nbsp;4</a>). With <code>--x-assign unique</code>, Verilator also randomizes the explicit <code>'x</code> assignments that slipped through. In testbench checks, compare with <code>!==</code> or <code>$isunknown()</code>, as in <a href="#tbl-sv-pitfalls" class="quarto-xref">Table&nbsp;21</a>.</p>
 <section id="sec-modeling-reset" class="level3" data-number="3.3.1">
 <h3 data-number="3.3.1" class="anchored" data-anchor-id="sec-modeling-reset"><span class="header-section-number">3.3.1</span> The Missing Reset</h3>
 <p>The most common source of an unknown value is a register without reset. As an example, take the controller FSM of <a href="#sec-sv-fsm" class="quarto-xref">Section&nbsp;2.5.9</a> and remove the reset from its state register:</p>
@@ -5504,11 +5628,11 @@ cycle 3: busy_o=1 done_o=0</code></pre>
 </section>
 <section id="sec-modeling-fpga" class="level2" data-number="3.4">
 <h2 data-number="3.4" class="anchored" data-anchor-id="sec-modeling-fpga"><span class="header-section-number">3.4</span> FPGA Habits That Break on an ASIC</h2>
-<p>Many of you have designed for FPGAs, and FPGA tools are forgiving. The bitstream initializes every flip-flop of an FPGA based on static RAM (SRAM), the synthesis tool maps arrays and multiplications onto the block RAMs and multipliers of the FPGA, and clock managers and global clock buffers are available as primitives. On an ASIC, every gate comes from the standard-cell library, and the only larger blocks are the macros of the PDK, such as SRAMs and IO cells. <a href="#tbl-modeling-fpga" class="quarto-xref">Table&nbsp;22</a> lists the habits that do not carry over.</p>
+<p>Many of you have designed for FPGAs, and FPGA tools are forgiving. The bitstream initializes every flip-flop of an FPGA based on static RAM (SRAM), the synthesis tool maps arrays and multiplications onto the block RAMs and multipliers of the FPGA, and clock managers and global clock buffers are available as primitives. On an ASIC, every gate comes from the standard-cell library, and the only larger blocks are the macros of the PDK, such as SRAMs and IO cells. <a href="#tbl-modeling-fpga" class="quarto-xref">Table&nbsp;23</a> lists the habits that do not carry over.</p>
 <div id="tbl-modeling-fpga" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-modeling-fpga-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;22: FPGA habits that do not carry over to an ASIC
+Table&nbsp;23: FPGA habits that do not carry over to an ASIC
 </figcaption>
 <div aria-describedby="tbl-modeling-fpga-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -5571,7 +5695,7 @@ Table&nbsp;22: FPGA habits that do not carry over to an ASIC
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb63"><pre class="sourceCode systemverilog code-with-copy"><code class="sourceCode systemverilog"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a><span class="kw">logic</span> [COUNT_WIDTH<span class="dv">-1</span>:<span class="dv">0</span>] count_q    = '<span class="dv">0</span>;</span>
 <span id="cb63-2"><a href="#cb63-2" aria-hidden="true" tabindex="-1"></a><span class="kw">logic</span>                   slow_clk_q = <span class="bn">1'b0</span>;</span>
 <span id="cb63-3"><a href="#cb63-3" aria-hidden="true" tabindex="-1"></a><span class="kw">logic</span>                   led_q      = <span class="bn">1'b0</span>;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>The RTL simulation honors the initial values, and the counter starts at zero in Icarus Verilog and in Verilator. Verilator flags them with <code>-Wall</code>, as step 1 of the following exercise shows. Yosys keeps the initial values through the generic synthesis, but an ASIC flip-flop has no way to implement them, and the mapping onto SG13CMOS5L cells drops them without a single warning in the log. In a gate-level simulation of the blinker with <code>DIV = 4</code>, the counter therefore stays unknown, and <code>led_o</code> is still <code>x</code> after 40 clock cycles, in which it should have toggled five times. On the chip, the registers start with random values. An <code>initial</code> block is for testbenches only (<a href="#tbl-sv-synthesizable" class="quarto-xref">Table&nbsp;14</a>). In RTL, the reset sets the start values.</p>
+<p>The RTL simulation honors the initial values, and the counter starts at zero in Icarus Verilog and in Verilator. Verilator flags them with <code>-Wall</code>, as step 1 of the following exercise shows. Yosys keeps the initial values through the generic synthesis, but an ASIC flip-flop has no way to implement them, and the mapping onto SG13CMOS5L cells drops them without a single warning in the log. In a gate-level simulation of the blinker with <code>DIV = 4</code>, the counter therefore stays unknown, and <code>led_o</code> is still <code>x</code> after 40 clock cycles, in which it should have toggled five times. On the chip, the registers start with random values. An <code>initial</code> block is for testbenches only (<a href="#tbl-sv-synthesizable" class="quarto-xref">Table&nbsp;15</a>). In RTL, the reset sets the start values.</p>
 </section>
 <section id="sec-modeling-clken" class="level3" data-number="3.4.2">
 <h3 data-number="3.4.2" class="anchored" data-anchor-id="sec-modeling-clken"><span class="header-section-number">3.4.2</span> Clock Dividers and Clock Enables</h3>
@@ -5928,7 +6052,7 @@ Figure&nbsp;18: Two macros, hardened separately. (a) Without registers at the bo
 </section>
 <section id="sec-modeling-ports" class="level3" data-number="3.5.2">
 <h3 data-number="3.5.2" class="anchored" data-anchor-id="sec-modeling-ports"><span class="header-section-number">3.5.2</span> Ports That Survive Synthesis</h3>
-<p>The template simulates a macro with the same cocotb testbench at RTL and at gate level, the latter with <code>make sim-gl-cocotb</code> (<a href="#tbl-sv-make-targets" class="quarto-xref">Table&nbsp;19</a>). This only works if the testbench sees the same interface in both cases:</p>
+<p>The template simulates a macro with the same cocotb testbench at RTL and at gate level, the latter with <code>make sim-gl-cocotb</code> (<a href="#tbl-sv-make-targets" class="quarto-xref">Table&nbsp;20</a>). This only works if the testbench sees the same interface in both cases:</p>
 <ul>
 <li><strong>Plain <code>logic</code> vectors at the top-level ports.</strong> Inside the macro, structures, enumerations, and arrays are fine, but after synthesis, every port is a plain vector of bits, and a testbench that relies on a structure or an interface at the top level cannot drive the netlist.</li>
 <li><strong>No top-level parameters that the testbench changes.</strong> The netlist is synthesized for one set of parameter values, and the gate-level testbench must use exactly these values. A testbench that sets a parameter, such as <code>DIV = 4</code> in <code>led_blink_tb.py</code>, needs a netlist synthesized with that value.</li>
@@ -6066,11 +6190,11 @@ Figure&nbsp;19: Two architectures of the exclusive counter. (a) A 3-bit binary c
 <span id="cb69-44"><a href="#cb69-44" aria-hidden="true" tabindex="-1"></a><span class="ot">`default_nettype</span> <span class="kw">wire</span></span>
 <span id="cb69-45"><a href="#cb69-45" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>The cocotb testbench <code>excl_cnt/testbenches/cocotb/excl_cnt_tb.py</code> checks the reset value, a full count with wrap-around, and 500 cycles of random <code>clr_i</code> and <code>en_i</code> against a model, and both architectures pass. To compare them, each one is synthesized onto SG13CMOS5L cells with the Yosys command of the exercise in <a href="#sec-modeling-reset" class="quarto-xref">Section&nbsp;3.3.1</a>, and the netlist is analyzed with the static timing analyzer OpenSTA, using the script <code>excl_cnt/syn/sta.tcl</code>. It assumes a 100 MHz clock without a clock tree, inputs that change at the clock edge, and a load of 10 fF at every output. <a href="#sec-sequential" class="quarto-xref">Section&nbsp;6</a> explains these timing constraints. <a href="#tbl-modeling-excl" class="quarto-xref">Table&nbsp;23</a> lists the results.</p>
+<p>The cocotb testbench <code>excl_cnt/testbenches/cocotb/excl_cnt_tb.py</code> checks the reset value, a full count with wrap-around, and 500 cycles of random <code>clr_i</code> and <code>en_i</code> against a model, and both architectures pass. To compare them, each one is synthesized onto SG13CMOS5L cells with the Yosys command of the exercise in <a href="#sec-modeling-reset" class="quarto-xref">Section&nbsp;3.3.1</a>, and the netlist is analyzed with the static timing analyzer OpenSTA, using the script <code>excl_cnt/syn/sta.tcl</code>. It assumes a 100 MHz clock without a clock tree, inputs that change at the clock edge, and a load of 10 fF at every output. <a href="#sec-sequential" class="quarto-xref">Section&nbsp;6</a> explains these timing constraints. <a href="#tbl-modeling-excl" class="quarto-xref">Table&nbsp;24</a> lists the results.</p>
 <div id="tbl-modeling-excl" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-modeling-excl-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;23: The two architectures of the exclusive counter on SG13CMOS5L (typical corner, 10 fF output load, ideal clock)
+Table&nbsp;24: The two architectures of the exclusive counter on SG13CMOS5L (typical corner, 10 fF output load, ideal clock)
 </figcaption>
 <div aria-describedby="tbl-modeling-excl-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -6141,7 +6265,7 @@ Table&nbsp;23: The two architectures of the exclusive counter on SG13CMOS5L (typ
 <span id="cb70-3"><a href="#cb70-3" aria-hidden="true" tabindex="-1"></a><span class="st">  dfflibmap -liberty </span><span class="va">$LIB</span><span class="st">; abc -liberty </span><span class="va">$LIB</span><span class="st">; opt_clean; </span><span class="dt">\</span></span>
 <span id="cb70-4"><a href="#cb70-4" aria-hidden="true" tabindex="-1"></a><span class="st">  stat -liberty </span><span class="va">$LIB</span><span class="st">; write_verilog -noattr excl_cnt_johnson.nl.v"</span></span>
 <span id="cb70-5"><a href="#cb70-5" aria-hidden="true" tabindex="-1"></a><span class="va">TOP</span><span class="op">=</span>excl_cnt_johnson <span class="ex">sta</span> <span class="at">-no_init</span> <span class="at">-exit</span> syn/sta.tcl</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Add a column to <a href="#tbl-modeling-excl" class="quarto-xref">Table&nbsp;23</a>.</p></li>
+<p>Add a column to <a href="#tbl-modeling-excl" class="quarto-xref">Table&nbsp;24</a>.</p></li>
 <li><p>Rank the three architectures by area and by speed. Which one would you choose (a) for the smallest area, (b) for outputs that go to another clock domain, where a glitch can be captured as a pulse, and (c) for the highest clock frequency?</p></li>
 </ol>
 </div>
@@ -6325,11 +6449,11 @@ Note
 <li><strong>Test</strong> asks whether a manufactured die is free of defects. It runs on every die after fabrication, with test patterns that the design for test of <a href="#sec-dft" class="quarto-xref">Section&nbsp;9</a> prepares. A test assumes that the design itself is correct.</li>
 <li><strong>Validation</strong> asks whether the chip does what its application needs, e.g., on a board with real signals and software. It happens with the first silicon.</li>
 </ul>
-<p>Verification has several methods, and each one answers a different question (<a href="#tbl-verification-methods" class="quarto-xref">Table&nbsp;24</a>).</p>
+<p>Verification has several methods, and each one answers a different question (<a href="#tbl-verification-methods" class="quarto-xref">Table&nbsp;25</a>).</p>
 <div id="tbl-verification-methods" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-verification-methods-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;24: Methods of design verification
+Table&nbsp;25: Methods of design verification
 </figcaption>
 <div aria-describedby="tbl-verification-methods-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -6485,11 +6609,11 @@ Figure&nbsp;21: The storage of the FIFO with <code>DEPTH = 4</code>: four entrie
 </section>
 <section id="sec-verification-plan" class="level2" data-number="4.4">
 <h2 data-number="4.4" class="anchored" data-anchor-id="sec-verification-plan"><span class="header-section-number">4.4</span> The Verification Plan</h2>
-<p>Before writing a testbench, write down what has to be verified. A <strong>verification plan</strong> lists the features of the specification and gives each one a <strong>check</strong>, i.e., how the testbench notices a failure, and a <strong>coverage goal</strong>, i.e., how you know that the stimulus has exercised the feature. The verification is complete when every check passes and every coverage goal is reached, not when the testbench runs without errors. A testbench without checks also runs without errors. <a href="#tbl-verification-plan" class="quarto-xref">Table&nbsp;25</a> shows the plan for the FIFO, and the rest of this chapter builds the testbench, the assertions, and the coverage measurement that it asks for.</p>
+<p>Before writing a testbench, write down what has to be verified. A <strong>verification plan</strong> lists the features of the specification and gives each one a <strong>check</strong>, i.e., how the testbench notices a failure, and a <strong>coverage goal</strong>, i.e., how you know that the stimulus has exercised the feature. The verification is complete when every check passes and every coverage goal is reached, not when the testbench runs without errors. A testbench without checks also runs without errors. <a href="#tbl-verification-plan" class="quarto-xref">Table&nbsp;26</a> shows the plan for the FIFO, and the rest of this chapter builds the testbench, the assertions, and the coverage measurement that it asks for.</p>
 <div id="tbl-verification-plan" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-verification-plan-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;25: Verification plan of the FIFO
+Table&nbsp;26: Verification plan of the FIFO
 </figcaption>
 <div aria-describedby="tbl-verification-plan-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -6987,11 +7111,11 @@ Figure&nbsp;22: Architecture of a self-checking testbench. The generator creates
 </section>
 <section id="sec-verification-functional-coverage" class="level3" data-number="4.7.2">
 <h3 data-number="4.7.2" class="anchored" data-anchor-id="sec-verification-functional-coverage"><span class="header-section-number">4.7.2</span> Functional Coverage</h3>
-<p>Code coverage measures the RTL. It cannot see a situation that the specification names but the RTL handles without a line of its own, and it cannot see a feature that the RTL lacks altogether. <strong>Functional coverage</strong> measures the situations of the specification instead. The verification engineer defines them as <strong>cover points</strong> and often <strong>crosses</strong> them, i.e., counts every combination. The FIFO testbench crosses the operation (idle, push, pop, or both) with the fill state (empty, partially filled, or full), which gives the 12 <strong>bins</strong> of <a href="#tbl-verification-bins" class="quarto-xref">Table&nbsp;26</a>. <code>Scoreboard.update()</code> counts them, and <code>report()</code> prints them at the end of each test.</p>
+<p>Code coverage measures the RTL. It cannot see a situation that the specification names but the RTL handles without a line of its own, and it cannot see a feature that the RTL lacks altogether. <strong>Functional coverage</strong> measures the situations of the specification instead. The verification engineer defines them as <strong>cover points</strong> and often <strong>crosses</strong> them, i.e., counts every combination. The FIFO testbench crosses the operation (idle, push, pop, or both) with the fill state (empty, partially filled, or full), which gives the 12 <strong>bins</strong> of <a href="#tbl-verification-bins" class="quarto-xref">Table&nbsp;27</a>. <code>Scoreboard.update()</code> counts them, and <code>report()</code> prints them at the end of each test.</p>
 <div id="tbl-verification-bins" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-verification-bins-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;26: Functional coverage of the two FIFO tests, i.e., the number of cycles in each bin
+Table&nbsp;27: Functional coverage of the two FIFO tests, i.e., the number of cycles in each bin
 </figcaption>
 <div aria-describedby="tbl-verification-bins-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -7156,11 +7280,11 @@ Table&nbsp;26: Functional coverage of the two FIFO tests, i.e., the number of cy
 <li>The <code>bind</code> statement at the end inserts an instance of <code>fifo_sva</code> into every instance of <code>fifo</code>, as if it were written inside the module. The ports of the checker connect by name (<code>.*</code>) to the signals of <code>fifo</code> with the same names, including the internal pointers. The RTL stays untouched.</li>
 </ul>
 <p>Assertions can live in three places. <strong>In the RTL</strong>, the designer documents an assumption right where it matters, but every tool that reads the RTL has to handle them, including synthesis. <strong>In a separate checker attached with <code>bind</code></strong>, as here, the RTL stays clean, and the checker can still read internal signals. <strong>In the testbench</strong>, as the checks of the cocotb scoreboard, they see only the ports. That is a limitation at RTL and an advantage at gate level: synthesis renames or removes the internal signals and does not translate assertions, so only checks at the ports still work on a netlist. A classic VHDL technique keeps the assertions in a separate entity that observes only the ports, so that its checks also run on the netlist.</p>
-<p>The open-source tools support assertions very differently (<a href="#tbl-verification-sva" class="quarto-xref">Table&nbsp;27</a>).</p>
+<p>The open-source tools support assertions very differently (<a href="#tbl-verification-sva" class="quarto-xref">Table&nbsp;28</a>).</p>
 <div id="tbl-verification-sva" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-verification-sva-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;27: Support of SystemVerilog assertions in the open-source tools
+Table&nbsp;28: Support of SystemVerilog assertions in the open-source tools
 </figcaption>
 <div aria-describedby="tbl-verification-sva-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -7235,7 +7359,7 @@ Table&nbsp;27: Support of SystemVerilog assertions in the open-source tools
 <ol type="1">
 <li>For each mutant, edit <code>rtl/fifo.sv</code> and run the first command below in the folder <code>testbenches/cocotb</code>. Which tests kill the mutant? Restore the original afterwards with <code>git restore rtl/fifo.sv</code> in the folder <code>fifo</code>.</li>
 <li>Also run each mutant with the assertions alone, i.e., without the checks of the scoreboard (second command). Which assertion fires first? Then run the third command, with Icarus Verilog and without checks. What do you observe?</li>
-<li>Explain with <a href="#tbl-verification-bins" class="quarto-xref">Table&nbsp;26</a> why <code>test_fill_and_drain</code> misses M1 to M4.</li>
+<li>Explain with <a href="#tbl-verification-bins" class="quarto-xref">Table&nbsp;27</a> why <code>test_fill_and_drain</code> misses M1 to M4.</li>
 <li>Sketch the fill level of the FIFO over the cycles of <code>test_fill_and_drain</code>, and mark where a push into a full FIFO, a pop from an empty FIFO, and a push with a pop on a full FIFO would fit. Then add at most three transactions to the list in <code>test_fill_and_drain</code>, such that it kills M1 to M5 and still passes with the original design.</li>
 <li>Can any test kill M6? Is M6 a wrong design?</li>
 </ol>
@@ -7493,7 +7617,7 @@ Together, the path takes 0.06 + 0.58 + 0.25 ≈ 0.89 ns in the simulation, again
 <section id="sec-verification-simulators" class="level2" data-number="4.11">
 <h2 data-number="4.11" class="anchored" data-anchor-id="sec-verification-simulators"><span class="header-section-number">4.11</span> Choosing a Simulator</h2>
 <p>This chapter has used two simulators, and they work in very different ways. <strong>Icarus Verilog</strong> <span class="citation" data-cites="Icarus_Verilog">(<a href="#ref-Icarus_Verilog" role="doc-biblioref"><span class="nocase">Williams et al.</span> 2026</a>)</span> is an event-driven simulator. <code>iverilog</code> translates the design into the <code>vvp</code> format, and the run-time engine <code>vvp</code> interprets it. Every change of a signal is an event, and the engine evaluates what depends on that signal. It knows the four values of <a href="#sec-modeling-x" class="quarto-xref">Section&nbsp;3.3</a>, and with <code>-gspecify</code>, it reads the path delays in the <code>specify</code> blocks of the cell models. <strong>Verilator</strong> <span class="citation" data-cites="Verilator">(<a href="#ref-Verilator" role="doc-biblioref"><span class="nocase">Snyder et al.</span> 2026</a>)</span> “is not a traditional simulator but a compiler”, in the words of its guide. It translates the design into C++ and fixes the order in which the logic is evaluated already when it builds the model, and a C++ compiler turns the result into a program. With <code>--timing</code>, it also handles the delays and event controls of a testbench. It knows only two values, as <a href="#sec-modeling-x" class="quarto-xref">Section&nbsp;3.3</a> showed.</p>
-<p><a href="#tbl-verification-speed" class="quarto-xref">Table&nbsp;28</a> shows what this means for the run time. It uses a plain SystemVerilog testbench, so that no Python limits the rate. <code>fifo_speed_tb.sv</code> generates its stimulus itself, because <code>$urandom</code> differs between the simulators, and it checks the FIFO against a reference model. All four simulations pass the checks and print the same checksum, so all of them saw the same stimulus. With the netlist and the SDF file of <a href="#sec-verification-gl" class="quarto-xref">Section&nbsp;4.10</a>, the commands are:</p>
+<p><a href="#tbl-verification-speed" class="quarto-xref">Table&nbsp;29</a> shows what this means for the run time. It uses a plain SystemVerilog testbench, so that no Python limits the rate. <code>fifo_speed_tb.sv</code> generates its stimulus itself, because <code>$urandom</code> differs between the simulators, and it checks the FIFO against a reference model. All four simulations pass the checks and print the same checksum, so all of them saw the same stimulus. With the netlist and the SDF file of <a href="#sec-verification-gl" class="quarto-xref">Section&nbsp;4.10</a>, the commands are:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb94"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb94-1"><a href="#cb94-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /foss/designs/vlsi-design/content/verification/code/fifo</span>
 <span id="cb94-2"><a href="#cb94-2" aria-hidden="true" tabindex="-1"></a><span class="va">CELLS</span><span class="op">=</span><span class="va">$PDK_ROOT</span>/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/verilog</span>
 <span id="cb94-3"><a href="#cb94-3" aria-hidden="true" tabindex="-1"></a><span class="va">NL</span><span class="op">=</span><span class="st">"</span><span class="va">$CELLS</span><span class="st">/sg13cmos5l_udp.v </span><span class="va">$CELLS</span><span class="st">/sg13cmos5l_stdcell.v fifo.nl.v"</span></span>
@@ -7511,7 +7635,7 @@ Together, the path takes 0.06 + 0.58 + 0.25 ≈ 0.89 ns in the simulation, again
 <div id="tbl-verification-speed" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-verification-speed-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;28: Build and run time of <code>fifo_speed_tb.sv</code>. The 1,000,000 cycles are 20 ms at 50 MHz. The first build of Verilator also compiles its run-time library, which <code>ccache</code> keeps for the later builds. The times come from a laptop without other load and vary by about 30 % between runs, so only their ratios count.
+Table&nbsp;29: Build and run time of <code>fifo_speed_tb.sv</code>. The 1,000,000 cycles are 20 ms at 50 MHz. The first build of Verilator also compiles its run-time library, which <code>ccache</code> keeps for the later builds. The times come from a laptop without other load and vary by about 30 % between runs, so only their ratios count.
 </figcaption>
 <div aria-describedby="tbl-verification-speed-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -7555,11 +7679,11 @@ Table&nbsp;28: Build and run time of <code>fifo_speed_tb.sv</code>. The 1,000,00
 <li><strong>The netlist and its delays cost time.</strong> In Icarus Verilog, the netlist takes about 2.3 times as long as the RTL. <code>-gspecify</code> with the SDF delays multiplies that by about 3, and most of this comes from <code>-gspecify</code> itself: without <code>+SDF=fifo.sdf</code>, i.e., with all delays at 0, the factor is already about 2.5. With cocotb, Python hid this cost (<a href="#sec-verification-gl-sdf" class="quarto-xref">Section&nbsp;4.10.2</a>).</li>
 </ul>
 <p>Every gate-level simulation of this course runs in Icarus Verilog, and Verilator cannot take over. Verilator ignores the timing of the cell models: it reports <code>SPECIFYIGN</code> for the <code>specify</code> blocks and for <code>$sdf_annotate</code>, and by default, this warning stops the build. With <code>-Wno-SPECIFYIGN</code>, the netlist of the FIFO builds, but even without any delays, the testbench stops in cycle 2 with wrong flags. The model of the flip-flop <code>dfrbpq_1</code> takes its reset through an internal net <code>delayed_RESET_B</code>, which only its <code>$recrem</code> check drives. Verilator connects the delayed nets of <code>$setuphold</code>, but not this one, so the net stays 0, and all flip-flops of the netlist stay in reset. Icarus Verilog runs neither check, but it copies <code>RESET_B</code> to this net, and with <code>-gspecify</code>, its warning says so: “Delayed reference and data signals become copies of the original reference and data signals.” And even with a model that works, Verilator would hide the unknown values of <a href="#sec-modeling-x" class="quarto-xref">Section&nbsp;3.3</a>, a main reason to simulate the netlist.</p>
-<p><a href="#tbl-verification-simulators" class="quarto-xref">Table&nbsp;29</a> collects the choice.</p>
+<p><a href="#tbl-verification-simulators" class="quarto-xref">Table&nbsp;30</a> collects the choice.</p>
 <div id="tbl-verification-simulators" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-verification-simulators-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;29: Which simulator for which task
+Table&nbsp;30: Which simulator for which task
 </figcaption>
 <div aria-describedby="tbl-verification-simulators-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -7599,7 +7723,7 @@ Table&nbsp;29: Which simulator for which task
 <tr class="odd">
 <td style="text-align: left;">Concurrent assertions</td>
 <td style="text-align: left;">Verilator</td>
-<td style="text-align: left;">Icarus Verilog does not support them (<a href="#tbl-verification-sva" class="quarto-xref">Table&nbsp;27</a>)</td>
+<td style="text-align: left;">Icarus Verilog does not support them (<a href="#tbl-verification-sva" class="quarto-xref">Table&nbsp;28</a>)</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Random start values</td>
@@ -7744,11 +7868,11 @@ Figure&nbsp;25: Two rows of SG13CMOS5L standard cells, drawn to scale. Every cel
 </div>
 </div>
 </div>
-<p>The cell names follow the pattern <code>sg13cmos5l_&lt;function&gt;_&lt;drive&gt;</code>. The function is a short name, e.g., <code>inv</code>, <code>nand2</code>, <code>a21oi</code> for an AND-OR-invert gate with a 2-input AND, <code>mux4</code>, or <code>dfrbpq</code> for a D flip-flop with an active-low reset and only a <code>Q</code> output. The <strong>drive strength</strong> scales the width of the transistors: a stronger cell such as <code>inv_4</code> drives a larger load at the same delay, and needs more area and input capacitance for it. The library has 84 cells (<a href="#tbl-synthesis-lib-cells" class="quarto-xref">Table&nbsp;30</a>).</p>
+<p>The cell names follow the pattern <code>sg13cmos5l_&lt;function&gt;_&lt;drive&gt;</code>. The function is a short name, e.g., <code>inv</code>, <code>nand2</code>, <code>a21oi</code> for an AND-OR-invert gate with a 2-input AND, <code>mux4</code>, or <code>dfrbpq</code> for a D flip-flop with an active-low reset and only a <code>Q</code> output. The <strong>drive strength</strong> scales the width of the transistors: a stronger cell such as <code>inv_4</code> drives a larger load at the same delay, and needs more area and input capacitance for it. The library has 84 cells (<a href="#tbl-synthesis-lib-cells" class="quarto-xref">Table&nbsp;31</a>).</p>
 <div id="tbl-synthesis-lib-cells" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-synthesis-lib-cells-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;30: The 84 cells of the SG13CMOS5L standard-cell library
+Table&nbsp;31: The 84 cells of the SG13CMOS5L standard-cell library
 </figcaption>
 <div aria-describedby="tbl-synthesis-lib-cells-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -7818,11 +7942,11 @@ Table&nbsp;30: The 84 cells of the SG13CMOS5L standard-cell library
 <p>The physical cells have no logic function. Fill cells close the gaps in a row, so that the wells and rails continue. Decap cells add capacitance between VDD and VSS to stabilize the supply, and the antenna diode protects transistor gates against charge collected during fabrication (<a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a>).</p>
 <section id="sec-synthesis-lib-views" class="level3" data-number="5.3.1">
 <h3 data-number="5.3.1" class="anchored" data-anchor-id="sec-synthesis-lib-views"><span class="header-section-number">5.3.1</span> Library Views</h3>
-<p>Each tool of the flow needs a different description of the same cells, called a <strong>view</strong>. The PDK keeps them in <code>$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell</code> (<a href="#tbl-synthesis-lib-views" class="quarto-xref">Table&nbsp;31</a>).</p>
+<p>Each tool of the flow needs a different description of the same cells, called a <strong>view</strong>. The PDK keeps them in <code>$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell</code> (<a href="#tbl-synthesis-lib-views" class="quarto-xref">Table&nbsp;32</a>).</p>
 <div id="tbl-synthesis-lib-views" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-synthesis-lib-views-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;31: Views of the standard-cell library
+Table&nbsp;32: Views of the standard-cell library
 </figcaption>
 <div aria-describedby="tbl-synthesis-lib-views-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -7882,7 +8006,7 @@ Table&nbsp;31: Views of the standard-cell library
 </div>
 </figure>
 </div>
-<p>LEF (Library Exchange Format) is an abstract of the layout: placement and routing only need to know where a cell’s pins are and where the router must not place wires, not the transistors inside. The PDK also contains Xschem symbols and schematics of the cells (<code>sym/</code>, <code>sch/</code>), which let you use them in a schematic.</p>
+<p>LEF (Library Exchange Format) is an abstract of the layout: placement and routing only need to know where a cell’s pins are and where the router must not place wires, not the transistors inside. The PDK also contains Xschem symbols and schematics of the cells (<code>sym/</code>, <code>sch/</code>), which let you use them in a schematic. All these views describe one fixed layout per cell, a static cell. <a href="#sec-digital-flow-pcells" class="quarto-xref">Section&nbsp;10.9.1</a> contrasts it with a PCell, which draws a layout from parameters.</p>
 </section>
 <section id="sec-synthesis-lib-ge" class="level3" data-number="5.3.2">
 <h3 data-number="5.3.2" class="anchored" data-anchor-id="sec-synthesis-lib-ge"><span class="header-section-number">5.3.2</span> Gate Equivalents</h3>
@@ -7975,7 +8099,7 @@ Figure&nbsp;26: The table <code>cell_rise</code> of <code>sg13cmos5l_inv_1</code
 <div id="tbl-synthesis-lib-interp" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-synthesis-lib-interp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;32: The four entries of <code>cell_rise</code> of <code>inv_1</code> around <span class="math inline">\(s\)</span> = 0.25 ns and <span class="math inline">\(C\)</span> = 0.05 pF
+Table&nbsp;33: The four entries of <code>cell_rise</code> of <code>inv_1</code> around <span class="math inline">\(s\)</span> = 0.25 ns and <span class="math inline">\(C\)</span> = 0.05 pF
 </figcaption>
 <div aria-describedby="tbl-synthesis-lib-interp-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -8064,11 +8188,11 @@ Delay = 0.2775</code></pre>
 </section>
 <section id="sec-synthesis-lib-corners" class="level2" data-number="5.6">
 <h2 data-number="5.6" class="anchored" data-anchor-id="sec-synthesis-lib-corners"><span class="header-section-number">5.6</span> Corners</h2>
-<p>The speed of a transistor depends on the fabrication process, the supply voltage, and the temperature (<strong>PVT</strong>). A chip must work for every combination it will see, so the library is characterized at several <strong>corners</strong>. A fast corner combines fast transistors, a high supply voltage, and a low temperature. A slow corner combines slow transistors, a low supply voltage, and a high temperature. A typical corner lies in between. SG13CMOS5L has six Liberty files <code>sg13cmos5l_stdcell_&lt;corner&gt;.lib</code>, three for a nominal supply of 1.2 V and three for 1.5 V (<a href="#tbl-synthesis-lib-corners" class="quarto-xref">Table&nbsp;33</a>).</p>
+<p>The speed of a transistor depends on the fabrication process, the supply voltage, and the temperature (<strong>PVT</strong>). A chip must work for every combination it will see, so the library is characterized at several <strong>corners</strong>. A fast corner combines fast transistors, a high supply voltage, and a low temperature. A slow corner combines slow transistors, a low supply voltage, and a high temperature. A typical corner lies in between. SG13CMOS5L has six Liberty files <code>sg13cmos5l_stdcell_&lt;corner&gt;.lib</code>, three for a nominal supply of 1.2 V and three for 1.5 V (<a href="#tbl-synthesis-lib-corners" class="quarto-xref">Table&nbsp;34</a>).</p>
 <div id="tbl-synthesis-lib-corners" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-synthesis-lib-corners-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;33: The six corners of SG13CMOS5L, with the delays of <code>inv_1</code> at an input slew of 0.25 ns and a load of 0.05 pF
+Table&nbsp;34: The six corners of SG13CMOS5L, with the delays of <code>inv_1</code> at an input slew of 0.25 ns and a load of 0.05 pF
 </figcaption>
 <div aria-describedby="tbl-synthesis-lib-corners-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -8498,14 +8622,14 @@ Figure&nbsp;29: The timing parameters of a flip-flop around the rising clock edg
 </div>
 </div>
 <p>Setup and hold time together form a window around the clock edge in which <code>D</code> must not change. Both are timing checks in the library, 4×4 tables over the slews of <code>D</code> and of the clock (<a href="#sec-synthesis-lib-liberty" class="quarto-xref">Section&nbsp;5.4</a>). A hold time can be <strong>negative</strong>: then the window ends before the clock edge, and <code>D</code> may already change shortly before the edge. This happens when the data takes longer than the clock to reach the master latch inside the cell, so a change at <code>D</code> arrives there only after the master has closed.</p>
-<p>The asynchronous reset has two checks of its own. The <strong>recovery time</strong> is how long before the clock edge <code>RESET_B</code> must be released, so that the flip-flop leaves the reset at this edge. The <strong>removal time</strong> is the minimum time between the clock edge and a later release, so that the flip-flop leaves the reset only at the next edge. They are the setup and hold time of the reset release. A negative removal time, as in <a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;34</a> below, means that the release may even come shortly before the edge and still count only for the next edge. With a recovery time of 0.133 ns and a removal time of -0.114 ns, a release between 0.133 ns and 0.114 ns before the edge is forbidden. If the checks are violated, some flip-flops leave the reset one clock cycle later than others, and the design starts in a state that the RTL never reaches. <a href="#sec-cdc" class="quarto-xref">Section&nbsp;8</a> shows how a reset synchronizer prevents this. Finally, the clock and the reset need a <strong>minimum pulse width</strong>, so that the latches inside the cell can switch at all.</p>
-<p>The script <code>ff/ff.tcl</code> reads these parameters of <code>dfrbpq_1</code> from the tables of the library, with <code>report_dcalc</code> on each arc of the cell (<a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;34</a>):</p>
+<p>The asynchronous reset has two checks of its own. The <strong>recovery time</strong> is how long before the clock edge <code>RESET_B</code> must be released, so that the flip-flop leaves the reset at this edge. The <strong>removal time</strong> is the minimum time between the clock edge and a later release, so that the flip-flop leaves the reset only at the next edge. They are the setup and hold time of the reset release. A negative removal time, as in <a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;35</a> below, means that the release may even come shortly before the edge and still count only for the next edge. With a recovery time of 0.133 ns and a removal time of -0.114 ns, a release between 0.133 ns and 0.114 ns before the edge is forbidden. If the checks are violated, some flip-flops leave the reset one clock cycle later than others, and the design starts in a state that the RTL never reaches. <a href="#sec-cdc" class="quarto-xref">Section&nbsp;8</a> shows how a reset synchronizer prevents this. Finally, the clock and the reset need a <strong>minimum pulse width</strong>, so that the latches inside the cell can switch at all.</p>
+<p>The script <code>ff/ff.tcl</code> reads these parameters of <code>dfrbpq_1</code> from the tables of the library, with <code>report_dcalc</code> on each arc of the cell (<a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;35</a>):</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb110"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb110-1"><a href="#cb110-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /foss/designs/vlsi-design/content/sequential/code/ff</span>
 <span id="cb110-2"><a href="#cb110-2" aria-hidden="true" tabindex="-1"></a><span class="ex">sta</span> <span class="at">-no_init</span> <span class="at">-exit</span> ff.tcl</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div id="tbl-sequential-params" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sequential-params-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;34: Timing parameters of <code>sg13cmos5l_dfrbpq_1</code> in the typical corner, with clock and data slews of 0.1 ns and a load of 5 fF
+Table&nbsp;35: Timing parameters of <code>sg13cmos5l_dfrbpq_1</code> in the typical corner, with clock and data slews of 0.1 ns and a load of 5 fF
 </figcaption>
 <div aria-describedby="tbl-sequential-params-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -8598,7 +8722,7 @@ Figure&nbsp;30: A path between two registers. FF1 launches the data at a clock e
 <p>The uncertainty makes both checks harder. The hold check compares the same clock edge at both registers, so the jitter of the source cancels there, and its uncertainty only needs to cover the skew. <code>set_clock_uncertainty</code> with <code>-setup</code> or <code>-hold</code> sets the two margins separately. The <strong>slack</strong> is the margin of a check: the required time minus the arrival time for setup, and the arrival time minus the required time for hold. A slack of zero or more means that the check is met.</p>
 <p>Three consequences follow from the two conditions:</p>
 <ul>
-<li><strong>The setup condition sets the clock frequency.</strong> The minimum period of a path is <span class="math inline">\(T_\text{min} = t_\text{cq} + t_\text{logic,max} + t_\text{su} - t_\text{skew} + t_\text{unc}\)</span>, and the slowest path of the design sets the maximum frequency <span class="math inline">\(f_\text{max} = 1/T_\text{min}\)</span>. With the values of <a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;34</a>, logic of 1 ns, no skew, and no uncertainty, <span class="math inline">\(T_\text{min} = 0.207 + 1 + 0.127 = 1.334\)</span> ns.</li>
+<li><strong>The setup condition sets the clock frequency.</strong> The minimum period of a path is <span class="math inline">\(T_\text{min} = t_\text{cq} + t_\text{logic,max} + t_\text{su} - t_\text{skew} + t_\text{unc}\)</span>, and the slowest path of the design sets the maximum frequency <span class="math inline">\(f_\text{max} = 1/T_\text{min}\)</span>. With the values of <a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;35</a>, logic of 1 ns, no skew, and no uncertainty, <span class="math inline">\(T_\text{min} = 0.207 + 1 + 0.127 = 1.334\)</span> ns.</li>
 <li><strong>The hold condition does not contain the clock period.</strong> For a path between two flip-flops on the same clock edge, a hold violation fails at every clock frequency, even at a slow one. It cannot be fixed by lowering the clock frequency, and a chip with such a violation may not work at all.</li>
 <li><strong>Skew helps one check and hurts the other.</strong> A capturing clock that arrives later gives the setup check more time and takes the same time away from the hold check. Hold violations therefore appear on short paths, e.g., between registers without logic in between, as in shift registers and scan chains (<a href="#sec-dft" class="quarto-xref">Section&nbsp;9</a>), when the clock reaches the capturing register late.</li>
 </ul>
@@ -8735,7 +8859,7 @@ Fanout    Delay     Time   Description
                   -1.491   data arrival time
 -----------------------------------------------------------------
                    2.308   slack (MET)</code></pre>
-<p>The report has two halves. The upper half follows the data: the clock edge at 0, the ideal clock network with a delay of 0, the clock-to-output delay of 0.204 ns, and then every cell of the path with its delay and the arrival time after it. <code>^</code> marks a rising, <code>v</code> a falling transition. This path passes four buffers, each of which drives nine or ten pins. The lower half computes the required time from the next clock edge at 4 ns, minus the uncertainty of 0.1 ns and the setup time of FF2 of 0.100 ns. The setup time is smaller than in <a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;34</a>, because the slew at <code>D</code> is smaller here. The difference of 2.308 ns is the slack. The <strong>clock reconvergence pessimism</strong> gives back the margin that is lost when the shared part of the launching and the capturing clock path is counted once slow and once fast. For an ideal clock, it is 0.</p>
+<p>The report has two halves. The upper half follows the data: the clock edge at 0, the ideal clock network with a delay of 0, the clock-to-output delay of 0.204 ns, and then every cell of the path with its delay and the arrival time after it. <code>^</code> marks a rising, <code>v</code> a falling transition. This path passes four buffers, each of which drives nine or ten pins. The lower half computes the required time from the next clock edge at 4 ns, minus the uncertainty of 0.1 ns and the setup time of FF2 of 0.100 ns. The setup time is smaller than in <a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;35</a>, because the slew at <code>D</code> is smaller here. The difference of 2.308 ns is the slack. The <strong>clock reconvergence pessimism</strong> gives back the margin that is lost when the shared part of the launching and the capturing clock path is counted once slow and once fast. For an ideal clock, it is 0.</p>
 <p><code>report_clock_min_period</code> reports 1.69 ns, i.e., 591 MHz, for the paths between the registers: the arrival time of 1.491 ns plus the setup time and the uncertainty. The worst hold path runs from the input register <code>data_q[0]</code> to the output register <code>out_q[16]</code>, with an arrival time of 0.328 ns, a required time of 0.081 ns (the uncertainty of 0.100 ns plus a hold time of -0.019 ns), and a slack of 0.247 ns.</p>
 <p>The group <code>asynchronous</code> holds the recovery and removal checks of the reset. The input <code>rst_ni</code> drives the <code>RESET_B</code> pins of all 71 flip-flops through one net. The driving <code>buf_2</code> needs 0.599 ns for that, and the large slew of 0.87 ns raises the recovery time to 0.323 ns. The recovery slack is still 1.977 ns. But this path limits the block: with the input delay of 1 ns, the release of the reset needs 1.0 + 0.599 + 0.323 + 0.1 = 2.022 ns, and <code>report_clock_min_period -include_port_paths</code> reports 2.02 ns, i.e., 494 MHz. In the layout flow, the reset net is buffered like any net with a large fanout (<a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a>), and <a href="#sec-cdc" class="quarto-xref">Section&nbsp;8</a> explains how its release is made synchronous to the clock.</p>
 <div class="callout callout-style-default callout-tip callout-titled">
@@ -8991,11 +9115,11 @@ Note
 <li><strong>The operators.</strong> Yosys works on the operators of the RTL first. It folds constants and removes unused logic (<code>opt</code>, <code>opt_clean</code>), extracts state machines and may re-encode them (<code>fsm</code>), shrinks operators to the widths that are really used (<code>wreduce</code>), merges identical cells (<code>opt_merge</code>), collects additions and multiplications into arithmetic cells (<code>alumacc</code>), shares operators (<code>share</code>, <code>opt_share</code>), and finally builds every operator from gates with one of the templates of its library (<code>techmap</code>).</li>
 <li><strong>The gates.</strong> ABC restructures the gates of each combinational block between the registers, maps them onto the cells of the library, and sizes and buffers them (<a href="#sec-synthesis-lib-yosys" class="quarto-xref">Section&nbsp;5.7</a>). It runs twice in the commands of this course: <code>synth</code> ends with an <code>abc</code> pass that maps onto generic gates, and the command <code>abc -liberty</code> maps onto the library. Only the Boolean function of the block counts, so in principle ABC may rebuild a block completely. Its algorithms work on small windows of the logic, though, and they start from the structure that Yosys hands over.</li>
 </ul>
-<p>Several of these steps have switches, both in Yosys and in LibreLane, the RTL-to-GDSII flow of <a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a> (<a href="#tbl-synth-opt-switches" class="quarto-xref">Table&nbsp;35</a>).</p>
+<p>Several of these steps have switches, both in Yosys and in LibreLane, the RTL-to-GDSII flow of <a href="#sec-digital-flow" class="quarto-xref">Section&nbsp;10</a> (<a href="#tbl-synth-opt-switches" class="quarto-xref">Table&nbsp;36</a>).</p>
 <div id="tbl-synth-opt-switches" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-synth-opt-switches-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;35: Synthesis optimizations and their switches in Yosys 0.70 and LibreLane
+Table&nbsp;36: Synthesis optimizations and their switches in Yosys 0.70 and LibreLane
 </figcaption>
 <div aria-describedby="tbl-synth-opt-switches-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -9248,7 +9372,7 @@ Figure&nbsp;32: The carry networks of three 8-bit adders. Each column is one bit
 <h2 data-number="7.5" class="anchored" data-anchor-id="sec-synth-opt-pipeline"><span class="header-section-number">7.5</span> Pipelining and Retiming</h2>
 <p>The setup condition of <a href="#sec-sequential-path" class="quarto-xref">Section&nbsp;6.4</a> gives a register-to-register path the minimum period <span class="math inline">\(T_\text{min} = t_\text{cq} + t_\text{logic,max} + t_\text{su} - t_\text{skew} + t_\text{unc}\)</span>. ABC can only shorten the logic between the registers. A <strong>pipeline register</strong> splits the logic into stages, each of which has a full clock period (<a href="#fig-synth-opt-pipeline" class="quarto-xref">Figure&nbsp;33</a> (a)). With <span class="math inline">\(k\)</span> stages of equal delay,</p>
 <p><span class="math display">\[T_\text{min} = t_\text{cq} + \frac{t_\text{logic,max}}{k} + t_\text{su} - t_\text{skew} + t_\text{unc}.\]</span></p>
-<p>The pipeline delivers one result per clock cycle at a higher clock frequency, i.e., a higher <strong>throughput</strong>, but every result appears <span class="math inline">\(k - 1\)</span> cycles later than without the pipeline, i.e., the <strong>latency</strong> grows. The price is the pipeline registers, their area and their clock power (<a href="#sec-synth-opt-power" class="quarto-xref">Section&nbsp;7.6</a>). The overhead <span class="math inline">\(t_\text{cq} + t_\text{su} + t_\text{unc}\)</span> of each stage limits the gain: with the values of <a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;34</a> and an uncertainty of 0.1 ns, no stage can be clocked with a period below about 0.43 ns.</p>
+<p>The pipeline delivers one result per clock cycle at a higher clock frequency, i.e., a higher <strong>throughput</strong>, but every result appears <span class="math inline">\(k - 1\)</span> cycles later than without the pipeline, i.e., the <strong>latency</strong> grows. The price is the pipeline registers, their area and their clock power (<a href="#sec-synth-opt-power" class="quarto-xref">Section&nbsp;7.6</a>). The overhead <span class="math inline">\(t_\text{cq} + t_\text{su} + t_\text{unc}\)</span> of each stage limits the gain: with the values of <a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;35</a> and an uncertainty of 0.1 ns, no stage can be clocked with a period below about 0.43 ns.</p>
 <div id="cell-fig-synth-opt-pipeline" class="cell" data-execution_count="31">
 <div class="cell-output cell-output-display">
 <div id="fig-synth-opt-pipeline" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Four rows of block diagrams with registers as narrow blue boxes, pipeline registers as narrow red boxes, and logic as green boxes. Row a, before: register R1 drives logic A (2 ns) and logic B (2 ns) in series into register R2, and an operand x from a second input register enters B, longest path 4 ns. Row a, after: a pipeline register sits between A and B, and x passes through its own pipeline register before B, longest path 2 ns, one more cycle of latency. Row b, before: R1, logic A (2 ns), logic B (1 ns), register R2, logic C (1 ns), register R3, longest path 3 ns. Row b, after: R1, logic A (2 ns), register R2, logic B (1 ns), logic C (1 ns), register R3, longest path 2 ns.">
@@ -9425,11 +9549,11 @@ Figure&nbsp;33: (a) Pipelining: a register in the middle of the logic halves the
 <p>Without a simulation, the script keeps the reset inactive, since a reset that toggles in every tenth cycle would not be realistic. Here is the barrel shifter between two registers of <a href="#sec-sequential-opensta" class="quarto-xref">Section&nbsp;6.7</a>, synthesized with the commands of that section:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb131"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb131-1"><a href="#cb131-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /foss/designs/vlsi-design/content/sequential/code/bs_reg</span>
 <span id="cb131-2"><a href="#cb131-2" aria-hidden="true" tabindex="-1"></a><span class="va">TOP</span><span class="op">=</span>bs_reg <span class="ex">sta</span> <span class="at">-no_init</span> <span class="at">-exit</span> ../../../synth_opt/code/syn/power.tcl</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><code>report_power</code> sorts the cells into groups (<a href="#tbl-synth-opt-bs-power" class="quarto-xref">Table&nbsp;36</a>): the flip-flops into <code>Sequential</code>, the logic into <code>Combinational</code>, the cells of the clock network, such as clock buffers and clock gates, into <code>Clock</code>, and the macros and pads into groups of their own, which are empty here. The switching power of a net counts for the cell that drives it.</p>
+<p><code>report_power</code> sorts the cells into groups (<a href="#tbl-synth-opt-bs-power" class="quarto-xref">Table&nbsp;37</a>): the flip-flops into <code>Sequential</code>, the logic into <code>Combinational</code>, the cells of the clock network, such as clock buffers and clock gates, into <code>Clock</code>, and the macros and pads into groups of their own, which are empty here. The switching power of a net counts for the cell that drives it.</p>
 <div id="tbl-synth-opt-bs-power" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-synth-opt-bs-power-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;36: Power of <code>bs_reg</code> at 1.2 V and 250 MHz in the typical corner, with the default activity of 0.1 at its inputs
+Table&nbsp;37: Power of <code>bs_reg</code> at 1.2 V and 250 MHz in the typical corner, with the default activity of 0.1 at its inputs
 </figcaption>
 <div aria-describedby="tbl-synth-opt-bs-power-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -9648,7 +9772,7 @@ Figure&nbsp;36: Clock-to-output delay of <code>sg13cmos5l_dfrbpq_1</code> in ngs
 </div>
 <p><a href="#fig-cdc-meta" class="quarto-xref">Figure&nbsp;36</a> shows the result. Without metastability, the clock-to-output delay is <span class="math inline">\(t_\text{cq0}\)</span> = 220.4 ps. Near the critical point, every decade adds about 198 ps. The delay follows</p>
 <p><span class="math display">\[t_\text{cq} = t_\text{cq0} + \tau \ln \frac{T_0}{2\delta},\]</span></p>
-<p>with <span class="math inline">\(\tau\)</span> = 85.9 ps and <span class="math inline">\(T_0\)</span> = 23.5 ps from a fit from <span class="math inline">\(10^{-17}\)</span> to <span class="math inline">\(10^{-14}\)</span> s. Farther from the point, the start difference of the latch is no longer small, and the delay approaches its normal value. How good is the estimate of the wiring capacitance? The library gives a clock-to-output delay of 0.202 ns for the same edges, whose slew from 20 to 80 % is 0.09 ns, and the same load, a little less than the 0.207 ns of <a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;34</a> at slews of 0.1 ns. With the estimate, <span class="math inline">\(t_\text{cq0}\)</span> is 9 % higher, and the bare schematic (<code>CPAR=0 python3 dff_meta.py</code>) gives 190.1 ps, 6 % lower, with <span class="math inline">\(\tau\)</span> = 62.0 ps and <span class="math inline">\(T_0\)</span> = 17.0 ps. The real <span class="math inline">\(\tau\)</span> lies between the two, and the estimate errs on the safe side. Only a netlist extracted from the layout of the cell would give it exactly. Data that arrives by <span class="math inline">\(\delta\)</span> after the critical point behaves about the same way, mirrored: the master latch needs about as long to resolve, but to the old value. So the flip-flop needs more than an additional time <span class="math inline">\(t_r\)</span> whenever the data edge falls into a window of width <span class="math inline">\(T_0 e^{-t_r/\tau}\)</span> around the critical point. To resolve within 1 ns more than <span class="math inline">\(t_\text{cq0}\)</span>, the data edge must miss a window of only <span class="math inline">\(2.1 \cdot 10^{-16}\)</span> s, in which light travels 62 nm. But it will hit it sooner or later.</p>
+<p>with <span class="math inline">\(\tau\)</span> = 85.9 ps and <span class="math inline">\(T_0\)</span> = 23.5 ps from a fit from <span class="math inline">\(10^{-17}\)</span> to <span class="math inline">\(10^{-14}\)</span> s. Farther from the point, the start difference of the latch is no longer small, and the delay approaches its normal value. How good is the estimate of the wiring capacitance? The library gives a clock-to-output delay of 0.202 ns for the same edges, whose slew from 20 to 80 % is 0.09 ns, and the same load, a little less than the 0.207 ns of <a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;35</a> at slews of 0.1 ns. With the estimate, <span class="math inline">\(t_\text{cq0}\)</span> is 9 % higher, and the bare schematic (<code>CPAR=0 python3 dff_meta.py</code>) gives 190.1 ps, 6 % lower, with <span class="math inline">\(\tau\)</span> = 62.0 ps and <span class="math inline">\(T_0\)</span> = 17.0 ps. The real <span class="math inline">\(\tau\)</span> lies between the two, and the estimate errs on the safe side. Only a netlist extracted from the layout of the cell would give it exactly. Data that arrives by <span class="math inline">\(\delta\)</span> after the critical point behaves about the same way, mirrored: the master latch needs about as long to resolve, but to the old value. So the flip-flop needs more than an additional time <span class="math inline">\(t_r\)</span> whenever the data edge falls into a window of width <span class="math inline">\(T_0 e^{-t_r/\tau}\)</span> around the critical point. To resolve within 1 ns more than <span class="math inline">\(t_\text{cq0}\)</span>, the data edge must miss a window of only <span class="math inline">\(2.1 \cdot 10^{-16}\)</span> s, in which light travels 62 nm. But it will hit it sooner or later.</p>
 <p>How often? Data that changes <span class="math inline">\(f_\text{data}\)</span> times per second, sampled at <span class="math inline">\(f_\text{clk}\)</span>, hits the window with the probability <span class="math inline">\(T_0 e^{-t_r/\tau} f_\text{clk}\)</span> per change. If the flip-flop has the time <span class="math inline">\(t_r\)</span> to resolve before the next flip-flop samples it, the <strong>resolution time</strong>, the <strong>mean time between failures</strong> is</p>
 <p><span class="math display">\[\text{MTBF} = \frac{e^{t_r/\tau}}{T_0 \, f_\text{clk} \, f_\text{data}}.\]</span></p>
 <p><span class="math inline">\(T_0\)</span> and <span class="math inline">\(\tau\)</span> are properties of the flip-flop and its corner, which a circuit simulation or a measurement gives. <span class="math inline">\(T_0\)</span> is a parameter of the law above, not the setup time of the library. The time <span class="math inline">\(t_r\)</span> is what remains of the period after the normal clock-to-output delay, the logic behind the flip-flop, and the setup time of the next one: <span class="math inline">\(t_r = T - t_\text{cq0} - t_\text{logic} - t_\text{su}\)</span>. It sits in the exponent, so a few hundred picoseconds more or less change the MTBF by orders of magnitude.</p>
@@ -9792,7 +9916,7 @@ Figure&nbsp;37: A two-flip-flop synchronizer. The signal leaves domain A from a 
 <p>All commands start in the folder <code>content/cdc/code/meta</code>.</p>
 <ol type="1">
 <li>Run the measurement in the slow corner, <code>python3 dff_meta.py slow</code>, which takes a few minutes. Compare <span class="math inline">\(t_\text{cq0}\)</span>, <span class="math inline">\(\tau\)</span>, and <span class="math inline">\(T_0\)</span> with the typical corner. Why does <span class="math inline">\(\tau\)</span> change in this direction?</li>
-<li>A signal from another clock domain changes 10 million times per second and is sampled at 250 MHz. Its first flip-flop drives 3 ns of logic in front of the next flip-flop. Compute the MTBF in the typical and in the slow corner. Take <span class="math inline">\(\tau\)</span> and <span class="math inline">\(T_0\)</span> from the measurement, and the clock-to-output delay and the setup time from the library, as STA does: 0.207 ns and 0.127 ns in the typical corner (<a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;34</a>). For the slow corner, run <code>CORNER=slow_1p08V_125C sta -no_init -exit ff.tcl</code> in <code>/foss/designs/vlsi-design/content/sequential/code/ff</code>, and take the larger of the two values of each (<code>Q</code> and <code>D</code> rising and falling).</li>
+<li>A signal from another clock domain changes 10 million times per second and is sampled at 250 MHz. Its first flip-flop drives 3 ns of logic in front of the next flip-flop. Compute the MTBF in the typical and in the slow corner. Take <span class="math inline">\(\tau\)</span> and <span class="math inline">\(T_0\)</span> from the measurement, and the clock-to-output delay and the setup time from the library, as STA does: 0.207 ns and 0.127 ns in the typical corner (<a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;35</a>). For the slow corner, run <code>CORNER=slow_1p08V_125C sta -no_init -exit ff.tcl</code> in <code>/foss/designs/vlsi-design/content/sequential/code/ff</code>, and take the larger of the two values of each (<code>Q</code> and <code>D</code> rising and falling).</li>
 <li>Compute the MTBF of a two-flip-flop synchronizer under the same conditions, in both corners.</li>
 <li>Is the two-flip-flop synchronizer good enough in the slow corner? By which factor does a third flip-flop raise the MTBF in the slow corner, and to how many years? At which clock frequency would two flip-flops reach an MTBF of 100 years in the slow corner?</li>
 </ol>
@@ -10103,6 +10227,19 @@ Figure&nbsp;38: The asynchronous FIFO. The write domain writes the memory at its
 <pre><code>report_checks -from [get_clocks wclk] -to [get_clocks rclk] \
   -group_path_count 100 -endpoint_path_count 1 -format end</code></pre>
 <p>Together with the other direction, <code>async_fifo</code> has 14 such endpoints: the 8 outputs <code>data_o</code>, which the protocol of the FIFO protects, and the 6 first flip-flops of the two synchronizers. Any other endpoint would be a crossing without a synchronizer.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>OpenCDC
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The IIC-OSIC-TOOLS image also contains <a href="https://github.com/Ayoubbelguellaoui/CDC">OpenCDC</a> (<code>opencdc</code>), an open-source tool that checks the structure of clock domain crossings in RTL. It is still at an early stage and does not yet judge all designs of this chapter correctly, so this course stays with the design rules and the endpoint list above.</p>
+</div>
+</div>
 <p>A stricter alternative limits the delay of every crossing path instead of removing it, so that the bits of a Gray pointer arrive within one period of their source clock of each other, and the memory data within less than a read period, before the read domain can use the entry:</p>
 <pre><code>set_max_delay 10.0 -ignore_clock_latency \
   -from [get_clocks wclk] -to [get_clocks rclk]
@@ -10142,14 +10279,14 @@ set_false_path -hold -from [get_clocks rclk] -to [get_clocks wclk]</code></pre>
 <span id="cb151-6"><a href="#cb151-6" aria-hidden="true" tabindex="-1"></a><span class="st">  abc -constr </span><span class="va">$CONSTR</span><span class="st"> -liberty </span><span class="va">$LIB</span><span class="st">; opt_clean; </span><span class="dt">\</span></span>
 <span id="cb151-7"><a href="#cb151-7" aria-hidden="true" tabindex="-1"></a><span class="st">  stat -liberty </span><span class="va">$LIB</span><span class="st">; write_verilog -noattr bs_reg_rs.nl.v"</span></span>
 <span id="cb151-8"><a href="#cb151-8" aria-hidden="true" tabindex="-1"></a><span class="ex">sta</span> <span class="at">-no_init</span> <span class="at">-exit</span> syn/sta.tcl</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>What is the slack of the worst recovery path now? How long does its startpoint need to drive its load, compared with the clock-to-output delay in <a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;34</a>, and what does that do to the recovery time? Compare the minimum periods with those of <code>bs_reg</code> in <a href="#sec-sequential-opensta" class="quarto-xref">Section&nbsp;6.7</a>. What does <code>report_check_types</code> report, and why did synthesis not fix it?</p></li>
+<p>What is the slack of the worst recovery path now? How long does its startpoint need to drive its load, compared with the clock-to-output delay in <a href="#tbl-sequential-params" class="quarto-xref">Table&nbsp;35</a>, and what does that do to the recovery time? Compare the minimum periods with those of <code>bs_reg</code> in <a href="#sec-sequential-opensta" class="quarto-xref">Section&nbsp;6.7</a>. What does <code>report_check_types</code> report, and why did synthesis not fix it?</p></li>
 <li><p>Which checks does STA still make on the input <code>rst_ni</code>, and do they mean anything? The script reports them at its end. Copy <code>syn/bs_reg_rs.sdc</code> to <code>syn/bs_reg_rs_rst.sdc</code>, add the constraint that fits, and run <code>SDC=syn/bs_reg_rs_rst.sdc sta -no_init -exit syn/sta.tcl</code>. Which checks remain in the group <code>asynchronous</code>, and does the minimum period change?</p></li>
 </ol>
 </div>
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
 <div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-76-contents" aria-controls="callout-76" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-77-contents" aria-controls="callout-77" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -10158,7 +10295,7 @@ set_false_path -hold -from [get_clocks rclk] -to [get_clocks wclk]</code></pre>
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-76" class="callout-76-contents callout-collapse collapse">
+<div id="callout-77" class="callout-77-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <ol type="1">
 <li>The circuit (<a href="#fig-cdc-rst-sync" class="quarto-xref">Figure&nbsp;39</a>) and its timing (<a href="#fig-cdc-rst-timing" class="quarto-xref">Figure&nbsp;40</a>):</li>
@@ -10435,7 +10572,7 @@ Figure&nbsp;42: A test for the stuck-at-0 fault at the output of the inverter. <
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
 <div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-79-contents" aria-controls="callout-79" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-80-contents" aria-controls="callout-80" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -10444,7 +10581,7 @@ Figure&nbsp;42: A test for the stuck-at-0 fault at the output of the inverter. <
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-79" class="callout-79-contents callout-collapse collapse">
+<div id="callout-80" class="callout-80-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <ol type="1">
 <li>The circuit (<a href="#fig-dft-cons" class="quarto-xref">Figure&nbsp;43</a>) computes <span class="math inline">\(y = ab + \bar{a}c + bc\)</span>. The product <span class="math inline">\(bc\)</span> is the <strong>consensus</strong> of the other two and can be removed: for <span class="math inline">\(b = c = 1\)</span>, either <span class="math inline">\(a = 1\)</span> and <span class="math inline">\(ab = 1\)</span>, or <span class="math inline">\(a = 0\)</span> and <span class="math inline">\(\bar{a}c = 1\)</span>. So <span class="math inline">\(y = ab + \bar{a}c\)</span>.</li>
@@ -10617,7 +10754,7 @@ Figure&nbsp;46: Stuck-at fault coverage of random test vectors for the 8-bit <co
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
 <div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-81-contents" aria-controls="callout-81" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-82-contents" aria-controls="callout-82" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -10626,7 +10763,7 @@ Figure&nbsp;46: Stuck-at fault coverage of random test vectors for the 8-bit <co
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-81" class="callout-81-contents callout-collapse collapse">
+<div id="callout-82" class="callout-82-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <ol type="1">
 <li><code>bs_reg</code> has the registers <code>data_q</code> (8 bits), <code>shamt_q</code> (3 bits), <code>mode_q</code> (2 bits), and <code>out_q</code> (8 bits), so the chain has 21 flip-flops (<a href="#fig-dft-bs-scan" class="quarto-xref">Figure&nbsp;47</a>).</li>
@@ -10705,7 +10842,7 @@ Figure&nbsp;47: The 8-bit <code>bs_reg</code> after scan insertion. Top: its reg
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
 <div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-83-contents" aria-controls="callout-83" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-84-contents" aria-controls="callout-84" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -10714,7 +10851,7 @@ Figure&nbsp;47: The 8-bit <code>bs_reg</code> after scan insertion. Top: its reg
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-83" class="callout-83-contents callout-collapse collapse">
+<div id="callout-84" class="callout-84-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <ol type="1">
 <li>The second flip-flop of the synchronizer, <code>rst_no</code>, drives the reset inputs of all 21 flip-flops of <code>bs_reg</code>. A scan chain through all flip-flops passes through both synchronizer flip-flops, <code>meta_q</code> and <code>rst_no</code>.</li>
@@ -10959,7 +11096,7 @@ Figure&nbsp;50: A floorplan, not to scale. The core inside the die holds rows of
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
 <div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-86-contents" aria-controls="callout-86" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-87-contents" aria-controls="callout-87" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -10968,7 +11105,7 @@ Figure&nbsp;50: A floorplan, not to scale. The core inside the die holds rows of
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-86" class="callout-86-contents callout-collapse collapse">
+<div id="callout-87" class="callout-87-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <ol type="1">
 <li>The synthesized cells take 13,008.1 µm², so the core needs 26,016 µm², an edge of 161.3 µm. That fits 42 rows of 3.78 µm (158.76 µm) and 336 sites of 0.48 µm (161.28 µm). Metal1 rails run along the rows. Over the 161 µm of the core, the Metal4 straps every 50 µm make 4 for <code>VDD</code> and 3 for <code>VSS</code>, alternating, and TopMetal1 has 3 pairs. The pins sit on all four edges.</li>
@@ -11015,7 +11152,7 @@ Figure&nbsp;50: A floorplan, not to scale. The core inside the die holds rows of
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
 <div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-88-contents" aria-controls="callout-88" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-89-contents" aria-controls="callout-89" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -11024,7 +11161,7 @@ Figure&nbsp;50: A floorplan, not to scale. The core inside the die holds rows of
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-88" class="callout-88-contents callout-collapse collapse">
+<div id="callout-89" class="callout-89-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <ol type="1">
 <li>The clock net <code>clk_i</code> has 71 sinks. CTS builds an H-tree with 17 <code>buf_8</code>: one at the root, which drives 16 leaf buffers, and each leaf drives 4 or 5 flip-flops (9 × 4 + 7 × 5 = 71). Every clock path has exactly 2 buffers. The 9 leaves with only 4 flip-flops get a <strong>dummy load</strong>, an <code>inv_1</code> whose output stays open, so that all 16 leaves carry about the same load and the same delay. Together they make the 80 sinks that the log reports.</li>
@@ -11140,7 +11277,7 @@ Figure&nbsp;52: Worst setup slack of <code>bs_reg</code> at 250 MHz in the typic
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
 <div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-90-contents" aria-controls="callout-90" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-91-contents" aria-controls="callout-91" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -11149,7 +11286,7 @@ Figure&nbsp;52: Worst setup slack of <code>bs_reg</code> at 250 MHz in the typic
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-90" class="callout-90-contents callout-collapse collapse">
+<div id="callout-91" class="callout-91-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <ol type="1">
 <li>The slow corner fails with a worst setup slack of -0.586 ns at 31 endpoints, with a total of -6.98 ns, while the typical corner has 1.075 ns and the fast corner 2.072 ns. Hold passes everywhere, with 0.204 ns in the fast corner. The worst path starts at <code>_1537_</code>, the flip-flop of <code>shamt_q[1]</code>, and ends at the input of a flip-flop of <code>out_q</code>. Of the 3.59 ns from the output of the first flip-flop to the input of the second, 1.83 ns go into six buffers of the repair of the design: two behind the flip-flop, whose output drove 36 loads before the repair, and a chain of four behind an XNOR gate, whose output drove 53. The rest goes into the XNOR gate, two multiplexers, and four other gates.</li>
@@ -11309,7 +11446,7 @@ Figure&nbsp;52: Worst setup slack of <code>bs_reg</code> at 250 MHz in the typic
 </div>
 <p>Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.</p>
 <div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-92-contents" aria-controls="callout-92" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-93-contents" aria-controls="callout-93" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -11318,7 +11455,7 @@ Figure&nbsp;52: Worst setup slack of <code>bs_reg</code> at 250 MHz in the typic
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-92" class="callout-92-contents callout-collapse collapse">
+<div id="callout-93" class="callout-93-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <ol type="1">
 <li>The pin <code>CLK</code> of <code>_1537_</code> hangs on the net <code>clknet_4_10_0_clk_i</code> of the leaf buffer <code>clkbuf_4_10_0_clk_i</code>, which the root buffer <code>clkbuf_0_clk_i</code> drives. In the typical corner, the wire from <code>clk_i</code> to the root takes 0.002 ns, the root <code>buf_8</code> 0.111 ns, the wire to the leaf 0.013 ns, the leaf <code>buf_8</code> 0.107 ns, and the wire to <code>CLK</code> 0.002 ns, 0.235 ns in all. The cell models declare the timescale <code>1ns/10ps</code>, so Icarus Verilog rounds every cell delay to 10 ps, while the wire delays keep their 1 ps. Both buffers take 0.11 ns, and <code>CLK</code> should rise 0.22 + 0.017 = 0.237 ns after <code>clk_i</code>.</li>
@@ -11352,6 +11489,12 @@ Figure&nbsp;53: The chip top level of the AMS chip template on SG13CMOS5L, 1.6 m
 </figcaption>
 </figure>
 </div>
+<section id="sec-digital-flow-pcells" class="level3" data-number="10.9.1">
+<h3 data-number="10.9.1" class="anchored" data-anchor-id="sec-digital-flow-pcells"><span class="header-section-number">10.9.1</span> Static Cells and PCells</h3>
+<p>Most of this chip consists of <strong>static cells</strong>, layouts with fixed geometry. The standard cells, the IO cells, and the SRAM macros come as GDSII files with the PDK (<a href="#sec-synthesis-lib-views" class="quarto-xref">Section&nbsp;5.3.1</a>), and a macro hardened by LibreLane is a static cell as well. A different size is a different cell, e.g., <code>inv_1</code> and <code>inv_4</code>. In return, a fixed layout has to be characterized only once per corner, so a library can describe each cell with one LEF abstract and its Liberty tables.</p>
+<p>The bondpad and the seal ring, in contrast, come from <strong>parameterized cells (PCells)</strong>. A PCell is a small program that draws a layout from parameters. For example, the PCell <code>nmos</code> with <code>w=10u</code>, <code>l=0.13u</code>, and <code>ng=4</code> draws the active area, four gate fingers of 2.5 µm width each, and the contacts of source and drain. This suits analog layout, where devices come in many sizes. The PCells of SG13CMOS5L are Python code in the PDK (<code>libs.tech/klayout/python</code>), and KLayout offers them in the library <code>SG13_dev</code>, e.g., <code>nmos</code>, <code>rhigh</code>, <code>via_stack</code>, <code>bondpad</code>, and <code>sealring</code>. In the template, <code>make build-bondpad</code> runs the <code>bondpad</code> PCell for a square pad of 70 µm × 70 µm, and the step <code>KLayout.SealRing</code> draws the <code>sealring</code> PCell for the size of the die, so that the ring fits any chip.</p>
+<p>A PCell exists only in the layout tool, because GDSII stores only polygons, paths, texts, and cell references. Saving a layout writes each parameter set as an ordinary cell. KLayout can also store the parameters in the file, and when it reads such a file with the PDK installed, it redraws the PCells. This keeps the devices editable, but after a PDK update, the same file can yield different geometry. A layout for tapeout is exported without the parameters, so every PCell becomes a static cell and the geometry stays fixed. The export itself redraws the PCells with the installed PDK, so DRC and LVS have to run on the exported file. The <code>inverter</code> macro of the template keeps both files in <code>macros/inverter/layout</code>: <code>inverter_top.klay.gds</code> for editing and <code>inverter_top.gds</code>, written with <code>File &gt; Export Layout For Tapeout</code>, for the flow.</p>
+</section>
 </section>
 <section id="sec-digital-flow-summary" class="level2" data-number="10.10">
 <h2 data-number="10.10" class="anchored" data-anchor-id="sec-digital-flow-summary"><span class="header-section-number">10.10</span> Summary</h2>
@@ -11363,6 +11506,7 @@ Figure&nbsp;53: The chip top level of the AMS chip template on SG13CMOS5L, 1.6 m
 <li>Signoff extracts the wires and checks the timing in all corners, the IR drop, the design rules, and the layout against the netlist. EQY then proves the final netlist equivalent to the RTL. The estimates before routing are optimistic, so the repair needs a margin, and in <code>bs_reg</code> the slow corner passes with a setup margin of 0.6 ns.</li>
 <li>The post-layout simulation compiles the final netlist with <code>-gspecify -ginterconnect</code> and runs the testbench with the SDF file of one corner. Check one path against the SDF file to prove the annotation, and drive the inputs and sample the outputs as the SDC describes, because the clock tree delays the clock edge at every flip-flop. Without timing checks, it finds only paths whose data arrives after the clock edge, and only when its stimulus triggers them, so signoff rests on STA.</li>
 <li>The chip top level of the AMS chip template runs LibreLane’s Chip flow, which places the macros in a core inside a padframe of IO cells and bondpads and draws the seal ring.</li>
+<li>The cells of the PDK’s libraries and hardened macros are static cells with fixed geometry. A PCell draws a layout from parameters, e.g., the bondpad and the seal ring, and a layout for tapeout is exported as static cells.</li>
 </ul>
 <p>In <a href="#sec-project" class="quarto-xref">Section&nbsp;11</a>, these steps build a complete chip with the AMS chip template.</p>
 </section>
@@ -11501,11 +11645,12 @@ Note
 <li><p>How does the flow estimate the wires after placement, and why are these estimates optimistic? Why does the slow corner lose the most slack, and why can a setup margin for the timing repair close the timing where a delay-oriented synthesis does not?</p></li>
 <li><p>What changes when a timing simulation runs on the final netlist after the layout instead of on the synthesized netlist, and how do you check that the delays of the SDF file were really annotated? Why must the testbench change the inputs no earlier than the input delay of the SDC, and what happens in the simulation when it changes them right after the clock edge?</p></li>
 <li><p>What does a padframe do? What do the IO cells, the core ring, the seal ring, and the metal fill add to a chip, and which steps does the Chip flow add to the Classic flow?</p></li>
+<li><p>What is the difference between a static cell and a PCell? Give an example of each, and say what happens to a PCell when a layout is exported for tapeout.</p></li>
 </ol>
 </section>
 <section id="sec-app-exam-calc" class="level2" data-number="12.11">
 <h2 data-number="12.11" class="anchored" data-anchor-id="sec-app-exam-calc"><span class="header-section-number">12.11</span> Calculation Problems</h2>
-<ol start="67" type="1">
+<ol start="68" type="1">
 <li><p><strong>Delay Table</strong>: Around an input slew of 0.2 ns and a load of 0.03 pF, the table <code>cell_rise</code> of a cell holds four entries: 0.10 ns at a slew of 0.1 ns and a load of 0.02 pF, 0.20 ns at 0.1 ns and 0.06 pF, 0.14 ns at 0.3 ns and 0.02 pF, and 0.26 ns at 0.3 ns and 0.06 pF. Compute the delay by linear interpolation, first along the load and then along the slew.</p></li>
 <li><p><strong>Setup and Hold Slack</strong>: A path between two flip-flops on the same clock has a clock-to-output delay of 0.2 ns, a longest logic delay of 1.5 ns, a shortest logic delay of 0.02 ns, a setup time of 0.1 ns, and a hold time of 0.05 ns. The clock reaches the capturing flip-flop 0.1 ns later than the launching one, and the clock uncertainty is 0.1 ns for both checks. Compute the setup slack at a clock period of 2 ns, the minimum period, and the hold slack. Which check fails, does a slower clock help, and how do you fix it?</p></li>
 <li><p><strong>Switching Power</strong>: The data nets of a block have a total capacitance of 20 pF and an average activity of 0.1 transitions per clock cycle, and its clock net has 2 pF. Compute the switching power of the data nets and of the clock net at 1.2 V and 250 MHz. By which factor does the switching power grow at 1.5 V and the same clock frequency?</p></li>
@@ -11518,7 +11663,7 @@ Note
 </section>
 <section id="sec-app-exam-code" class="level2" data-number="12.12">
 <h2 data-number="12.12" class="anchored" data-anchor-id="sec-app-exam-code"><span class="header-section-number">12.12</span> Reading, Writing, and Fixing Code</h2>
-<ol start="75" type="1">
+<ol start="76" type="1">
 <li><p><strong>Find the Bugs</strong>: The following module should add <code>d_i</code> to an 8-bit sum in every clock cycle in which <code>en_i</code> is high and keep the sum otherwise. The sum wraps around at 256. Find the three mistakes. For each one, explain what Verilator or Yosys reports or which hardware results, and write the corrected module.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb178"><pre class="sourceCode systemverilog code-with-copy"><code class="sourceCode systemverilog"><span id="cb178-1"><a href="#cb178-1" aria-hidden="true" tabindex="-1"></a><span class="kw">module</span> acc (</span>
 <span id="cb178-2"><a href="#cb178-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">input</span>  <span class="kw">logic</span>       clk_i,</span>
@@ -11664,8 +11809,14 @@ Cummings, Clifford E. 2002. <span>“Simulation and Synthesis Techniques for Asy
 <div id="ref-Cummings_CDC" class="csl-entry" role="listitem">
 Cummings, Clifford E. 2008. <span>“Clock Domain Crossing (<span>CDC</span>) Design &amp; Verification Techniques Using <span>SystemVerilog</span>.”</span> <em>SNUG Boston</em>.
 </div>
+<div id="ref-Dorrer_Thesis" class="csl-entry" role="listitem">
+Dorrer, Simon. 2025. <span>“An Open-Source Adaptive Event-Based <span>ADC</span> for Bio-Signal Acquisition in 130 <span class="nocase">nm</span> <span>CMOS</span>.”</span> Master’s thesis, Johannes Kepler University Linz. <a href="https://epub.jku.at/urn/urn:nbn:at:at-ubl:1-90281">https://epub.jku.at/urn/urn:nbn:at:at-ubl:1-90281</a>.
+</div>
 <div id="ref-AMS_Chip_Template" class="csl-entry" role="listitem">
 Dorrer, Simon, and Harald Pretl. 2026. <em>An Open-Source Analog Mixed-Signal Chip Design Template &amp; Tutorial for the <span class="nocase">ihp-sg13cmos5l</span> Open-PDK</em>. <a href="https://github.com/iic-jku/ihp-sg13cmos5l-ams-chip-template" class="uri">Https://github.com/iic-jku/ihp-sg13cmos5l-ams-chip-template</a>. <a href="https://doi.org/10.5281/zenodo.22115134">https://doi.org/10.5281/zenodo.22115134</a>.
+</div>
+<div id="ref-Freitas_2025" class="csl-entry" role="listitem">
+Freitas, Édney M. V., Nicolas Guimarães, Rafael Maria, et al. 2025. <span>“Using Open Source <span>EDA</span> Tools in <span>ASICs</span> for <span>HEP</span>: A Mixed Comparison.”</span> <em>Journal of Instrumentation</em> 20 (12): P12022. <a href="https://doi.org/10.1088/1748-0221/20/12/P12022">https://doi.org/10.1088/1748-0221/20/12/P12022</a>.
 </div>
 <div id="ref-Difetto" class="csl-entry" role="listitem">
 Gaber, Mohamed. 2026. <em>Difetto: A Novel Design-for-Test Flow Using <span>LibreLane</span></em>. <a href="https://github.com/donn/difetto" class="uri">Https://github.com/donn/difetto</a>.
@@ -11697,6 +11848,9 @@ LibreLane Project. 2026. <em>LibreLane: An Open-Source Digital RTL-to-GDSII Flow
 <div id="ref-lowRISC_Style_Guide" class="csl-entry" role="listitem">
 <span class="nocase">lowRISC</span>. 2026. <em><span class="nocase">lowRISC</span> Verilog Coding Style Guide</em>. <a href="https://github.com/lowRISC/style-guides/blob/master/VerilogCodingStyle.md" class="uri">Https://github.com/lowRISC/style-guides/blob/master/VerilogCodingStyle.md</a>.
 </div>
+<div id="ref-OpenCDC" class="csl-entry" role="listitem">
+OpenCDC developers. 2026. <em><span>OpenCDC</span>: Static Clock Domain Crossing Analyzer for <span>Verilog</span> and <span>SystemVerilog</span></em>. <a href="https://github.com/Ayoubbelguellaoui/CDC" class="uri">Https://github.com/Ayoubbelguellaoui/CDC</a>.
+</div>
 <div id="ref-OpenSTA" class="csl-entry" role="listitem">
 Parallax Software, and The OpenROAD Project. 2026. <em><span>OpenSTA</span>: Static Timing Analyzer</em>. <a href="https://github.com/The-OpenROAD-Project/OpenSTA" class="uri">Https://github.com/The-OpenROAD-Project/OpenSTA</a>.
 </div>
@@ -11705,6 +11859,9 @@ Popoloski, Mike. 2026. <em><span class="nocase">slang</span>: <span>SystemVerilo
 </div>
 <div id="ref-pyuvm" class="csl-entry" role="listitem">
 <span class="nocase">pyuvm developers</span>. 2026. <em><span class="nocase">pyuvm</span>: The Universal Verification Methodology in Python</em>. <a href="https://github.com/pyuvm/pyuvm" class="uri">Https://github.com/pyuvm/pyuvm</a>.
+</div>
+<div id="ref-Sanchez_Lopera_2022" class="csl-entry" role="listitem">
+Sánchez Lopera, Daniela, Sven Wenzek, and Wolfgang Ecker. 2022. <span>“Using Open-Source <span>EDA</span> Tools in an Industrial Design Flow.”</span> <em>Design and Verification Conference and Exhibition Europe (<span>DVCon</span> Europe)</em>. <a href="https://dvcon-proceedings.org/wp-content/uploads/74522.pdf">https://dvcon-proceedings.org/wp-content/uploads/74522.pdf</a>.
 </div>
 <div id="ref-Verilator" class="csl-entry" role="listitem">
 <span class="nocase">Snyder, Wilson et al.</span> 2026. <em><span>Verilator</span>: SystemVerilog Simulator and Lint Tool</em>. <a href="https://github.com/verilator/verilator" class="uri">Https://github.com/verilator/verilator</a>.
