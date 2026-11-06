@@ -161,27 +161,29 @@ The written exam is closed book and allows no technical aids. Most questions the
 
 66. What does a padframe do? What do the IO cells, the core ring, the seal ring, and the metal fill add to a chip, and which steps does the Chip flow add to the Classic flow?
 
+67. What is the difference between a static cell and a PCell? Give an example of each, and say what happens to a PCell when a layout is exported for tapeout.
+
 ## Calculation Problems {#sec-app-exam-calc}
 
-67. **Delay Table**: Around an input slew of 0.2 ns and a load of 0.03 pF, the table `cell_rise` of a cell holds four entries: 0.10 ns at a slew of 0.1 ns and a load of 0.02 pF, 0.20 ns at 0.1 ns and 0.06 pF, 0.14 ns at 0.3 ns and 0.02 pF, and 0.26 ns at 0.3 ns and 0.06 pF. Compute the delay by linear interpolation, first along the load and then along the slew.
+68. **Delay Table**: Around an input slew of 0.2 ns and a load of 0.03 pF, the table `cell_rise` of a cell holds four entries: 0.10 ns at a slew of 0.1 ns and a load of 0.02 pF, 0.20 ns at 0.1 ns and 0.06 pF, 0.14 ns at 0.3 ns and 0.02 pF, and 0.26 ns at 0.3 ns and 0.06 pF. Compute the delay by linear interpolation, first along the load and then along the slew.
 
-68. **Setup and Hold Slack**: A path between two flip-flops on the same clock has a clock-to-output delay of 0.2 ns, a longest logic delay of 1.5 ns, a shortest logic delay of 0.02 ns, a setup time of 0.1 ns, and a hold time of 0.05 ns. The clock reaches the capturing flip-flop 0.1 ns later than the launching one, and the clock uncertainty is 0.1 ns for both checks. Compute the setup slack at a clock period of 2 ns, the minimum period, and the hold slack. Which check fails, does a slower clock help, and how do you fix it?
+69. **Setup and Hold Slack**: A path between two flip-flops on the same clock has a clock-to-output delay of 0.2 ns, a longest logic delay of 1.5 ns, a shortest logic delay of 0.02 ns, a setup time of 0.1 ns, and a hold time of 0.05 ns. The clock reaches the capturing flip-flop 0.1 ns later than the launching one, and the clock uncertainty is 0.1 ns for both checks. Compute the setup slack at a clock period of 2 ns, the minimum period, and the hold slack. Which check fails, does a slower clock help, and how do you fix it?
 
-69. **Switching Power**: The data nets of a block have a total capacitance of 20 pF and an average activity of 0.1 transitions per clock cycle, and its clock net has 2 pF. Compute the switching power of the data nets and of the clock net at 1.2 V and 250 MHz. By which factor does the switching power grow at 1.5 V and the same clock frequency?
+70. **Switching Power**: The data nets of a block have a total capacitance of 20 pF and an average activity of 0.1 transitions per clock cycle, and its clock net has 2 pF. Compute the switching power of the data nets and of the clock net at 1.2 V and 250 MHz. By which factor does the switching power grow at 1.5 V and the same clock frequency?
 
-70. **Synchronizer MTBF**: A flip-flop has $\tau$ = 100 ps and $T_0$ = 20 ps, a clock-to-output delay of 0.2 ns, and a setup time of 0.1 ns. A signal that changes $10^7$ times per second enters a domain clocked at 500 MHz through a two-flip-flop synchronizer. Compute the MTBF, the factor by which a third flip-flop raises it, and the MTBF with three flip-flops in years. Use $e^{17} \approx 2.4 \cdot 10^7$ and 1 year $\approx 3.2 \cdot 10^7$ s.
+71. **Synchronizer MTBF**: A flip-flop has $\tau$ = 100 ps and $T_0$ = 20 ps, a clock-to-output delay of 0.2 ns, and a setup time of 0.1 ns. A signal that changes $10^7$ times per second enters a domain clocked at 500 MHz through a two-flip-flop synchronizer. Compute the MTBF, the factor by which a third flip-flop raises it, and the MTBF with three flip-flops in years. Use $e^{17} \approx 2.4 \cdot 10^7$ and 1 year $\approx 3.2 \cdot 10^7$ s.
 
-71. **Defect Level**: A process has a yield of 90 %, and the test reaches a fault coverage of 98 %. Compute the defect level in ppm with the model of Williams and Brown, and the coverage that a defect level of 10 ppm needs. Use $Y^x \approx 1 + x \ln Y$ for small $x$, and $\ln 0.9 \approx -0.105$.
+72. **Defect Level**: A process has a yield of 90 %, and the test reaches a fault coverage of 98 %. Compute the defect level in ppm with the model of Williams and Brown, and the coverage that a defect level of 10 ppm needs. Use $Y^x \approx 1 + x \ln Y$ for small $x$, and $\ln 0.9 \approx -0.105$.
 
-72. **Test Vectors**: A circuit computes $y = ab + c$, with the internal net $n = ab$. Find a test vector $(a, b, c)$ for $n$ stuck-at-0, for $a$ stuck-at-1, and for $c$ stuck-at-0, and say for each how it excites and propagates the fault. Then show that the net $bc$ stuck-at-0 in $y = ab + \bar{a}c + bc$ is untestable.
+73. **Test Vectors**: A circuit computes $y = ab + c$, with the internal net $n = ab$. Find a test vector $(a, b, c)$ for $n$ stuck-at-0, for $a$ stuck-at-1, and for $c$ stuck-at-0, and say for each how it excites and propagates the fault. Then show that the net $bc$ stuck-at-0 in $y = ab + \bar{a}c + bc$ is untestable.
 
-73. **Scan Test Time**: A design has 1000 flip-flops, and its test has 200 scan patterns, which the tester shifts at 20 MHz. How long does the scan test take without the chain test, with one chain, and how long with 10 chains of 100 flip-flops each?
+74. **Scan Test Time**: A design has 1000 flip-flops, and its test has 200 scan patterns, which the tester shifts at 20 MHz. How long does the scan test take without the chain test, with one chain, and how long with 10 chains of 100 flip-flops each?
 
-74. **Gray Code**: Write down the 3-bit Gray code of 0 to 7. Convert the binary value `1011` into Gray code, and the Gray code `1101` back into binary. A 4-bit binary counter steps from `0111` to `1000` while another clock domain samples it through one synchronizer per bit. Which values can the other domain see, and which with a Gray-coded counter?
+75. **Gray Code**: Write down the 3-bit Gray code of 0 to 7. Convert the binary value `1011` into Gray code, and the Gray code `1101` back into binary. A 4-bit binary counter steps from `0111` to `1000` while another clock domain samples it through one synchronizer per bit. Which values can the other domain see, and which with a Gray-coded counter?
 
 ## Reading, Writing, and Fixing Code {#sec-app-exam-code}
 
-75. **Find the Bugs**: The following module should add `d_i` to an 8-bit sum in every clock cycle in which `en_i` is high and keep the sum otherwise. The sum wraps around at 256. Find the three mistakes. For each one, explain what Verilator or Yosys reports or which hardware results, and write the corrected module.
+76. **Find the Bugs**: The following module should add `d_i` to an 8-bit sum in every clock cycle in which `en_i` is high and keep the sum otherwise. The sum wraps around at 256. Find the three mistakes. For each one, explain what Verilator or Yosys reports or which hardware results, and write the corrected module.
 
     ```systemverilog
     module acc (
@@ -206,7 +208,7 @@ The written exam is closed book and allows no technical aids. Most questions the
     endmodule
     ```
 
-76. **From VHDL to SystemVerilog**: The following counter is written in the two-process style of VHDL, with `cnt` and `next_cnt` of type `unsigned(2 downto 0)`. Translate it into a SystemVerilog module `cnt3` with the ports `clk_i`, `rst_ni`, `en_i`, `clr_i`, and `tc_o`, an asynchronous active-low reset, and the two-process style with `_d` and `_q`. Why must the sensitivity list of `cnt_logic` contain all three signals, and what replaces it in SystemVerilog?
+77. **From VHDL to SystemVerilog**: The following counter is written in the two-process style of VHDL, with `cnt` and `next_cnt` of type `unsigned(2 downto 0)`. Translate it into a SystemVerilog module `cnt3` with the ports `clk_i`, `rst_ni`, `en_i`, `clr_i`, and `tc_o`, an asynchronous active-low reset, and the two-process style with `_d` and `_q`. Why must the sensitivity list of `cnt_logic` contain all three signals, and what replaces it in SystemVerilog?
 
     ```vhdl
     reg_proc: process(rst_i, clk_i) is
@@ -231,7 +233,7 @@ The written exam is closed book and allows no technical aids. Most questions the
     tc_o <= '1' when cnt = 7 else '0';
     ```
 
-77. **Clock Enable Instead of a Divided Clock**: The following code counts at half the clock frequency. Rewrite it with only one clock, an asynchronous active-low reset `rst_ni`, and a clock enable, so that the counter still advances at every second rising edge of `clk_i`. What does a simulation of the original with Icarus Verilog show, since `div_q` has no reset, and why does your version not have this problem?
+78. **Clock Enable Instead of a Divided Clock**: The following code counts at half the clock frequency. Rewrite it with only one clock, an asynchronous active-low reset `rst_ni`, and a clock enable, so that the counter still advances at every second rising edge of `clk_i`. What does a simulation of the original with Icarus Verilog show, since `div_q` has no reset, and why does your version not have this problem?
 
     ```systemverilog
     always_ff @(posedge clk_i) begin
@@ -243,7 +245,7 @@ The written exam is closed book and allows no technical aids. Most questions the
     end
     ```
 
-78. **Liberty Cell**: The following excerpt describes a cell of the typical library, whose units are ns and pF.
+79. **Liberty Cell**: The following excerpt describes a cell of the typical library, whose units are ns and pF.
 
     ```default
     cell (sg13cmos5l_a21oi_1) {
@@ -269,7 +271,7 @@ The written exam is closed book and allows no technical aids. Most questions the
 
     Draw the gate that the function describes. What does the timing sense of the arc from `A1` to `Y` mean? How large is the cell in gate equivalents, if a 2-input NAND gate has 7.2576 µm²? What is the input capacitance of `A1` in fF, and what happens when the output has to drive more than `max_capacitance`?
 
-79. **Timing Report**: The following report of OpenSTA shows the worst setup path of a block with an ideal clock of 1.25 ns.
+80. **Timing Report**: The following report of OpenSTA shows the worst setup path of a block with an ideal clock of 1.25 ns.
 
     ```default
     Startpoint: a_q (rising edge-triggered flip-flop clocked by clk)
@@ -304,9 +306,9 @@ The written exam is closed book and allows no technical aids. Most questions the
 
     Is the check met? Compute the minimum clock period of this path. Which cell takes the most time, and why is its rising output slow? Propose two fixes. Which lines of the two clock paths change if only `set_propagated_clock` is added to the constraints after clock tree synthesis, and why?
 
-80. **Timing Constraints**: Write the SDC constraints for a block with the clock input `clk_i` at 200 MHz, a clock transition of 0.1 ns, a clock uncertainty of 0.15 ns, input delays of 1.5 ns at all other inputs, output delays of 1.5 ns at all outputs, the cell `sg13cmos5l_buf_2` with its output pin `X` as the driver of the inputs, and a load of 10 fF at the outputs, in the units of the library, ns and pF. Explain what each command tells the timing analysis.
+81. **Timing Constraints**: Write the SDC constraints for a block with the clock input `clk_i` at 200 MHz, a clock transition of 0.1 ns, a clock uncertainty of 0.15 ns, input delays of 1.5 ns at all other inputs, output delays of 1.5 ns at all outputs, the cell `sg13cmos5l_buf_2` with its output pin `X` as the driver of the inputs, and a load of 10 fF at the outputs, in the units of the library, ns and pF. Explain what each command tells the timing analysis.
 
-81. **Clock Domain Crossing**: `req_a` is a pulse of one cycle of the faster clock `clk_a_i`, and the following code takes it into the domain of `clk_b_i`. Find the three mistakes, and draw a corrected crossing.
+82. **Clock Domain Crossing**: `req_a` is a pulse of one cycle of the faster clock `clk_a_i`, and the following code takes it into the domain of `clk_b_i`. Find the three mistakes, and draw a corrected crossing.
 
     ```systemverilog
     // domain A
