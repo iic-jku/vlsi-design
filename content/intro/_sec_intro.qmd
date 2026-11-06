@@ -139,18 +139,22 @@ The core of this course is the digital design flow that turns a hardware descrip
 
 {{< include /content/intro/_fig_design_flow.qmd >}}
 
-The flow starts with the **RTL design**, described in a hardware description language (HDL) such as SystemVerilog. **Logic synthesis** translates the RTL into a gate-level netlist of standard cells of the target technology, guided by constraints such as the clock frequency. Long before any layout exists, the design is simulated extensively: first at RTL, and then as a synthesized netlist (**pre-layout simulation**). Every bug found here leads back to the HDL.
+The flow starts with the **RTL design**, described in a hardware description language (HDL) such as SystemVerilog. Long before any layout exists, the RTL is checked: **lint** finds suspicious code without running it, **RTL simulation** runs it against a testbench, and designs with several clocks need a **review** of their **clock domain crossings (CDC)** (@sec-cdc).
+
+**Logic synthesis** translates the RTL into a gate-level netlist of standard cells of the target technology, guided by constraints such as the clock frequency, written in SDC (Synopsys Design Constraints). The netlist is checked as well: **static timing analysis (STA)** checks the timing of every path with an ideal clock, **gate-level simulation** (**pre-layout simulation**) repeats the tests with the same testbench, **power analysis** estimates the power consumption, **logic equivalence checking** proves that the netlist implements the RTL, and **design for test** inserts scan chains and generates test patterns (automatic test pattern generation, ATPG), so that every fabricated chip can be tested (@sec-dft). Every bug found here leads back to the RTL.
 
 The physical implementation then turns the netlist into a layout. **Floorplanning** defines the size of the die and the core, the placement of I/Os and macros, and the power grid. **Placement** positions the standard cells, **clock tree synthesis (CTS)** builds a balanced clock distribution network, and **routing** connects all cells with metal wires.
 
-Only after routing are the resistances and capacitances of the wires known. **Parasitic extraction** annotates them to the netlist, on which **static timing analysis (STA)** and **post-layout simulation** check whether the design still meets its timing and functional specification. Violations are fixed by revisiting floorplanning and placement or, if this is not enough, by changing the RTL itself (**design iteration**), e.g., by pipelining a critical path. Finally, **physical verification** checks the layout against the design rules of the foundry (design rule check, DRC) and against the netlist (layout versus schematic, LVS). Only a design that passes all checks goes to **tapeout**, i.e., is sent to the foundry for fabrication.
+Only after routing are the resistances and capacitances of the wires known. **Parasitic extraction** annotates them to the netlist, on which STA and **post-layout simulation** check whether the design still meets its timing and functional specification. Violations are fixed by revisiting floorplanning and placement or, if this is not enough, by changing the RTL itself (**design iteration**), e.g., by pipelining a critical path. Finally, the layout is written in the GDSII format, and **physical verification** checks it against the design rules of the foundry (design rule check, DRC) and against the netlist (layout versus schematic, LVS). A failed check leads back to routing. Only a design that passes all checks goes to **tapeout**, i.e., is sent to the foundry for fabrication.
 
-Besides these steps, **design for test** inserts scan chains so that every fabricated chip can be tested (@sec-dft), and designs with several clocks need safe **clock domain crossings** (@sec-cdc). For a complete chip, the hardened digital macro is finally integrated into a **padframe** and assembled into the chip top level (@sec-digital-flow). @tbl-flow-tools lists the open-source tools used in this course for each step and where the step is covered.
+LibreLane (@sec-digital-flow) runs the steps in the dashed region of @fig-design-flow. In this course, the checks beside it run separately, although LibreLane also runs lint and STA on its own. For a complete chip, the hardened digital macro is finally integrated into a **padframe** and assembled into the chip top level (@sec-digital-flow). @tbl-flow-tools lists the open-source tools used in this course for each step and where the step is covered.
 
 | Flow step | Open-source tool | Covered in |
 |:----------------------------------|:------------------------------------|:------------------------------|
 | HDL | SystemVerilog | @sec-sv-crashcourse, @sec-modeling |
+| Lint | Verilator | @sec-sv-crashcourse, @sec-modeling |
 | RTL, pre- and post-layout simulation | cocotb or a SystemVerilog testbench with Icarus Verilog, or Verilator for RTL, waveforms in GTKWave or Surfer | @sec-verification, @sec-digital-flow |
+| CDC review | by hand, no tool in this course | @sec-cdc |
 | Logic synthesis | Yosys | @sec-synthesis-lib, @sec-synth-opt |
 | Logic equivalence checking | EQY, Yosys `equiv_*` commands | @sec-synthesis-lib, @sec-dft, @sec-digital-flow |
 | Scan insertion and test generation | OpenROAD, Fault | @sec-dft |
@@ -161,7 +165,7 @@ Besides these steps, **design for test** inserts scan chains so that every fabri
 | Physical verification | Magic and KLayout (DRC), Netgen and KLayout (LVS) | @sec-digital-flow |
 | Chip assembly and padframe | LibreLane with the AMS chip template | @sec-digital-flow, @sec-project |
 
-: Steps of the RTL-to-GDSII flow, the open-source tools used for them in this course, and where they are covered. LibreLane orchestrates all steps from synthesis to GDSII. The PDK is IHP SG13CMOS5L (130 nm). {#tbl-flow-tools}
+: Steps of the RTL-to-GDSII flow, the open-source tools used for them in this course, and where they are covered. LibreLane orchestrates the steps in the dashed region of @fig-design-flow. The PDK is IHP SG13CMOS5L (130 nm). {#tbl-flow-tools}
 
 ## The IIC-OSIC-TOOLS Container {#sec-intro-tools}
 

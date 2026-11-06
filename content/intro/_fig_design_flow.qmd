@@ -17,10 +17,11 @@ limitations under the License.
 ```{python}
 #| label: fig-design-flow
 #| echo: false
-#| fig-cap: "The RTL-to-GDSII design flow. The synthesized gate-level netlist is checked by pre-layout simulation. After routing, parasitic extraction, static timing analysis, and post-layout simulation feed back to floorplanning and placement or, if necessary, to the RTL (design iteration). Only a design that passes physical verification is taped out."
-#| fig-alt: "Flowchart. A main column runs from RTL Design through HDL, Logic Synthesis, Floorplanning, Placement, Clock Tree Synthesis, and Routing to Physical Verification and Tapeout. Logic Synthesis feeds Pre-Layout Simulation on the right, which points back to HDL. After Routing, a branch on the left runs up through Parasitic Extraction, Static Timing Analysis, and Post-Layout Simulation, which feeds back to Floorplanning, Placement, and, through Design Iteration, to the top of the flow."
+#| fig-cap: "The RTL-to-GDSII design flow, adapted from [@Dorrer_Thesis]. Ovals are design data, and boxes are steps. The checks on the right test the RTL and the synthesized netlist, and a bug found there leads back to the RTL. After routing, static timing analysis and post-layout simulation lead back to floorplanning and placement or, if necessary, to the RTL (design iteration), and a failed physical verification leads back to routing. One testbench drives all three simulations. LibreLane runs the steps in the dashed region, and also lint and static timing analysis of the netlist. Only a design that passes physical verification is taped out."
+#| fig-alt: "Flowchart. A main column runs from RTL Design through the oval RTL (SystemVerilog), Logic Synthesis, the oval Gate-Level Netlist, Floorplanning, Placement, Clock Tree Synthesis, Routing, and the oval GDSII to Physical Verification and Tapeout. A dashed region labeled LibreLane encloses the column from Logic Synthesis to Physical Verification, and Parasitic Extraction and Static Timing Analysis on the left. To the right of the RTL, a stack holds Lint, RTL Simulation, and CDC Review. To the right of the netlist, a stack holds Static Timing Analysis, Gate-Level Simulation, Power Analysis, Equivalence Checking, and Scan, ATPG. The oval Constraints (SDC) between the stacks feeds Logic Synthesis and the Static Timing Analysis of the netlist. The oval Testbench feeds RTL Simulation, Gate-Level Simulation, and Post-Layout Simulation. After Routing, a branch on the left runs up through Parasitic Extraction, Static Timing Analysis, and Post-Layout Simulation. Static Timing Analysis and Post-Layout Simulation feed back to Floorplanning, Placement, and, through Design Iteration, to the RTL. Physical Verification feeds back to Routing."
 import schemdraw as sd
 from schemdraw import flow
+from schemdraw import elements as elm
 from schemdraw.elements import Element
 from schemdraw.segments import SegmentPoly
 sd.svgconfig.svg2 = False
@@ -36,52 +37,147 @@ class Hexagon(Element):
         self.anchors['center'] = (w/2, 0)
         self.anchors['N'] = (w/2, h/2)
         self.anchors['S'] = (w/2, -h/2)
+        self.anchors['E'] = (w, 0)
+        self.anchors['W'] = (0, 0)
         self.params['theta'] = 0
         self.params['lblloc'] = 'center'
         self.params['lblofst'] = 0
 
 
-W, H = 3.7, 0.8      # box size
+class Band(Element):
+    ''' Shaded region behind the steps that LibreLane runs '''
+    def __init__(self, verts, **kwargs):
+        super().__init__(**kwargs)
+        self.segments.append(SegmentPoly(verts))
+        self.params['theta'] = 0
+
+
+W, H = 3.7, 0.8      # box size of the main column
+CW, CH = 3.3, 0.5    # cell size of the check stacks
+OH = 0.7             # height of the input ovals
 DY = 1.3             # vertical pitch of the main column
-XL, XR = -4.7, 4.7   # x position of the left/right column
+XL = -5.1            # x position of the post-layout branch
+XC = 5.4             # x position of the check stacks
+XBUS = 3.1           # bus from the design data to the check stacks
+XFB = -2.5           # bus that collects the post-layout results
+XTB = XC + CW/2 + 0.65   # testbench bus on the right
+XFAR = XL - W/2 - 0.65   # testbench wire on the left
+XPV = 2.4            # way back from physical verification
+YTB = 0.85           # y position of the testbench
+
+
+def y(row):
+    return -row * DY
+
+
+STEP = ('#dae8fc', '#6c8ebf')
+DATA = ('#fff2cc', '#d6b656')
 
 with sd.Drawing(canvas='svg') as d:
     d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
 
-    def box(text, x, y, fill='#dae8fc', color='#6c8ebf'):
-        return flow.Box(w=W, h=H).at((x, y)).anchor('center').label(text, color='black').fill(fill).color(color)
+    def box(text, x, row, fill=STEP[0], color=STEP[1]):
+        return flow.Box(w=W, h=H).at((x, y(row))).anchor('center').label(text, color='black').fill(fill).color(color)
+
+    def data(text, x, yy, w=W, h=H):
+        return flow.Ellipse(w=w, h=h).at((x, yy)).anchor('center').label(text, color='black').fill(DATA[0]).color(DATA[1])
+
+    def cell(text, yy):
+        return flow.Box(w=CW, h=CH).at((XC, yy)).anchor('center').label(text, color='black').fill(STEP[0]).color(STEP[1])
+
+    def dot(x, yy):
+        elm.Dot(radius=0.06).at((x, yy))
+
+    ys = y(7.7)   # the split below routing
+
+    # what LibreLane runs, drawn first so that it lies behind everything else
+    bx, by = W/2 + 0.9, y(9.4) - H/2 - 0.2
+    lx, lt, lb = XL - W/2 - 0.25, y(6) + H/2 + 0.2, ys - 0.3
+    Band([(-bx, y(2) + H/2 + 0.2), (bx, y(2) + H/2 + 0.2), (bx, by), (-bx, by),
+          (-bx, lb), (lx, lb), (lx, lt), (-bx, lt)]).at((0, 0)).fill('#f5f5f5').color('#999999').linestyle('--')
+    elm.Label().at((lx + 0.15, lb + 0.25)).label('LibreLane', halign='left', color='#666666', fontsize=11)
 
     # main column: RTL design to tapeout
-    rtl = Hexagon().at((0, 0)).anchor('center').label('RTL Design', color='black').fill('#fff2cc').color('#d6b656')
-    hdl = box('HDL', 0, -1*DY)
-    syn = box('Logic Synthesis', 0, -2*DY)
-    flp = box('Floorplanning', 0, -3*DY)
-    plc = box('Placement', 0, -4*DY)
-    cts = box('Clock Tree Synthesis', 0, -5*DY)
-    rte = box('Routing', 0, -6*DY)
-    pv = box('Physical Verification', 0, -7.4*DY)
-    tpo = box('Tapeout', 0, -8.4*DY, fill='#f8cecc', color='#b85450')
-    for a, b in [(rtl, hdl), (hdl, syn), (syn, flp), (flp, plc), (plc, cts), (cts, rte), (pv, tpo)]:
+    rtd = Hexagon().at((0, y(0))).anchor('center').label('RTL Design', color='black').fill('#fff2cc').color('#d6b656')
+    rtl = data('RTL (SystemVerilog)', 0, y(1))
+    syn = box('Logic Synthesis', 0, 2)
+    net = data('Gate-Level Netlist', 0, y(3))
+    flp = box('Floorplanning', 0, 4)
+    plc = box('Placement', 0, 5)
+    cts = box('Clock Tree Synthesis', 0, 6)
+    rte = box('Routing', 0, 7)
+    gds = data('GDSII', 0, y(8.4))
+    pvf = box('Physical Verification', 0, 9.4)
+    tpo = box('Tapeout', 0, 10.4, fill='#f8cecc', color='#b85450')
+    for a, b in [(rtd, rtl), (rtl, syn), (syn, net), (net, flp), (flp, plc), (plc, cts), (cts, rte), (gds, pvf), (pvf, tpo)]:
         flow.Arrow().at(a.S).to(b.N)
+    flow.Line().at(rte.S).to((0, ys))
+    flow.Arrow().at((0, ys)).to(gds.N)
 
-    # pre-layout simulation of the synthesized netlist
-    pre = box('Pre-Layout\nSimulation', XR, -1.5*DY)
-    flow.Arrow().at(syn.E).to(pre.SW)
-    flow.Arrow().at(pre.NW).to(hdl.E)
+    # checks on the RTL
+    lint = cell('Lint', y(1) + 2*CH)
+    rsim = cell('RTL Simulation', y(1) + CH)
+    cdc = cell('CDC Review', y(1))
+    flow.Arrow().at(rtl.E).to(cdc.W)
+    flow.Line().at((XBUS, y(1))).to((XBUS, lint.W[1]))
+    flow.Arrow().at((XBUS, lint.W[1])).to(lint.W)
+    flow.Arrow().at((XBUS, rsim.W[1])).to(rsim.W)
+    dot(XBUS, y(1))
+    dot(XBUS, rsim.W[1])
 
-    # post-layout loop: extraction, timing analysis, simulation, iteration
-    pex = box('Parasitic Extraction', XL, -6*DY)
-    sta = box('Static Timing Analysis', XL, -5*DY)
-    pls = box('Post-Layout\nSimulation', XL, -3.5*DY)
-    itr = Hexagon().at((XL, -2*DY)).anchor('center').label('Design Iteration', color='black').fill('#d5e8d4').color('#82b366')
-    ysplit = -6.7*DY
-    flow.Line().at(rte.S).toy(ysplit)
-    flow.Arrow().toy(pv.N[1])
-    flow.Wire('-|', arrow='->').at((0, ysplit)).to(pex.S)
-    flow.Arrow().at(pex.N).to(sta.S)
-    flow.Arrow().at(sta.N).to(pls.S)
-    flow.Arrow().at(pls.NE).to(flp.W)
-    flow.Arrow().at(pls.SE).to(plc.W)
-    flow.Arrow().at(pls.N).to(itr.S)
-    flow.Wire('|-', arrow='->').at(itr.N).to((0, 0.5*(rtl.S[1] + hdl.N[1])))
+    # constraints guide synthesis and timing analysis
+    con = data('Constraints (SDC)', XC, y(2), w=CW, h=OH)
+    flow.Arrow().at(con.W).to(syn.E)
+
+    # checks on the netlist
+    sta1 = cell('Static Timing Analysis', y(3))
+    gsim = cell('Gate-Level Simulation', y(3) - CH)
+    pwr = cell('Power Analysis', y(3) - 2*CH)
+    lec = cell('Equivalence Checking', y(3) - 3*CH)
+    scn = cell('Scan, ATPG', y(3) - 4*CH)
+    flow.Arrow().at(con.S).to(sta1.N)
+    flow.Arrow().at(net.E).to(sta1.W)
+    flow.Line().at((XBUS, y(3))).to((XBUS, scn.W[1]))
+    for c in (gsim, pwr, lec, scn):
+        flow.Arrow().at((XBUS, c.W[1])).to(c.W)
+    for c in (sta1, gsim, pwr, lec):
+        dot(XBUS, c.W[1])
+
+    # post-layout branch: extraction, timing analysis, simulation
+    pex = box('Parasitic Extraction', XL, 7)
+    sta2 = box('Static Timing Analysis', XL, 6)
+    pls = box('Post-Layout Simulation', XL, 4.5)
+    itr = Hexagon().at((XL, y(3))).anchor('center').label('Design Iteration', color='black').fill('#d5e8d4').color('#82b366')
+    flow.Line().at((0, ys)).to((XL, ys))
+    flow.Arrow().at((XL, ys)).to(pex.S)
+    dot(0, ys)
+    flow.Arrow().at(pex.N).to(sta2.S)
+    flow.Arrow().at(sta2.N).to(pls.S)
+
+    # both results lead back to the layout or, through design iteration, to the RTL
+    flow.Line().at(sta2.E).to((XFB, y(6)))
+    flow.Line().at((XFB, y(6))).to((XFB, y(3)))
+    flow.Line().at(pls.E).to((XFB, y(4.5)))
+    flow.Arrow().at((XFB, y(5))).to(plc.W)
+    flow.Arrow().at((XFB, y(4))).to(flp.W)
+    flow.Arrow().at((XFB, y(3))).to(itr.E)
+    for row in (5, 4.5, 4):
+        dot(XFB, y(row))
+    flow.Wire('|-', arrow='->').at(itr.N).to(rtl.W)
+
+    # a failed DRC or LVS goes back to routing
+    flow.Line().at(pvf.E).to((XPV, y(9.4)))
+    flow.Line().at((XPV, y(9.4))).to((XPV, y(7)))
+    flow.Arrow().at((XPV, y(7))).to(rte.E)
+
+    # one testbench drives all three simulations
+    tb = data('Testbench', XC, YTB, w=CW, h=OH)
+    flow.Line().at(tb.E).to((XTB, YTB))
+    flow.Line().at((XTB, YTB)).to((XTB, gsim.E[1]))
+    flow.Arrow().at((XTB, rsim.E[1])).to(rsim.E)
+    flow.Arrow().at((XTB, gsim.E[1])).to(gsim.E)
+    dot(XTB, rsim.E[1])
+    flow.Line().at(tb.W).to((XFAR, YTB))
+    flow.Line().at((XFAR, YTB)).to((XFAR, y(4.5)))
+    flow.Arrow().at((XFAR, y(4.5))).to(pls.W)
 ```
