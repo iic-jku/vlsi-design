@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 The last two chapters used testbenches: a few lines of SystemVerilog or Python that drive a design and check its outputs. This chapter turns them into a methodology. Three questions guide it. How does a testbench decide that a design is correct, without anybody looking at waveforms? Which stimuli does it apply, if it cannot apply all of them? And when is the verification complete? The answers are a testbench architecture with a reference model, a mix of directed, exhaustive, and random stimuli, and the measurement of coverage. Along the way, we check the checks themselves with deliberate bugs, and we run the same testbench on the synthesized netlist, without and with the delays of the cells.
 
 ::: {.callout-note}
-All code of this chapter is available in the folder [`content/verification/code`]({{< meta var.url-repo >}}/tree/main/content/verification/code) of the course repository, with one folder per design. As in @sec-modeling, the RTL is in `rtl/`, the cocotb testbenches are in `testbenches/cocotb/`, and the files of an exercise are in `exercise/`. The assertions of the FIFO are in `testbenches/sva/`, and its timing analysis script is in `syn/`. Every file in `rtl/` lints without warnings and synthesizes. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, Yosys 0.70, OpenSTA 3.1.0) and the typical-corner library of SG13CMOS5L (`sg13cmos5l_stdcell_typ_1p20V_25C.lib`, 1.2 V, 25 °C). Run times depend on the computer, and the ones quoted here come from a laptop. The script [`scripts/check_verification.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_verification.sh) reproduces all other numbers: run `bash scripts/check_verification.sh` in the container from the root of the repository.
+All code of this chapter is available in the folder [`content/verification/code`]({{< meta var.url-repo >}}/tree/main/content/verification/code) of the course repository, with one folder per design. As in @sec-modeling, the RTL is in `rtl/`, the cocotb testbenches are in `testbenches/cocotb/`, and the files of an exercise are in `exercise/`. The assertions of the FIFO are in `testbenches/sva/`, its testbench for the comparison of the simulators is in `testbenches/verilog/`, and its timing analysis script is in `syn/`. Every file in `rtl/` lints without warnings and synthesizes. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, Yosys 0.70, OpenSTA 3.1.0) and the typical-corner library of SG13CMOS5L (`sg13cmos5l_stdcell_typ_1p20V_25C.lib`, 1.2 V, 25 °C). Run times depend on the computer, and the ones quoted here come from a laptop. The script [`scripts/check_verification.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_verification.sh) reproduces all other numbers: run `bash scripts/check_verification.sh` in the container from the root of the repository.
 :::
 
 For the exercises, clone the course repository into your designs folder once, if you have not done so yet:
@@ -37,6 +37,7 @@ After this chapter, you will be able to:
 - write SystemVerilog assertions in a separate checker, attach them with `bind`, and know which open-source tools support them
 - judge the quality of a testbench with mutation testing
 - run the same testbench on the synthesized netlist, without and with the cell delays of an SDF file, and explain why a timing simulation does not replace static timing analysis
+- explain how Icarus Verilog and Verilator work, and choose between them for a task
 - set up a regression that fails when a test fails
 
 ## Why Verification Matters {#sec-verification-why}
@@ -511,6 +512,63 @@ Before continuing, please finish the previous exercise. Once you are done, compa
    Together, the path takes 0.06 + 0.58 + 0.25 ≈ 0.89 ns in the simulation, against 0.06 + 0.66 + 0.29 = 1.01 ns plus the setup time of 0.13 ns in static timing analysis. At 1.8 ns, the path arrives 10 ps before the clock edge. In general, a simulation sees a path at its slowest only if its stimulus causes exactly the slowest transitions, while static timing analysis covers every path without any stimulus. For the tapeout, trust static timing analysis. With a simulator that checks the timing limits, a timing simulation is a sanity check for what static timing analysis does not cover, e.g., the reset sequence and asynchronous inputs. With Icarus Verilog, it mainly catches wrong constraints and a missing annotation.
 :::
 
+## Choosing a Simulator {#sec-verification-simulators}
+
+This chapter has used two simulators, and they work in very different ways. **Icarus Verilog** [@Icarus_Verilog] is an event-driven simulator. `iverilog` translates the design into the `vvp` format, and the run-time engine `vvp` interprets it. Every change of a signal is an event, and the engine evaluates what depends on that signal. It knows the four values of @sec-modeling-x, and with `-gspecify`, it reads the path delays in the `specify` blocks of the cell models. **Verilator** [@Verilator] "is not a traditional simulator but a compiler", in the words of its guide. It translates the design into C++ and fixes the order in which the logic is evaluated already when it builds the model, and a C++ compiler turns the result into a program. With `--timing`, it also handles the delays and event controls of a testbench. It knows only two values, as @sec-modeling-x showed.
+
+@tbl-verification-speed shows what this means for the run time. It uses a plain SystemVerilog testbench, so that no Python limits the rate. `fifo_speed_tb.sv` generates its stimulus itself, because `$urandom` differs between the simulators, and it checks the FIFO against a reference model. All four simulations pass the checks and print the same checksum, so all of them saw the same stimulus. With the netlist and the SDF file of @sec-verification-gl, the commands are:
+
+```bash
+cd /foss/designs/vlsi-design/content/verification/code/fifo
+CELLS=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/verilog
+NL="$CELLS/sg13cmos5l_udp.v $CELLS/sg13cmos5l_stdcell.v fifo.nl.v"
+TB=testbenches/verilog/fifo_speed_tb.sv
+verilator --binary --timing --timescale 1ns/1ps \
+  --top-module fifo_speed_tb rtl/fifo.sv $TB
+time ./obj_dir/Vfifo_speed_tb +CYCLES=1000000
+iverilog -g2012 -o rtl.vvp rtl/fifo.sv $TB
+time vvp -n rtl.vvp +CYCLES=1000000
+iverilog -g2012 -gno-specify -o gl.vvp $NL $TB
+time vvp -n gl.vvp +CYCLES=1000000
+iverilog -g2012 -gspecify -DDUT=fifo_sdf -o sdf.vvp $NL \
+  testbenches/cocotb/fifo_sdf.sv $TB
+time vvp -n sdf.vvp +CYCLES=1000000 +SDF=fifo.sdf
+```
+
+| Simulation | Build | 1,000,000 cycles |
+|:------------------------------|:-----------------|-----------:|
+| Verilator, RTL | 8 s, later about 2 s | 0.4 s |
+| Icarus Verilog, RTL | 0.01 s | 6 s |
+| Icarus Verilog, netlist without delays | 0.02 s | 14 s |
+| Icarus Verilog, netlist with SDF delays | 0.03 s | 40 s |
+
+: Build and run time of `fifo_speed_tb.sv`. The 1,000,000 cycles are 20 ms at 50 MHz. The first build of Verilator also compiles its run-time library, which `ccache` keeps for the later builds. The times come from a laptop without other load and vary by about 30 % between runs, so only their ratios count. {#tbl-verification-speed}
+
+Three lessons follow from the table:
+
+- **Verilator pays off once a run in Icarus Verilog takes longer than the build of Verilator.** Verilator runs the FIFO about 15 times faster, but after a change of the design, it first needs about 2 s to build. Both finish at the same time at about 300,000 cycles. Below that, Icarus Verilog is done first.
+- **The factor depends on what takes the time.** Verilator gains well over 100 times on the logic of a design and on procedural code, but only about 2 times on the clock generator and the event controls of a testbench, and on this small FIFO, these take most of its run time. With 64 FIFOs, each with its own stimulus (`-GCOPIES=64` for Verilator, `-Pfifo_speed_tb.COPIES=64` for Icarus Verilog), the factor grows to about 120, and it grows further with more FIFOs. The Verilator project states about 100 against interpreted simulators on a single thread. With cocotb, Python limits the rate of both simulators, and the exercise of @sec-verification-random measured a factor of only 1.4, so Verilator pays off much later.
+- **The netlist and its delays cost time.** In Icarus Verilog, the netlist takes about 2.3 times as long as the RTL. `-gspecify` with the SDF delays multiplies that by about 3, and most of this comes from `-gspecify` itself: without `+SDF=fifo.sdf`, i.e., with all delays at 0, the factor is already about 2.5. With cocotb, Python hid this cost (@sec-verification-gl-sdf).
+
+Every gate-level simulation of this course runs in Icarus Verilog, and Verilator cannot take over. Verilator ignores the timing of the cell models: it reports `SPECIFYIGN` for the `specify` blocks and for `$sdf_annotate`, and by default, this warning stops the build. With `-Wno-SPECIFYIGN`, the netlist of the FIFO builds, but even without any delays, the testbench stops in cycle 2 with wrong flags. The model of the flip-flop `dfrbpq_1` takes its reset through an internal net `delayed_RESET_B`, which only its `$recrem` check drives. Verilator connects the delayed nets of `$setuphold`, but not this one, so the net stays 0, and all flip-flops of the netlist stay in reset. Icarus Verilog runs neither check, but it copies `RESET_B` to this net, and with `-gspecify`, its warning says so: "Delayed reference and data signals become copies of the original reference and data signals." And even with a model that works, Verilator would hide the unknown values of @sec-modeling-x, a main reason to simulate the netlist.
+
+@tbl-verification-simulators collects the choice.
+
+| Task | Simulator | Why |
+|:----------------------|:----------------|:-----------------------------|
+| Lint | Verilator | `--lint-only -Wall`, no simulation at all |
+| Short RTL runs while you design | Icarus Verilog | no build time, and it shows `x` |
+| Long RTL runs and regressions | Verilator | speed, once an Icarus Verilog run takes longer than the build |
+| Code coverage | Verilator | `--coverage` and `verilator_coverage` |
+| Concurrent assertions | Verilator | Icarus Verilog does not support them (@tbl-verification-sva) |
+| Random start values | Verilator | `+verilator+rand+reset+2` with several seeds |
+| Unknown values in the RTL | Icarus Verilog | four values |
+| Netlist, without and with delays | Icarus Verilog | four values, and the cell models work |
+
+: Which simulator for which task {#tbl-verification-simulators}
+
+The runners of this course use Icarus Verilog by default, and `SIM=verilator` selects Verilator. The designs of the course are small, so speed hardly matters, and a default that shows `x` is the safer one. Before a tapeout, run the RTL in both, Verilator with random start values: Icarus Verilog shows the `x` that Verilator replaces, and random values show the wrong behavior that X-optimism hides (@sec-modeling-reset).
+
 ## Regression and Continuous Integration {#sec-verification-regression}
 
 A design has many tests, and every change to the RTL can break any of them. A **regression** runs all tests with one command and reports one verdict. In the AMS chip template (@sec-intro-template), `make sim-all` runs all simulations of a macro, at RTL and at gate level, and `make regression` at the top level runs lint, the simulations, the FPGA build, and the LibreLane flow of the digital example macro and of the chip, with part of the DRC skipped to save run time. **Continuous integration (CI)** runs the regression automatically. The template runs `make regression` with GitHub Actions in the IIC-OSIC-TOOLS container every night at 02:00 UTC, and skips the run if nothing has changed since the last one.
@@ -527,6 +585,8 @@ A regression is only useful if a failing test fails the whole command. @sec-sv-t
 - [@Spear_Tumbush_2012] introduces the verification features of SystemVerilog: classes, constrained randomization, assertions, and functional coverage.
 - [@Bergeron_2006] covers the methodology behind testbench architectures, coverage-driven verification, and verification plans.
 - The documentation of cocotb [@cocotb] describes the triggers, the runner, and the handling of signal values in detail.
+- The guide of Verilator [@Verilator] lists which language constructs it supports and which it ignores, and how to tune its speed.
+- The documentation of Icarus Verilog [@Icarus_Verilog] describes its compiler options and the run-time engine `vvp`.
 
 ## Summary {#sec-verification-summary}
 
@@ -538,6 +598,7 @@ A regression is only useful if a failing test fails the whole command. @sec-sv-t
 - Coverage measures the stimuli, and mutation testing measures the checks. A surviving mutant points to a hole in the testbench or is equivalent.
 - Keep concurrent assertions in a separate checker attached with `bind`, which Verilator runs. Icarus Verilog and Yosys do not support them. Keep the checks at the ports in the cocotb testbench, so that they also run on the netlist.
 - The same testbench runs on the netlist, without and with the delays of an SDF file. Icarus Verilog annotates the typical value of each delay by default, ignores state-dependent delays, and checks no setup or hold times, so a timing simulation is optimistic and does not replace static timing analysis.
+- Icarus Verilog is an event-driven simulator with four values, and Verilator compiles the design to C++ with two values. Verilator pays off once a run in Icarus Verilog takes longer than the build of Verilator, and it also lints, measures code coverage, and checks concurrent assertions. Every gate-level simulation of this course runs in Icarus Verilog, because Verilator ignores the SDF file, keeps the flip-flop `dfrbpq_1` in reset, and knows no `x`.
 - A regression runs all tests with one command and fails if any test fails, on every change and every night.
 
 In @sec-synthesis-lib, we look inside the synthesis step that produced the netlist of this chapter: the standard-cell library, its timing model, and the logic equivalence check that proves the netlist equivalent to the RTL without any simulation.

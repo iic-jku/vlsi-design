@@ -7,7 +7,8 @@
 #   bash scripts/check_verification.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter. FULL=1 also runs
-# the exhaustive test of the 16-bit barrel shifter (about two minutes).
+# the exhaustive test of the 16-bit barrel shifter (about two minutes)
+# and prints the run times of the simulator comparison (about two).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -438,6 +439,186 @@ for s in 1 2 3 4 5; do
 done
 check "timing simulation at 1.7 ns, first error" "$(grep -m1 -o 'AssertionError: .*' sdf17_1.log)" \
   "AssertionError: data_o = XXX1XXX1, expected 00010001"
+cd "$W"
+
+echo "== Choosing a simulator: the same testbench at every level"
+cd "$W/fifo"
+TB=testbenches/verilog/fifo_speed_tb.sv
+NL="$CELLS/sg13cmos5l_udp.v $CELLS/sg13cmos5l_stdcell.v fifo.nl.v"
+VBIN="verilator --binary --timing --timescale 1ns/1ps --top-module fifo_speed_tb"
+TIMEFORMAT=%R
+timed() {  # timed <command...>: wall time in s, the output goes to last.log
+  { time "$@" > last.log 2>&1; } 2>&1
+}
+ratio() {  # ratio <slow> <fast> <factor>: yes if slow >= factor * fast
+  awk -v s="$1" -v f="$2" -v k="$3" 'BEGIN { print (s >= k * f) ? "yes" : "no" }'
+}
+line() { grep -m1 -o 'cycles=.*' last.log; }
+
+$VBIN rtl/fifo.sv $TB > speed_ve.log 2>&1
+check "Verilator, messages about the testbench" "$(grep -c -E '%Warning|%Error' speed_ve.log)" "0"
+iverilog -g2012 -o rtl.vvp rtl/fifo.sv $TB > /dev/null 2>&1
+iverilog -g2012 -gno-specify -o gl.vvp $NL $TB > /dev/null 2>&1
+iverilog -g2012 -gspecify -DDUT=fifo_sdf -o sdf.vvp $NL testbenches/cocotb/fifo_sdf.sv $TB > /dev/null 2>&1
+same="cycles=100000 pops=43775 checksum=6f69c477"
+t_ve=$(timed ./obj_dir/Vfifo_speed_tb +CYCLES=100000)
+check "Verilator, RTL" "$(line)" "$same"
+t_ic=$(timed vvp -n rtl.vvp +CYCLES=100000)
+check "Icarus Verilog, RTL" "$(line)" "$same"
+t_gl=$(timed vvp -n gl.vvp +CYCLES=100000)
+check "Icarus Verilog, netlist without delays" "$(line)" "$same"
+t_sd=$(timed vvp -n sdf.vvp +CYCLES=100000 +SDF=fifo.sdf)
+check "Icarus Verilog, netlist with SDF delays" "$(line)" "$same"
+check "Verilator at least 8 times faster than Icarus Verilog (measured about 15)" "$(ratio "$t_ic" "$t_ve" 8)" "yes"
+check "netlist at least 1.5 times slower than RTL (measured about 2.3)" "$(ratio "$t_gl" "$t_ic" 1.5)" "yes"
+t_sp=$(timed vvp -n sdf.vvp +CYCLES=100000)
+check "Icarus Verilog, -gspecify, all delays 0" "$(line)" "$same"
+check "-gspecify with all delays 0 at least 1.5 times slower than -gno-specify (measured about 2.5)" "$(ratio "$t_sp" "$t_gl" 1.5)" "yes"
+check "-gspecify with SDF delays at least 1.5 times slower than -gno-specify (measured about 3)" "$(ratio "$t_sd" "$t_gl" 1.5)" "yes"
+# Where the time goes: event controls gain little, procedural code a lot
+cat > parts_tb.sv <<'EOF'
+`timescale 1ns / 1ps
+module parts_tb;
+  logic        clk = 1'b0;
+  logic [31:0] x   = 32'h2545F491;
+  always #10 clk = ~clk;
+  initial begin
+    if ($test$plusargs("EVENTS")) begin
+      repeat (1000000) @(negedge clk);
+    end else begin
+      repeat (1000000) begin
+        x = x ^ (x << 13);
+        x = x ^ (x >> 17);
+        x = x ^ (x << 5);
+      end
+    end
+    $display("x=%h", x);
+    $finish;
+  end
+endmodule
+EOF
+iverilog -g2012 -o parts.vvp parts_tb.sv > /dev/null 2>&1
+verilator --binary --timing --timescale 1ns/1ps --top-module parts_tb --Mdir obj_parts parts_tb.sv > parts.log 2>&1
+check "Verilator, messages about parts_tb" "$(grep -c -E '%Warning|%Error' parts.log)" "0"
+t_ve=$(timed obj_parts/Vparts_tb +EVENTS)
+t_ic=$(timed vvp -n parts.vvp +EVENTS)
+check "clock and event controls: Verilator less than 5 times faster (measured about 2)" "$(ratio "$t_ic" "$t_ve" 5)" "no"
+t_ve=$(timed obj_parts/Vparts_tb)
+same=$(grep -m1 -o 'x=.*' last.log)
+t_ic=$(timed vvp -n parts.vvp)
+check "procedural code: the same result" "$(grep -m1 -o 'x=.*' last.log)" "$same"
+check "procedural code: Verilator at least 30 times faster (measured about 250)" "$(ratio "$t_ic" "$t_ve" 30)" "yes"
+$VBIN -GCOPIES=64 --Mdir obj_64 rtl/fifo.sv $TB > speed_64.log 2>&1
+iverilog -g2012 -Pfifo_speed_tb.COPIES=64 -o rtl64.vvp rtl/fifo.sv $TB > /dev/null 2>&1
+t_ve=$(timed obj_64/Vfifo_speed_tb +CYCLES=50000)
+same=$(line)
+t_ic=$(timed vvp -n rtl64.vvp +CYCLES=50000)
+check "64 copies, Icarus Verilog and Verilator agree" "$(line)" "$same"
+check "64 copies, Verilator at least 30 times faster (measured about 120)" "$(ratio "$t_ic" "$t_ve" 30)" "yes"
+if [ "${FULL:-0}" == "1" ]; then
+  rm -rf obj_nc
+  echo "  info  Verilator, first build without ccache (s): $(CCACHE_DISABLE=1 timed $VBIN --Mdir obj_nc rtl/fifo.sv $TB) (measured 8)"
+  echo "  info  Verilator, 10^6 cycles (s): $(timed ./obj_dir/Vfifo_speed_tb +CYCLES=1000000) (measured 0.4)"
+  echo "  info  Icarus Verilog, RTL, 10^6 cycles (s): $(timed vvp -n rtl.vvp +CYCLES=1000000) (measured 6)"
+  echo "  info  netlist, 10^6 cycles (s): $(timed vvp -n gl.vvp +CYCLES=1000000) (measured 14)"
+  echo "  info  -gspecify, all delays 0, 10^6 cycles (s): $(timed vvp -n sdf.vvp +CYCLES=1000000) (measured 35)"
+  echo "  info  netlist with SDF, 10^6 cycles (s): $(timed vvp -n sdf.vvp +CYCLES=1000000 +SDF=fifo.sdf) (measured 40)"
+fi
+
+echo "== Choosing a simulator: Verilator and the timing of the cell models"
+$VBIN --Mdir obj_gl $NL $TB > vgl.log 2>&1
+check "netlist, Verilator build stops, exit status not 0" "$([ $? -ne 0 ] && echo yes)" "yes"
+check "netlist, the only warning is SPECIFYIGN" "$(grep -o '%Warning-[A-Z]*' vgl.log | sort -u)" "%Warning-SPECIFYIGN"
+$VBIN -Wno-SPECIFYIGN --Mdir obj_gl $NL $TB > vgl.log 2>&1
+check "netlist with -Wno-SPECIFYIGN, Verilator build" "$?" "0"
+obj_gl/Vfifo_speed_tb +CYCLES=1000 > vgl_run.log 2>&1
+check "netlist with -Wno-SPECIFYIGN, run fails, exit status not 0" "$([ $? -ne 0 ] && echo yes)" "yes"
+check "netlist with -Wno-SPECIFYIGN, first error" "$(grep -m1 -o 'cycle [0-9]*: wrong flags' vgl_run.log)" "cycle 2: wrong flags"
+$VBIN -Wno-fatal -DDUT=fifo_sdf --Mdir obj_sdf $NL testbenches/cocotb/fifo_sdf.sv $TB > vsdf.log 2>&1
+check "Verilator ignores \$sdf_annotate" "$(grep -c 'SPECIFYIGN.*Ignoring unsupported: \$sdf_annotate' vsdf.log)" "1"
+# One flip-flop: the model resets through delayed_RESET_B, which only $recrem drives
+mkdir -p "$W/sim_cmp" && cd "$W/sim_cmp" || exit 1
+cat > ff_tb.sv <<'EOF'
+`timescale 1ns / 1ps
+module ff_tb;
+  logic clk = 1'b0, d = 1'b1, rst_n = 1'b0;
+  wire  q;
+  sg13cmos5l_dfrbpq_1 u_ff (.CLK(clk), .D(d), .RESET_B(rst_n), .Q(q));
+  always #10 clk = ~clk;
+  initial begin
+    #15 rst_n = 1'b1;
+    #20 $display("clk=%b delayed_CLK=%b delayed_RESET_B=%b q=%b", clk, u_ff.delayed_CLK, u_ff.delayed_RESET_B, q);
+    $finish;
+  end
+endmodule
+EOF
+iverilog -g2012 -gspecify -o ff.vvp $CELLS/sg13cmos5l_udp.v $CELLS/sg13cmos5l_stdcell.v ff_tb.sv > ff_ic.log 2>&1
+check "Icarus Verilog copies the delayed nets, and says so" \
+  "$(grep -c 'Timing checks are not supported. Delayed reference and data signals become copies' ff_ic.log | sed 's/^[1-9][0-9]*$/yes/')" "yes"
+check "flip-flop after a rising edge, Icarus Verilog" "$(vvp -n ff.vvp | grep -o 'clk=.*')" "clk=1 delayed_CLK=1 delayed_RESET_B=1 q=1"
+verilator --binary --timing --timescale 1ns/1ps -Wno-SPECIFYIGN --top-module ff_tb \
+  $CELLS/sg13cmos5l_udp.v $CELLS/sg13cmos5l_stdcell.v ff_tb.sv > ff_ve.log 2>&1
+check "flip-flop after a rising edge, Verilator" "$(./obj_dir/Vff_tb | grep -o 'clk=.*')" "clk=1 delayed_CLK=1 delayed_RESET_B=0 q=0"
+# The proof: a copy of the model with only this net connected works in Verilator
+awk '/^module sg13cmos5l_dfrbpq_1 /,/^endmodule/' $CELLS/sg13cmos5l_stdcell.v \
+  | sed 's/^\tnot (int_fwire_r, delayed_RESET_B);/\tassign delayed_RESET_B = RESET_B;\n&/' > ff_fixed.v
+verilator --binary --timing --timescale 1ns/1ps -Wno-SPECIFYIGN --top-module ff_tb --Mdir obj_fix \
+  $CELLS/sg13cmos5l_udp.v ff_fixed.v ff_tb.sv > ff_fix.log 2>&1
+check "flip-flop with delayed_RESET_B connected by hand, Verilator" "$(obj_fix/Vff_tb | grep -o 'clk=.*')" "clk=1 delayed_CLK=1 delayed_RESET_B=1 q=1"
+# A path delay of the specify block. The monitor waits before the input changes,
+# because without a delay the edge of y would come before a later @(posedge y)
+cat > path_tb.sv <<'EOF'
+`timescale 1ns / 1ps
+module dly_buf (input wire a, output wire y);
+  buf (y, a);
+  specify
+    (a => y) = (2.0, 3.0);
+  endspecify
+endmodule
+module path_tb;
+  logic a = 1'b0;
+  wire  y;
+  dly_buf u_buf (.a(a), .y(y));
+  always @(posedge y) begin
+    $display("delay %0.3f", $realtime - 10.0);
+    $finish;
+  end
+  initial begin
+    #10 a = 1'b1;
+    #10 $finish;
+  end
+endmodule
+EOF
+iverilog -g2012 -gspecify -o path.vvp path_tb.sv
+check "path delay, Icarus Verilog (ns)" "$(vvp -n path.vvp | grep -o 'delay.*')" "delay 2.000"
+verilator --binary --timing --timescale 1ns/1ps -Wno-SPECIFYIGN --top-module path_tb --Mdir obj_path path_tb.sv > path_ve.log 2>&1
+check "path delay, Verilator (ns)" "$(obj_path/Vpath_tb | grep -o 'delay.*')" "delay 0.000"
+# Setup violated by 0.9 ns: the notifier stays silent and the flip-flop captures
+cat > chk_tb.sv <<'EOF'
+`timescale 1ns / 1ps
+module ff_chk (input wire clk, input wire d, output reg q);
+  reg notifier = 1'b0;
+  always @(posedge clk) q <= d;
+  always @(notifier) $display("notifier toggled");
+  specify
+    $setup(d, posedge clk, 1.0, notifier);
+  endspecify
+endmodule
+module chk_tb;
+  logic clk = 1'b0, d = 1'b0;
+  wire  q;
+  ff_chk u_ff (.clk(clk), .d(d), .q(q));
+  initial begin
+    #10 d = 1'b1;
+    #0.1 clk = 1'b1;
+    #5 $display("q=%b", q);
+    $finish;
+  end
+endmodule
+EOF
+iverilog -g2012 -gspecify -o chk.vvp chk_tb.sv > chk.log 2>&1
+check "Icarus Verilog warns that it runs no timing check" "$(grep -c 'warning: Timing checks are not supported' chk.log)" "1"
+check "setup violated by 0.9 ns, Icarus Verilog" "$(vvp -n chk.vvp | grep -v finish | tr '\n' ' ')" "q=1 "
 cd "$W"
 
 echo
