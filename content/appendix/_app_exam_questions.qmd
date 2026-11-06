@@ -57,7 +57,7 @@ The written exam is closed book and allows no technical aids. Most questions the
 
 20. What is mutation testing? Explain killed, surviving, and equivalent mutants, and the two possible reasons why a mutant survives.
 
-21. What does an SDF file hold, and what does back-annotation mean? Why can a timing simulation with Icarus Verilog pass at clock periods for which static timing analysis reports violations, and which of the two do you trust for the tapeout?
+21. What does an SDF file hold, and what does back-annotation mean? Why can a timing simulation with Icarus Verilog pass at clock periods for which static timing analysis reports violations, and which of the two do you trust for the tapeout? Why can Verilator not run this simulation, and for which tasks do you choose it over Icarus Verilog?
 
 ## Logic Synthesis and the Standard-Cell Library {#sec-app-exam-synthesis}
 
