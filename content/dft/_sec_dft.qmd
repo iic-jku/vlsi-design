@@ -292,7 +292,9 @@ Scan with stuck-at patterns is the backbone of the test of digital logic, but a 
 - **Parametric tests and binning.** Besides the logic, the test measures the quiescent current, the input thresholds and output drivers of the pads, and the maximum clock frequency, by which parts can be sorted into speed grades.
 - **Diagnosis.** When a die fails, its failing patterns and bits point to the faults that explain them, and the analysis of many failing dies shows the fab where its process creates defects.
 
-The open-source DFT tools are moving as well. **Difetto** [@Difetto], a complete rewrite of Fault, adds the steps of this chapter to LibreLane as a plugin with three flows. The first is the LibreLane flow of @sec-digital-flow with extra steps: a Yosys plugin adds boundary-scan cells at the pins, replaces the flip-flops by scan flip-flops, and cuts them open for the ATPG, and OpenROAD stitches the chain after the detailed placement. The second generates the test vectors with Quaigh [@Quaigh], which starts with random vectors and then solves each remaining fault with a SAT solver on a miter, as `sat_test.tcl` does for single faults. The third checks the chain and applies the vectors with cocotb. In October 2026, Difetto is an alpha version, it is not part of the IIC-OSIC-TOOLS image, and it supports SG13G2 but not SG13CMOS5L, so this chapter uses OpenROAD and Fault.
+::: {.callout-note title="Difetto"}
+[Difetto](https://github.com/donn/difetto), a complete rewrite of Fault, adds scan insertion and test generation to LibreLane as a plugin. It is still at an early stage, it is not in the IIC-OSIC-TOOLS image, and it has no scan cell mapping for SG13CMOS5L yet, so this course stays with OpenROAD and Fault. We may use it in the next edition of this course.
+:::
 
 ## Summary {#sec-dft-summary}
 
