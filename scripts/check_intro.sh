@@ -3,7 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # Description: Tests the gaps of the open-source tools that tbl-tools-gaps
 # in the chapter "Introduction" states for image 2026.10, where a run in
-# the IIC-OSIC-TOOLS container can test them. Run from the repository root:
+# the IIC-OSIC-TOOLS container can test them, and the tools and make targets
+# that section sec-intro-agentic names. Needs a clone of the SG13CMOS5L chip
+# template next to the repository (or in TEMPLATE_DIR) for the targets.
+# Run from the repository root:
 #   bash scripts/check_intro.sh
 # A failure after an image update means that a row may be stale, not that
 # the gap is closed: OpenSTA's crosstalk analysis needs CCS library models.
@@ -12,6 +15,7 @@ set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 W=${CHECK_DIR:-/tmp/vlsi_check_intro}
 LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib
+TPL=${TEMPLATE_DIR:-$REPO/../ihp-sg13cmos5l-ams-chip-template}
 fails=0
 
 rm -rf "$W" && mkdir -p "$W"
@@ -202,6 +206,19 @@ check "OpenCDC: binary counter, multi-bit crossing, CDC002" \
 cd "$S/sync"
 check "OpenCDC: pulse_sync, separate resets, CDC009" \
   "$(opencdc_errors pulse_sync rtl/pulse_sync.sv rtl/sync_2ff.sv)" "[CDC009] pulse_sync.tgl_a_q "
+
+echo "== Agentic workflow"
+for tool in xschem ngspice klayout magic netgen librelane sak-open.py; do
+  check "$tool is in the image" "$(command -v "$tool" | wc -l)" "1"
+done
+if [ -f "$TPL/Makefile" ]; then
+  targets=$(make -s -C "$TPL" help | awk '/^  [a-z]/ {print $1}')
+  for target in help open sim-gl-cocotb klayout-drc magic-lvs klayout-pex librelane; do
+    check "make help lists $target" "$(printf '%s\n' "$targets" | grep -cx "$target")" "1"
+  done
+else
+  echo "  skip  no clone of the template at $TPL"
+fi
 
 echo
 if [ "$fails" -eq 0 ]; then
