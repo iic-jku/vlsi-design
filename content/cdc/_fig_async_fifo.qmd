@@ -17,6 +17,8 @@ BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
 GREEN, GREEN_L = '#82b366', '#d5e8d4'
 ORANGE, ORANGE_L = '#d79b00', '#ffe6cc'
 GREY = '#666666'
+OFF = 0.38   # a pin name sits this far above its wire
+XG = 0.2     # gap between a label and the domain boundary
 
 
 def box(x, y, w, h, text, fill=BLUE_L, color=BLUE):
@@ -24,29 +26,38 @@ def box(x, y, w, h, text, fill=BLUE_L, color=BLUE):
         .label(text, color='black')
 
 
+def text(p, s, halign='center', color='black'):
+    ''' Text aligned to p in x, with its capitals centered on p in y '''
+    # A free Label sits 0.1 to the right of its anchor with its baseline on it, so shift it back.
+    # theta(0): a label inherits the direction of the last wire, and its offset turns with it.
+    elm.Label().theta(0).at((p[0] - 0.1, p[1] - 0.1)).label(s, color=color, halign=halign)
+
+
 with sd.Drawing(canvas='svg') as d:
     d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
     xm = 6.0   # the domain boundary
     mem = box(xm, 3.2, 3.0, 1.3, 'memory\nDEPTH x WIDTH', fill=GREEN_L, color=GREEN)
     flow.Arrow().at((0.0, 3.2)).to(mem.W)
-    elm.Label().at((0.0, 3.5)).label('data_i', halign='left', color='black')
+    text((0.0, 3.2 + OFF), 'data_i', halign='left')
     flow.Arrow().at(mem.E).to((12.0, 3.2))
-    elm.Label().at((12.0, 3.5)).label('data_o', halign='right', color='black')
+    text((12.0, 3.2 + OFF), 'data_o', halign='right')
 
     wp = box(3.0, 0.8, 2.6, 1.2, 'write pointer\nbinary, Gray')
     rp = box(9.0, 0.8, 2.6, 1.2, 'read pointer\nbinary, Gray')
-    flow.Arrow().at(wp.N).to((wp.N[0], 2.0)).color(GREY)
+    # one arrow per address, into the memory
+    flow.Line().at(wp.N).to((wp.N[0], 2.0)).color(GREY)
     flow.Line().at((wp.N[0], 2.0)).to((mem.S[0] - 0.8, 2.0)).color(GREY)
     flow.Arrow().at((mem.S[0] - 0.8, 2.0)).to((mem.S[0] - 0.8, mem.S[1])).color(GREY)
-    flow.Arrow().at(rp.N).to((rp.N[0], 2.0)).color(GREY)
+    flow.Line().at(rp.N).to((rp.N[0], 2.0)).color(GREY)
     flow.Line().at((rp.N[0], 2.0)).to((mem.S[0] + 0.8, 2.0)).color(GREY)
     flow.Arrow().at((mem.S[0] + 0.8, 2.0)).to((mem.S[0] + 0.8, mem.S[1])).color(GREY)
-    elm.Label().at((mem.S[0] - 1.6, 2.25)).label('address', color=GREY)
-    elm.Label().at((mem.S[0] + 1.6, 2.25)).label('address', color=GREY)
+    # centered between the address lane and the memory
+    text((mem.S[0] - 1.6, (2.0 + mem.S[1])/2), 'address', color=GREY)
+    text((mem.S[0] + 1.6, (2.0 + mem.S[1])/2), 'address', color=GREY)
     flow.Arrow().at((0.0, 0.8)).to(wp.W)
-    elm.Label().at((0.0, 1.25)).label('push_i', halign='left', color='black')
+    text((0.0, 0.8 + OFF), 'push_i', halign='left')
     flow.Arrow().at((12.0, 0.8)).to(rp.E)
-    elm.Label().at((12.0, 1.25)).label('pop_i', halign='right', color='black')
+    text((12.0, 0.8 + OFF), 'pop_i', halign='right')
 
     # Gray pointers cross through the synchronizers
     sw = box(8.0, -1.2, 1.6, 0.9, 'sync_2ff', fill=ORANGE_L, color=ORANGE)
@@ -67,22 +78,23 @@ with sd.Drawing(canvas='svg') as d:
     xr = rp.S[0] + 0.6
     flow.Line().at((xr, rp.S[1])).to((xr, -2.6)).color(BLUE)
     flow.Arrow().at((xr, -2.6)).to(ce.W).color(BLUE)
-    elm.Dot(radius=0.06).at((xr, -3.4)).color(BLUE)
+    elm.Dot(radius=0.06).at((xr, -2.6)).color(BLUE)
     flow.Line().at((xr, -2.6)).to((xr, -3.4)).color(BLUE)
     flow.Line().at((xr, -3.4)).to((sr.E[0] + 0.4, -3.4)).color(BLUE)
     flow.Line().at((sr.E[0] + 0.4, -3.4)).to((sr.E[0] + 0.4, -2.6)).color(BLUE)
     flow.Arrow().at((sr.E[0] + 0.4, -2.6)).to(sr.E).color(BLUE)
     flow.Line().at(sr.W).to((cf.S[0], -2.6)).color(BLUE)
     flow.Arrow().at((cf.S[0], -2.6)).to(cf.S).color(BLUE)
-    elm.Label().at((6.15, -0.15)).label('Gray write pointer', halign='left', color=BLUE)
-    elm.Label().at((6.15, -3.15)).label('Gray read pointer', halign='left', color=BLUE)
+    # 0.3 above the wire: the write label is then centered between its wire and the read pointer
+    text((xm + XG, -0.4 + 0.3), 'Gray write pointer', halign='left', color=BLUE)
+    text((xm + XG, -3.4 + 0.3), 'Gray read pointer', halign='left', color=BLUE)
     flow.Arrow().at(cf.W).to((-0.6, -1.2))
-    elm.Label().at((-0.6, -0.75)).label('full_o', halign='left', color='black')
-    flow.Arrow().at(ce.E).to((13.0, -2.6))
-    elm.Label().at((13.0, -2.15)).label('empty_o', halign='right', color='black')
+    text((-0.6, -1.2 + OFF), 'full_o', halign='left')
+    flow.Arrow().at(ce.E).to((13.4, -2.6))   # 1.7 long, as the other pin arrows
+    text((13.4, -2.6 + OFF), 'empty_o', halign='right')
 
     elm.Line().at((xm, 4.6)).to((xm, mem.N[1])).color(GREY).linestyle('--').linewidth(1)
     elm.Line().at((xm, mem.S[1])).to((xm, -4.0)).color(GREY).linestyle('--').linewidth(1)
-    elm.Label().at((xm - 1.6, 4.5)).label('write domain, wclk', color=GREY)
-    elm.Label().at((xm + 1.6, 4.5)).label('read domain, rclk', color=GREY)
+    text((xm - XG, 4.4), 'write domain, wclk', halign='right', color=GREY)
+    text((xm + XG, 4.4), 'read domain, rclk', halign='left', color=GREY)
 ```
