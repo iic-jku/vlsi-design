@@ -1,0 +1,179 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-verification-fifo-hw
+#| echo: false
+#| fig-cap: "The hardware of `fifo.sv` with `DEPTH = 4`, with the registers in blue and the combinational logic in green. The storage `mem_q` has no reset. While `push` is high, a rising edge of `clk_i` stores `data_i` in the entry at the address `A`, the lower two bits of `wr_ptr_q`. The read multiplexer shows the entry at the lower two bits of `rd_ptr_q` at `data_o`, without a clock edge. Each pointer is a 3-bit register with the reset `rst_ni` and loads its value plus 1 while its enable `EN` is high. The RTL keeps a pointer with a multiplexer, which the figure draws as this enable, as Yosys maps it. The two comparators decode the flags from the pointers only: `empty_o` compares both pointers, and `full_o` compares `wr_ptr_q` with `rd_ptr_q` whose wrap bit is inverted. The two AND gates refuse a push into a full FIFO and a pop from an empty one."
+#| fig-alt: "Block diagram. At the top, data_i enters the D input of the storage block mem_q, whose four entries 0 to 3 feed a 4:1 multiplexer that drives data_o. Below it on the left, push_i and the inverted full_o enter an AND gate, whose output push drives the EN input of the register wr_ptr_q and the EN input of the storage. On the right, pop_i and the inverted empty_o enter an AND gate, whose output pop drives the EN input of the register rd_ptr_q. Each pointer register returns its Q output through a +1 block to its D input and has the inputs clk_i and rst_ni. The lower two bits of wr_ptr_q drive the address A of the storage, and the lower two bits of rd_ptr_q drive the select of the multiplexer. At the bottom, the comparator on the left compares wr_ptr_q with rd_ptr_q with its wrap bit inverted and drives full_o, and the comparator on the right compares both pointers and drives empty_o. Both flags also return to the inverted inputs of the AND gates."
+import schemdraw as sd
+from schemdraw import flow, logic
+from schemdraw import elements as elm
+from schemdraw.elements import Element
+from schemdraw.segments import SegmentPoly, SegmentText
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+GREEN, GREEN_L = '#82b366', '#d5e8d4'
+GREY = '#666666'
+XL, XR = -6.6, 7.6                         # pins of the FIFO
+XS0, XS1, YS0, YS1 = -2.6, 0.8, 3.0, 5.4   # storage mem_q
+ROWS = [YS1 - 0.3 - 0.6*k for k in range(4)]
+YDAT = (YS0 + YS1)/2                       # data_i and data_o
+XM = 1.6                                   # read multiplexer
+XQW, XQR = -0.4, 1.95                      # pointer nodes, below the address pin and the select pin
+XEN = -1.8                                 # write enable of the storage
+YD, YEN, YCK = 0.0, -0.55, -1.55           # D, EN, and clock pins of the pointer registers
+YLT, YP = 1.5, 2.3                         # feedback through +1, push to the storage
+YX, YC, YB = -3.4, -4.5, -5.6              # write pointer to empty, comparators, read pointer to full
+XCF, XCE = -4.6, 5.6                       # comparators
+XFT, XET = -6.0, 7.0                       # full_o and empty_o back to the gates
+RW, PIN, HEAD = 1.6, 0.7, 0.2              # width of a pointer register, length of a pin arrow and of its head
+PAD, GAP, OFF = 0.15, 0.12, 0.38           # text inset from a box edge, gap to a pin arrow, offset from a wire
+
+
+class Mux4(Element):
+    ''' 4:1 multiplexer as a trapezoid, inputs 0 to 3 from the top, select at the bottom '''
+    def __init__(self, w: float = 0.7, h: float = 2.6, s: float = 0.35, **kwargs):
+        super().__init__(**kwargs)
+        # zorder 3: polygons default below the filled boxes
+        self.segments.append(SegmentPoly([(0, -h/2), (0, h/2), (w, h/2 - s), (w, -h/2 + s)], zorder=3))
+        for k in range(4):
+            self.segments.append(SegmentText((0.17, 0.9 - 0.6*k), str(k), fontsize=9, color='black'))
+            self.anchors[f'in{k}'] = (0, 0.9 - 0.6*k)
+        self.anchors['out'] = (w, 0)
+        self.anchors['selbot'] = (w/2, -h/2 + s/2)
+        self.params['theta'] = 0
+
+
+def line(*pts):
+    for a, b in zip(pts, pts[1:]):
+        flow.Line().at(a).to(b)
+
+
+def wire(*pts):
+    ''' Lines through all points, with an arrow on the last segment '''
+    line(*pts[:-1])
+    flow.Arrow().at(pts[-2]).to(pts[-1])
+
+
+def dot(p):
+    elm.Dot(radius=0.06).at(p)
+
+
+def text(p, s, halign='center', color='black'):
+    ''' Text aligned to p in x, with its capitals centered on p in y '''
+    # A free Label sits 0.1 to the right of its anchor with its baseline on it, so shift it back.
+    # theta(0): a label inherits the direction of the last wire, and its alignment turns with it.
+    elm.Label().theta(0).at((p[0] - 0.1, p[1] - 0.1)).label(s, color=color, halign=halign)
+
+
+def clock(x, y, sign):
+    ''' Clock triangle on a box edge at x, pointing into the box: sign +1 to the right, -1 to the left '''
+    flow.Line().at((x, y + 0.2)).to((x + 0.3*sign, y)).color('black')
+    flow.Line().at((x + 0.3*sign, y)).to((x, y - 0.2)).color('black')
+
+
+def pointer(xq, name, sign):
+    ''' Pointer register, inputs on the left (sign +1) or on the right (sign -1), Q at the node xq.
+        Q returns through +1 over the top to D. Returns the EN pin and the x of the feedback lane. '''
+    xo = xq - 0.5*sign
+    xi = xo - RW*sign
+    top, bot = YD + 0.85, YCK - 0.45
+    flow.Box(w=RW, h=top - bot).at(((xi + xo)/2, (top + bot)/2)).anchor('center').fill(BLUE_L).color(BLUE)
+    side, back = ('left', 'right') if sign > 0 else ('right', 'left')
+    text(((xi + xo)/2, YD + 0.5), name)
+    text((xi + PAD*sign, YD), 'D', halign=side)
+    text((xi + PAD*sign, YEN), 'EN', halign=side)
+    text((xo - PAD*sign, YD), 'Q', halign=back)
+    clock(xi, YCK, sign)
+    xl = xi - 0.8*sign
+    xp = (xi + xo)/2
+    line((xo, YD), (xq, YD), (xq, YLT), (xp + 0.4*sign, YLT))
+    flow.Box(w=0.8, h=0.6).at((xp, YLT)).anchor('center').fill(GREEN_L).color(GREEN).label('+1', color='black')
+    line((xp - 0.4*sign, YLT), (xl, YLT), (xl, YD))
+    flow.Arrow().at((xl, YD)).to((xi, YD))
+    dot((xq, YD))
+    dot((xq, YLT))
+    # clock and reset
+    flow.Arrow().at((xi - PIN*sign, YCK)).to((xi, YCK))
+    text((xi - (PIN + GAP)*sign, YCK), 'clk_i', halign=back)
+    flow.Arrow().at((xp, bot - PIN)).to((xp, bot))
+    text((xp, bot - PIN - 0.25), 'rst_ni')
+    return (xi, YEN), xl
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
+
+    # storage without reset, written at wr_ptr_q[1:0] while push is high
+    flow.Box(w=XS1 - XS0, h=YS1 - YS0).at(((XS0 + XS1)/2, YDAT)).anchor('center').fill(BLUE_L).color(BLUE)
+    text(((XS0 + XS1)/2, YDAT), 'mem_q')
+    text((XS0 + PAD, YDAT), 'D', halign='left')
+    text((XEN, YS0 + PAD + 0.1), 'EN')
+    text((XQW, YS0 + PAD + 0.1), 'A')
+    clock(XS0, ROWS[3], 1)
+    flow.Arrow().at((XS0 - PIN, ROWS[3])).to((XS0, ROWS[3]))
+    text((XS0 - PIN - GAP, ROWS[3]), 'clk_i', halign='right')
+    flow.Arrow().at((XL, YDAT)).to((XS0, YDAT))
+    text((XL, YDAT + OFF), 'data_i', halign='left')
+
+    # read multiplexer at rd_ptr_q[1:0]
+    mux = Mux4().at((XM, YDAT)).fill(GREEN_L).color(GREEN)
+    for k, y in enumerate(ROWS):
+        text((XS1 - PAD, y), f'[{k}]', halign='right')
+        flow.Arrow().at((XS1, y)).to((XM, y))
+    flow.Arrow().at(mux.out).to((XR, YDAT))
+    text((XR, YDAT + OFF), 'data_o', halign='right')
+
+    # pointers, with the address of the storage and the select of the multiplexer
+    en_w, xlw = pointer(XQW, 'wr_ptr_q', 1)
+    en_r, xlr = pointer(XQR, 'rd_ptr_q', -1)
+    flow.Arrow().at((XQW, YLT)).to((XQW, YS0))
+    text((XQW + GAP, (YLT + YS0)/2), '[1:0]', halign='left')
+    flow.Arrow().at((XQR, YLT)).to(mux.selbot)
+    text((XQR - GAP, (YLT + YS0)/2), '[1:0]', halign='right')
+
+    # push = push_i && !full_o, to the write pointer and the storage
+    gw = logic.And(inputs=2, inputnots=[2]).right().scale(0.8).at((xlw - 0.9, YEN)).anchor('out').fill(GREEN_L)
+    line((XL, gw.in1[1]), gw.in1)
+    text((XL, gw.in1[1] + OFF), 'push_i', halign='left')
+    xt = xlw - 0.4
+    line(gw.out, (xt, YEN))
+    dot((xt, YEN))
+    flow.Arrow().at((xt, YEN)).to(en_w)
+    text(((xt + en_w[0] - HEAD)/2, YEN - OFF), 'push')
+    wire((xt, YEN), (xt, YP), (XEN, YP), (XEN, YS0))
+
+    # pop = pop_i && !empty_o, to the read pointer
+    gr = logic.And(inputs=2, inputnots=[1]).left().scale(0.8).at((xlr + 0.4, YEN)).anchor('out').fill(GREEN_L)
+    line((XR, gr.in2[1]), gr.in2)
+    text((XR, gr.in2[1] + OFF), 'pop_i', halign='right')
+    flow.Arrow().at(gr.out).to(en_r)
+    text(((gr.out[0] + en_r[0] + HEAD)/2, YEN - OFF), 'pop')
+
+    # flags, decoded from the pointers only
+    cf = flow.Box(w=1.2, h=0.7).at((XCF, YC)).anchor('center').fill(GREEN_L).color(GREEN).label('==', color='black')
+    ce = flow.Box(w=1.2, h=0.7).at((XCE, YC)).anchor('center').fill(GREEN_L).color(GREEN).label('==', color='black')
+    line((XQW, YD), (XQW, YC))
+    flow.Arrow().at((XQW, YC)).to(cf.E)
+    dot((XQW, YX))
+    wire((XQW, YX), (XCE, YX), ce.N)
+    line((XQR, YD), (XQR, YB))
+    dot((XQR, YC))
+    flow.Arrow().at((XQR, YC)).to(ce.W)
+    wire((XQR, YB), (XCF, YB), cf.S)
+    text((XCF + GAP, (YB + cf.S[1])/2), 'wrap bit inverted', halign='left', color=GREY)
+
+    # full_o and empty_o leave the FIFO and gate push_i and pop_i
+    flow.Arrow().at(cf.W).to((XL, YC))
+    text((XL, YC - OFF), 'full_o', halign='left')
+    dot((XFT, YC))
+    line((XFT, YC), (XFT, gw.in2[1]), gw.in2)
+    flow.Arrow().at(ce.E).to((XR, YC))
+    text((XR, YC - OFF), 'empty_o', halign='right')
+    dot((XET, YC))
+    line((XET, YC), (XET, gr.in1[1]), gr.in1)
+```

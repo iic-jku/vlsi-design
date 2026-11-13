@@ -107,6 +107,27 @@ if [ "${FULL:-0}" == "1" ]; then
 fi
 cd "$W"
 
+echo "== FIFO: the hardware figure, as Yosys maps the RTL"
+cd fifo
+yosys -q -l hw.log -p "read_verilog -sv rtl/fifo.sv; hierarchy -top fifo; proc; opt; memory -nomap; stat; \
+  dump t:\$adffe t:\$not t:\$mux t:\$mem_v2" > /dev/null
+check "cell types" "$(awk '$1 ~ /^[0-9]+$/ && $2 ~ /^\$/ {print $2 ":" $1}' hw.log | sort | tr '\n' ' ')" \
+  "\$add:2 \$adffe:2 \$eq:2 \$logic_and:2 \$logic_not:2 \$mem_v2:1 \$mux:3 \$not:1 "
+# the hold multiplexer of each pointer becomes the enable that the figure draws
+check "pointer registers" "$(awk '/^  cell \$adffe/ {c=1} c && /ARST_POLARITY/ {p=$3} c && /parameter .WIDTH/ {w=$3}
+  c && /connect .EN / {e=$3} c && /connect .ARST / {r=$3}
+  c && /connect .Q / {print $3 "," w "b,EN=" e ",ARST=" r "/" p; c=0}' hw.log | tr -d '\\' | sort | tr '\n' ' ')" \
+  "rd_ptr_q,3b,EN=pop,ARST=rst_ni/0 wr_ptr_q,3b,EN=push,ARST=rst_ni/0 "
+check "full_o inverts the wrap bit of rd_ptr_q" \
+  "$(awk '/^  cell \$not/ {c=1} c && /connect .A / {print $3 $4; c=0}' hw.log | tr -d '\\')" "rd_ptr_q[2]"
+check "read port of mem_q: no clock, no reset, at rd_ptr_q[1:0]" \
+  "$(awk '/^  cell \$mem_v2/ {c=1} c && /RD_CLK_ENABLE|connect .RD_(ARST|SRST|ADDR) / {printf "%s ", $3 $4}' hw.log | tr -d '\\')" \
+  "1'0 1'0 1'0 rd_ptr_q[1:0] "
+# the three multiplexers only gate the write port of mem_q with push, drawn as its EN
+check "select of every \$mux" \
+  "$(awk '/^  cell \$mux/ {c=1} c && /connect .S / {print $3; c=0}' hw.log | tr -d '\\' | sort -u)" "push"
+cd "$W"
+
 echo "== FIFO: RTL simulation, functional and code coverage"
 cd fifo/testbenches/cocotb
 COCOTB_RANDOM_SEED=1 python3 fifo_tb.py > ic.log 2>&1

@@ -66,7 +66,11 @@ Simulation remains the workhorse. It works for every design and at every level, 
 
 ## A Synchronous FIFO as Running Example {#sec-verification-fifo}
 
-A first-in, first-out memory (FIFO) buffers data between a producer and a consumer that do not always run at the same rate. It makes a good example for verification: its interface is simple, but its behavior depends on the history of all pushes and pops, and the bugs hide in its corner cases, i.e., a full or an empty FIFO, a push and a pop in the same cycle, and the wrap-around of the pointers. Its asynchronous version, which connects two clock domains, follows in @sec-cdc. The specification of our FIFO:
+A first-in, first-out memory (FIFO) buffers data between a producer and a consumer that do not always run at the same rate. It makes a good example for verification: its interface is simple, but its behavior depends on the history of all pushes and pops, and the bugs hide in its corner cases, i.e., a full or an empty FIFO, a push and a pop in the same cycle, and the wrap-around of the pointers. Its asynchronous version, which connects two clock domains, follows in @sec-cdc. @fig-verification-fifo-symbol shows our FIFO as a block, with the producer on the left and the consumer on the right.
+
+{{< include /content/verification/_fig_fifo_symbol.qmd >}}
+
+The specification of our FIFO:
 
 - The FIFO stores up to `DEPTH = 4` entries of `WIDTH = 8` bits.
 - With `push_i` high, the FIFO stores `data_i` at the next rising clock edge, but only if it is not full. With `pop_i` high, it removes the oldest entry, but only if it is not empty.
@@ -84,7 +88,9 @@ The storage `mem_q` holds four entries, organized as a ring (@fig-verification-f
 
 {{< include /content/verification/_fig_fifo.qmd >}}
 
-As in @sec-modeling-memory, the storage has no reset. A pop never reads an entry that was not written, so its start value does not matter, and only the pointers are reset. The flags and `data_o` are decoded from the registers only, without a path from an input to an output.
+@fig-verification-fifo-hw shows the hardware that the RTL describes. As in @sec-modeling-memory, the storage has no reset. A pop never reads an entry that was not written, so its start value does not matter, and only the pointers are reset. The flags and `data_o` are decoded from the registers only, without a path from an input to an output.
+
+{{< include /content/verification/_fig_fifo_hw.qmd >}}
 
 ## The Verification Plan {#sec-verification-plan}
 

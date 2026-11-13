@@ -1,0 +1,42 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-verification-fifo-symbol
+#| echo: false
+#| fig-cap: "The FIFO as a block, with `DEPTH` entries of `WIDTH` bits. The producer writes on the left, and `full_o` tells it that the FIFO refuses a push. The consumer reads on the right, and `empty_o` tells it that `data_o` holds no entry. `clk_i` clocks the FIFO, and `rst_ni` empties it."
+#| fig-alt: "Block symbol labeled FIFO, DEPTH by WIDTH. On the left, data_i and push_i enter and full_o leaves. On the right, data_o leaves, pop_i enters, and empty_o leaves. From below, clk_i enters at a triangle, and rst_ni enters next to it."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'
+X0, X1, Y0, Y1 = 0, 2.8, -2.6, 0.6   # box of the FIFO
+ARROW = 1.3
+P = 1.0                              # pin pitch: a label above its pin stays clear of the pin above
+XCLK, XRST = 0.9, 1.9                # clock and reset pins at the bottom
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    flow.Box(w=X1 - X0, h=Y1 - Y0).at(((X0 + X1)/2, (Y0 + Y1)/2)).anchor('center').fill(BLUE_L).color(BLUE) \
+        .label('FIFO\nDEPTH × WIDTH', color='black')
+    # write side of the producer on the left, read side of the consumer on the right
+    flow.Arrow().at((X0 - ARROW, 0)).to((X0, 0)).label('data_i', 'top', color='black')
+    flow.Arrow().at((X0 - ARROW, -P)).to((X0, -P)).label('push_i', 'top', color='black')
+    flow.Arrow().at((X0, -2*P)).to((X0 - ARROW, -2*P)).label('full_o', 'bottom', color='black')
+    flow.Arrow().at((X1, 0)).to((X1 + ARROW, 0)).label('data_o', 'top', color='black')
+    flow.Arrow().at((X1 + ARROW, -P)).to((X1, -P)).label('pop_i', 'top', color='black')
+    flow.Arrow().at((X1, -2*P)).to((X1 + ARROW, -2*P)).label('empty_o', 'bottom', color='black')
+    # clock with the triangle of an edge-triggered flip-flop, and reset, from below
+    flow.Arrow().at((XCLK, Y0 - 1.0)).to((XCLK, Y0))
+    flow.Line().at((XCLK - 0.15, Y0)).to((XCLK, Y0 + 0.25)).color('black')
+    flow.Line().at((XCLK, Y0 + 0.25)).to((XCLK + 0.15, Y0)).color('black')
+    flow.Arrow().at((XRST, Y0 - 1.0)).to((XRST, Y0))
+    # A free Label sits 0.1 to the right of its anchor with its baseline on it, so shift it back
+    # until its capitals are centered 0.25 below the arrow.
+    for x, name in ((XCLK, 'clk_i'), (XRST, 'rst_ni')):
+        elm.Label().theta(0).at((x - 0.1, Y0 - 1.0 - 0.25 - 0.1)).label(name, color='black')
+```
