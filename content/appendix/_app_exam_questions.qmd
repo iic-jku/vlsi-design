@@ -123,23 +123,23 @@ The written exam is closed book and allows no technical aids. Most questions the
 
 ## Design for Test (DFT) {#sec-app-exam-dft}
 
-49. Why must every manufactured die be tested? Name the three tests that a die can go through between the wafer and the shipment, and what each of them catches.
+49. Why must every manufactured die be tested, and how do catastrophic and parametric yield loss differ? Name the three tests that a die can go through between the wafer and the shipment, and what each of them catches. Sketch the bathtub curve of the failure rate, and explain with it what a burn-in does.
 
-50. What are yield, fault coverage, test coverage, and defect level? Write the model of Williams and Brown, and explain why a defect level of a few ppm needs a fault coverage close to 100 %.
+50. What are yield, fault coverage, test coverage, and defect level? Write the model of Williams and Brown, and explain why a defect level of a few ppm needs a fault coverage close to 100 %. What is overkill, and what does it cost?
 
-51. What is the stuck-at fault model? How many single stuck-at faults does a netlist with $n$ fault sites have? What are equivalent and untestable faults?
+51. Explain the chain of defect, fault, error, and failure. What is the stuck-at fault model, and what are the stem and the branches of a net? How many single stuck-at faults does a netlist with $n$ fault sites have? What are equivalent and untestable faults, and what does fault collapsing do?
 
-52. Name three kinds of production defects, the wrong behavior that each of them causes, and the fault model that describes it. What does IDDQ testing measure?
+52. Name three kinds of production defects, the wrong behavior that each of them causes, and the fault model that describes it. Why does a stuck-open transistor need a test of two vectors, and why can a stuck-on transistor escape every test of the logic values? What does IDDQ testing measure?
 
-53. Describe the three steps of finding a test for a stuck-at fault, and explain controllability and observability. How do the D-algorithm and a SAT solver on a miter show that a fault is untestable, and why do ATPG tools start with random vectors?
+53. Describe the three steps of finding a test for a stuck-at fault, and explain controllability and observability. What do the values $D$ and $\bar{D}$ of the D-algorithm stand for, and what are the D-frontier and the J-frontier? How does PODEM differ from the D-algorithm? How do the D-algorithm and a SAT solver on a miter show that a fault is untestable, and why do ATPG tools start with random vectors?
 
-54. What is scan design? Draw a scan flip-flop and a scan chain, and explain how scan turns the test of a sequential circuit into the test of a combinational one. What does scan cost, and how do you check that the scan insertion did not change the function?
+54. What is scan design? Draw a scan flip-flop and a scan chain, and explain how scan turns the test of a sequential circuit into the test of a combinational one. What does scan cost, why are the chains stitched only after the placement, and how do you check that the scan insertion did not change the function?
 
 55. Describe the scan test sequence, including the chain test. How many clock cycles does a test of $N$ patterns over a chain of $L$ flip-flops take, and how can the test time be reduced? Why is the shift clock often slower than the functional clock?
 
 56. Name and explain at least four design rules for testability besides those for the scan chain itself. Why does a reset synchronizer in front of the registers break the scan chain, and how is it fixed?
 
-57. What do an at-speed test, a logic built-in self-test, a memory BIST, and boundary scan add to the scan test? Explain launch on capture, launch on shift, and aliasing.
+57. What do an at-speed test, a logic built-in self-test, a memory BIST, and boundary scan add to the scan test? Explain launch on capture, launch on shift, and aliasing. Why should a transition test sensitize the longest path through a fault site?
 
 ## The RTL-to-GDSII Flow with LibreLane {#sec-app-exam-flow}
 
@@ -175,15 +175,19 @@ The written exam is closed book and allows no technical aids. Most questions the
 
 72. **Defect Level**: A process has a yield of 90 %, and the test reaches a fault coverage of 98 %. Compute the defect level in ppm with the model of Williams and Brown, and the coverage that a defect level of 10 ppm needs. Use $Y^x \approx 1 + x \ln Y$ for small $x$, and $\ln 0.9 \approx -0.105$.
 
-73. **Test Vectors**: A circuit computes $y = ab + c$, with the internal net $n = ab$. Find a test vector $(a, b, c)$ for $n$ stuck-at-0, for $a$ stuck-at-1, and for $c$ stuck-at-0, and say for each how it excites and propagates the fault. Then show that the net $bc$ stuck-at-0 in $y = ab + \bar{a}c + bc$ is untestable.
+73. **Test Vectors**: A circuit computes $y = ab + c$, with the internal net $n = ab$. Find a test vector $(a, b, c)$ for $n$ stuck-at-0, for $a$ stuck-at-1, and for $c$ stuck-at-0, and say for each how it excites and propagates the fault, with the values $D$ and $\bar{D}$ along the path. Then show with the D-algorithm that the net $bc$ stuck-at-0 in $y = ab + \bar{a}c + bc$ is untestable.
 
 74. **Scan Test Time**: A design has 1000 flip-flops, and its test has 200 scan patterns, which the tester shifts at 20 MHz. How long does the scan test take without the chain test, with one chain, and how long with 10 chains of 100 flip-flops each?
 
-75. **Gray Code**: Write down the 3-bit Gray code of 0 to 7. Convert the binary value `1011` into Gray code, and the Gray code `1101` back into binary. A 4-bit binary counter steps from `0111` to `1000` while another clock domain samples it through one synchronizer per bit. Which values can the other domain see, and which with a Gray-coded counter?
+75. **Fault Collapsing**: A circuit has the inputs $a$, $b$, $c$, and $d$ and two outputs. An AND gate computes $p = ab$, an OR gate $y = p + c$, an inverter $\bar{c}$, and a second AND gate $z = \bar{c}\,d$, so $c$ drives the OR gate and the inverter. Count the fault sites with a site on each net and on each branch of $c$, and the single stuck-at faults. How many faults does the rule $2(P_O + F_O) + G_I - N_I$ leave? Which faults are equivalent to $y$ stuck-at-1, and which to $z$ stuck-at-0?
+
+76. **Delay Test**: A net lies on two paths between flip-flops of the same clock, with delays of 1.2 ns and 1.9 ns, each including the clock-to-output delay and the setup time. The clock is ideal and has no uncertainty. A defect adds an extra delay to the net. Which extra delay must the defect exceed, so that an at-speed transition test at the functional clock period of 2 ns detects it along each of the two paths? Which path should the test use? Which extra delay must the defect exceed for the better path if the test runs with a slow test clock of 4 ns instead?
+
+77. **Gray Code**: Write down the 3-bit Gray code of 0 to 7. Convert the binary value `1011` into Gray code, and the Gray code `1101` back into binary. A 4-bit binary counter steps from `0111` to `1000` while another clock domain samples it through one synchronizer per bit. Which values can the other domain see, and which with a Gray-coded counter?
 
 ## Reading, Writing, and Fixing Code {#sec-app-exam-code}
 
-76. **Find the Bugs**: The following module should add `d_i` to an 8-bit sum in every clock cycle in which `en_i` is high and keep the sum otherwise. The sum wraps around at 256. Find the three mistakes. For each one, explain what Verilator or Yosys reports or which hardware results, and write the corrected module.
+78. **Find the Bugs**: The following module should add `d_i` to an 8-bit sum in every clock cycle in which `en_i` is high and keep the sum otherwise. The sum wraps around at 256. Find the three mistakes. For each one, explain what Verilator or Yosys reports or which hardware results, and write the corrected module.
 
     ```systemverilog
     module acc (
@@ -208,7 +212,7 @@ The written exam is closed book and allows no technical aids. Most questions the
     endmodule
     ```
 
-77. **From VHDL to SystemVerilog**: The following counter is written in the two-process style of VHDL, with `cnt` and `next_cnt` of type `unsigned(2 downto 0)`. Translate it into a SystemVerilog module `cnt3` with the ports `clk_i`, `rst_ni`, `en_i`, `clr_i`, and `tc_o`, an asynchronous active-low reset, and the two-process style with `_d` and `_q`. Why must the sensitivity list of `cnt_logic` contain all three signals, and what replaces it in SystemVerilog?
+79. **From VHDL to SystemVerilog**: The following counter is written in the two-process style of VHDL, with `cnt` and `next_cnt` of type `unsigned(2 downto 0)`. Translate it into a SystemVerilog module `cnt3` with the ports `clk_i`, `rst_ni`, `en_i`, `clr_i`, and `tc_o`, an asynchronous active-low reset, and the two-process style with `_d` and `_q`. Why must the sensitivity list of `cnt_logic` contain all three signals, and what replaces it in SystemVerilog?
 
     ```vhdl
     reg_proc: process(rst_i, clk_i) is
@@ -233,7 +237,7 @@ The written exam is closed book and allows no technical aids. Most questions the
     tc_o <= '1' when cnt = 7 else '0';
     ```
 
-78. **Clock Enable Instead of a Divided Clock**: The following code counts at half the clock frequency. Rewrite it with only one clock, an asynchronous active-low reset `rst_ni`, and a clock enable, so that the counter still advances at every second rising edge of `clk_i`. What does a simulation of the original with Icarus Verilog show, since `div_q` has no reset, and why does your version not have this problem?
+80. **Clock Enable Instead of a Divided Clock**: The following code counts at half the clock frequency. Rewrite it with only one clock, an asynchronous active-low reset `rst_ni`, and a clock enable, so that the counter still advances at every second rising edge of `clk_i`. What does a simulation of the original with Icarus Verilog show, since `div_q` has no reset, and why does your version not have this problem?
 
     ```systemverilog
     always_ff @(posedge clk_i) begin
@@ -245,7 +249,7 @@ The written exam is closed book and allows no technical aids. Most questions the
     end
     ```
 
-79. **Liberty Cell**: The following excerpt describes a cell of the typical library, whose units are ns and pF.
+81. **Liberty Cell**: The following excerpt describes a cell of the typical library, whose units are ns and pF.
 
     ```default
     cell (sg13cmos5l_a21oi_1) {
@@ -271,7 +275,7 @@ The written exam is closed book and allows no technical aids. Most questions the
 
     Draw the gate that the function describes. What does the timing sense of the arc from `A1` to `Y` mean? How large is the cell in gate equivalents, if a 2-input NAND gate has 7.2576 µm²? What is the input capacitance of `A1` in fF, and what happens when the output has to drive more than `max_capacitance`?
 
-80. **Timing Report**: The following report of OpenSTA shows the worst setup path of a block with an ideal clock of 1.25 ns.
+82. **Timing Report**: The following report of OpenSTA shows the worst setup path of a block with an ideal clock of 1.25 ns.
 
     ```default
     Startpoint: a_q (rising edge-triggered flip-flop clocked by clk)
@@ -306,9 +310,9 @@ The written exam is closed book and allows no technical aids. Most questions the
 
     Is the check met? Compute the minimum clock period of this path. Which cell takes the most time, and why is its rising output slow? Propose two fixes. Which lines of the two clock paths change if only `set_propagated_clock` is added to the constraints after clock tree synthesis, and why?
 
-81. **Timing Constraints**: Write the SDC constraints for a block with the clock input `clk_i` at 200 MHz, a clock transition of 0.1 ns, a clock uncertainty of 0.15 ns, input delays of 1.5 ns at all other inputs, output delays of 1.5 ns at all outputs, the cell `sg13cmos5l_buf_2` with its output pin `X` as the driver of the inputs, and a load of 10 fF at the outputs, in the units of the library, ns and pF. Explain what each command tells the timing analysis.
+83. **Timing Constraints**: Write the SDC constraints for a block with the clock input `clk_i` at 200 MHz, a clock transition of 0.1 ns, a clock uncertainty of 0.15 ns, input delays of 1.5 ns at all other inputs, output delays of 1.5 ns at all outputs, the cell `sg13cmos5l_buf_2` with its output pin `X` as the driver of the inputs, and a load of 10 fF at the outputs, in the units of the library, ns and pF. Explain what each command tells the timing analysis.
 
-82. **Clock Domain Crossing**: `req_a` is a pulse of one cycle of the faster clock `clk_a_i`, and the following code takes it into the domain of `clk_b_i`. Find the three mistakes, and draw a corrected crossing.
+84. **Clock Domain Crossing**: `req_a` is a pulse of one cycle of the faster clock `clk_a_i`, and the following code takes it into the domain of `clk_b_i`. Find the three mistakes, and draw a corrected crossing.
 
     ```systemverilog
     // domain A
