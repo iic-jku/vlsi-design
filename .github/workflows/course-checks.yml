@@ -1,0 +1,129 @@
+name: course-checks
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: 'IIC-OSIC-TOOLS image, e.g. ghcr.io/iic-jku/iic-osic-tools:nightly'
+        default: 'hpretl/iic-osic-tools:latest'
+      mode:
+        description: 'CHECK_MODE: regression (what the exercises need) or book (every quoted value)'
+        default: 'regression'
+  push:
+    branches: [main]
+    paths:
+      - 'content/*/code/**'
+      - 'content/*/_fig_*.qmd'
+      - 'scripts/**'
+      - '.github/workflows/course-checks.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'content/*/code/**'
+      - 'content/*/_fig_*.qmd'
+      - 'scripts/**'
+      - '.github/workflows/course-checks.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: course-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  list:
+    name: List the chapters
+    runs-on: ubuntu-latest
+    outputs:
+      chapters: ${{ steps.list.outputs.chapters }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: List the check scripts
+        id: list
+        # Every scripts/check_<chapter>.sh becomes one job, so a new chapter needs no edit here
+        run: |
+          chapters=$(ls scripts/check_*.sh | sed 's#scripts/check_##; s#\.sh$##' | jq -R . | jq -s -c .)
+          echo "chapters=$chapters" >> "$GITHUB_OUTPUT"
+
+  checks:
+    name: ${{ matrix.chapter }}
+    needs: list
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        chapter: ${{ fromJSON(needs.list.outputs.chapters) }}
+    container:
+      # IIC-OSIC-TOOLS ships every tool of the course and the IHP SG13CMOS5L PDK.
+      image: ${{ inputs.image || 'hpretl/iic-osic-tools:latest' }}
+      options: --user root
+    env:
+      CHECK_MODE: ${{ inputs.mode || 'regression' }}
+      CHAPTER: ${{ matrix.chapter }}
+      RUN_DIR: /tmp/vlsi_checks
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Mark workspace as safe for git
+        # The container runs as root while the checkout is owned by a different
+        # UID, so git refuses to operate ("detected dubious ownership").
+        run: git config --global --add safe.directory '*'
+
+      - name: Set up IIC-OSIC-TOOLS environment
+        # GitHub Actions bypasses the container entrypoint, so the image's tool
+        # environment is never initialised: $PATH is overridden with the runner
+        # host's PATH and LD_LIBRARY_PATH/PYTHONPATH/KLAYOUT_PATH/... are unset.
+        # Replicate the entrypoint by sourcing the image's single source of truth
+        # for the environment and persist the result for the following steps.
+        shell: bash
+        run: |
+          set -a
+          source /etc/profile.d/iic-osic-tools-setup.sh
+          set +a
+          {
+            echo "PATH=$PATH"
+            echo "PYTHONPATH=$PYTHONPATH"
+            echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+            echo "LIBRARY_PATH=$LIBRARY_PATH"
+            echo "CPATH=$CPATH"
+            echo "SAK=$SAK"
+            echo "TOOLS=$TOOLS"
+            echo "KLAYOUT_HOME=$KLAYOUT_HOME"
+            echo "KLAYOUT_PATH=$KLAYOUT_PATH"
+            echo "PDK=$PDK"
+            echo "PDKPATH=$PDKPATH"
+            echo "PDK_ROOT=$PDK_ROOT"
+            echo "STD_CELL_LIBRARY=$STD_CELL_LIBRARY"
+            echo "SPICE_USERINIT_DIR=$SPICE_USERINIT_DIR"
+          } >> "$GITHUB_ENV"
+
+      - name: Run the checks
+        shell: bash
+        run: JOBS=1 bash scripts/run_checks.sh "$CHAPTER"
+
+      - name: Write the summary
+        if: always()
+        shell: bash
+        run: |
+          L=$RUN_DIR/logs/$CHAPTER.log
+          {
+            echo "### $CHAPTER ($CHECK_MODE mode)"
+            echo
+            echo '```'
+            tail -n 1 "$L" 2> /dev/null
+            grep -E '^  (FAIL|drift) ' "$L" 2> /dev/null
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-${{ matrix.chapter }}
+          path: /tmp/vlsi_checks/logs/
+          if-no-files-found: ignore
