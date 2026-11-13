@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 The netlists of the previous chapters exist only as text. To become a chip, every cell needs a place on the die, every net a wire in metal, and every clock a tree of buffers. The result must then pass the timing checks again, now with real wires, and checks that only a layout can fail: the design rules of the process and the comparison of the layout with the netlist. This chapter takes the barrel shifter between two registers of @sec-sequential-opensta through LibreLane [@LibreLane], the open-source RTL-to-GDSII flow of this course, from its RTL to a GDSII layout, one step at a time. It ends with the chip top level of the AMS chip template (@sec-intro-template), which puts such blocks into a padframe.
 
 ::: {.callout-note}
-All code of this chapter is available in the folder [`content/digital_flow/code`]({{< meta var.url-repo >}}/tree/main/content/digital_flow/code) of the course repository: the LibreLane configuration, the equivalence check, and the testbench of the barrel shifter in `bs_reg/`, a small design with a clock gate in `cg_mix/`, and one with a divided clock in `div_mix/`. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (LibreLane 3.1.0.dev3 with its OpenROAD 26Q1, Yosys 0.70, Magic 8.3.685, KLayout 0.30.12, Netgen 1.5.324, EQY 0.70, Icarus Verilog 14.0) and SG13CMOS5L. The script [`scripts/check_digital_flow.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_digital_flow.sh) reproduces all of them: run `bash scripts/check_digital_flow.sh` in the container from the root of the repository. It runs LibreLane seven times, at most two at a time, and takes about 30 minutes.
+All code of this chapter is available in the folder [`content/digital_flow/code`]({{< meta var.url-repo >}}/tree/main/content/digital_flow/code) of the course repository: the LibreLane configuration, the equivalence check, and the testbench of the barrel shifter in `bs_reg/`, a small design with a clock gate in `cg_mix/`, and one with a divided clock in `div_mix/`. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (LibreLane 3.1.0.dev3 with its OpenROAD 26Q1, Yosys 0.70, Magic 8.3.685, KLayout 0.30.12, Netgen 1.5.324, EQY 0.70, Icarus Verilog 14.0) and SG13CMOS5L. The script [`scripts/check_digital_flow.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_digital_flow.sh) reproduces all of them: run `bash scripts/check_digital_flow.sh` in the container from the root of the repository. It runs LibreLane seven times, at most two at a time, opens the run `base` twice in the GUI without a screen, and takes about 35 minutes.
 :::
 
 For the exercises, clone the course repository into your designs folder once, if you have not done so yet:
@@ -29,10 +29,11 @@ LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib
 
 After this chapter, you will be able to:
 
-- run LibreLane on a block and find the results of every step in its run folder
+- run LibreLane on a block, find the results of every step in its run folder, and open the run in the OpenROAD GUI
 - plan a floorplan: the size of the core, the rows, the power grid, and the pins
 - explain what placement, buffering, clock tree synthesis, timing repair, and routing do to a netlist
-- read the signoff results: timing in all corners, IR drop, DRC, LVS, and the equivalence of the final netlist with the RTL
+- inspect a layout in the OpenROAD GUI: the clock tree, the routing congestion, the timing paths, and the IR drop
+- read the signoff results in the reports of a run: timing in all corners, IR drop, DRC, LVS, and the equivalence of the final netlist with the RTL, and tell a finished flow from a clean design
 - explain why the estimates before routing are optimistic, and close timing with the right setting
 - simulate the final netlist with the delays of the layout, prove that they were annotated, and drive it as the SDC describes
 - describe how a block becomes part of a chip with a padframe
@@ -50,6 +51,21 @@ A YAML file configures the run: the name of the top module, the RTL files, the c
 ```
 
 The run takes about six minutes. LibreLane writes each step into its own numbered folder of the run folder `runs/base/`, e.g., `06-yosys-synthesis/` or `35-openroad-cts/`, with the log of the tool, its reports, the exact commands in `COMMANDS`, and the state it hands on. The folder `final/` collects the results: the layout as GDSII (`gds/`), as DEF (Design Exchange Format, `def/`), and as OpenROAD database (`odb/`), the LEF abstract of the macro for a parent design (@sec-synthesis-lib-cells, `lef/`), the netlist without and with supply connections (`nl/`, `pnl/`), the extracted parasitics as SPEF (Standard Parasitic Exchange Format, `spef/`), the delays for a gate-level simulation per corner as SDF (@sec-verification-gl-sdf, `sdf/`), a timing model of the macro (`lib/`), the SPICE netlist extracted from the layout (`spice/`), and all metrics of the run in `metrics.json`.
+
+### The OpenROAD GUI {#sec-digital-flow-gui}
+
+The reports give the numbers of a run, and the GUI of OpenROAD shows the layout behind them. LibreLane opens a finished run in it with a flow of one step, `OpenInOpenROAD`, which needs the desktop of the container (@sec-intro-installation):
+
+```bash
+librelane config.yaml --pdk ihp-sg13cmos5l --pdk-root $PDK_ROOT \
+  --manual-pdk --run-tag base --flow OpenInOpenROAD
+```
+
+The step reads the last state of the run, i.e., the layout database in `final/odb/`, and, like the STA steps, the Liberty files, the SDC file, and the SPEF file of the default corner, with the propagated clock. The GUI therefore shows the timing of the typical corner only, and `-c DEFAULT_CORNER=nom_slow_1p08V_125C` opens the run in the slow corner instead. The GUI flow writes into the run like any other flow. Each time, it adds a numbered folder for its step, e.g., `77-openroad-opengui/`, appends its log to `flow.log`, and replaces `resolved.json`, the complete configuration of the run, with its own, which no longer shows the settings of the Classic flow.
+
+@fig-digital-flow-gui shows the window. The layout fills the middle, with a scale bar at the bottom left. The Display Control on the left switches layers, nets, instances, rows, and heat maps on and off, and a double click on an underlined entry opens its settings. On the right, the Inspector shows the properties of the object under the last click, here the input buffer `input1`: its cell, its position, its orientation, and its pins. The tabs next to it hold the Hierarchy Browser, the Timing Report, and the Charts, and the menu Windows opens more, such as the Clock Tree Viewer. The Scripting pane at the bottom accepts every command of OpenROAD and OpenSTA, e.g., `report_checks` of @sec-sequential-opensta, and shows the files that the step read.
+
+![The OpenROAD GUI with the run `base` of `bs_reg`, as LibreLane opens it: the Display Control on the left, the layout in the middle, the Inspector with the selected input buffer `input1` on the right, and the Scripting pane with the files that the step read at the bottom.](/figures/digital_flow/gui_overview.png){#fig-digital-flow-gui fig-alt="Screenshot of a desktop application with a menu bar, a list of layers with check boxes on the left, a dense rectangular layout in the middle, a table of properties on the right, and a text console at the bottom."}
 
 ## Floorplan {#sec-digital-flow-floorplan}
 
@@ -71,7 +87,8 @@ librelane config.yaml --pdk ihp-sg13cmos5l --pdk-root $PDK_ROOT \
 
 1. Sketch the floorplan of `bs_reg` with the core, the rows, the straps, and the pins, and add the numbers: the synthesis report `runs/base/06-yosys-synthesis/reports/stat.rpt` gives the area of the synthesized cells. Compute the core for 50 % utilization, its edge for a square core, and the number of rows and sites that fit.
 2. Compare with the layout: `runs/base/final/def/bs_reg.def` holds the die (`DIEAREA`) and one `ROW` statement per row, in database units of 1 nm. How large are the die and the core, and how wide are the margins? Which utilization and cell area does `runs/base/final/metrics.json` report for the finished layout (`design__instance__utilization`, `design__instance__area__stdcell`), and how much area did the steps after the synthesis add?
-3. Run the flow again with a denser core and a higher density limit for the placement (`PL_TARGET_DENSITY_PCT`, @sec-digital-flow-place):
+3. Open the run in the GUI (@sec-digital-flow-gui), hide the signal and clock nets under `Nets` in the Display Control, and compare the straps on Metal4 and TopMetal1 with your sketch. A click on a strap shows its net in the Inspector, and the status bar at the bottom shows the coordinates under the pointer. Where exactly do the straps of `VDD` and `VSS` lie, and why does `VSS` have one Metal4 strap less?
+4. Run the flow again with a denser core and a higher density limit for the placement (`PL_TARGET_DENSITY_PCT`, @sec-digital-flow-place):
 
    ```bash
    librelane config.yaml --pdk ihp-sg13cmos5l --pdk-root $PDK_ROOT \
@@ -85,9 +102,10 @@ librelane config.yaml --pdk ihp-sg13cmos5l --pdk-root $PDK_ROOT \
 Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
 
 ::: {.callout-tip title="Solution: Plan the Floorplan" collapse="true"}
-1. The synthesized cells take 13,008.1 µm², so the core needs 26,016 µm², an edge of 161.3 µm. That fits 42 rows of 3.78 µm (158.76 µm) and 336 sites of 0.48 µm (161.28 µm). Metal1 rails run along the rows. Over the 161 µm of the core, the Metal4 straps every 50 µm make 4 for `VDD` and 3 for `VSS`, alternating, and TopMetal1 has 3 pairs. The pins sit on all four edges.
+1. The synthesized cells take 13,008.1 µm², so the core needs 26,016 µm², an edge of 161.3 µm. That fits 42 rows of 3.78 µm (158.76 µm) and 336 sites of 0.48 µm (161.28 µm). Metal1 rails run along the rows. Over the 161 µm of the core, the Metal4 straps every 50 µm make 4 for `VDD` and 3 for `VSS`, and TopMetal1 has 3 pairs. The pins sit on all four edges.
 2. The rows fill 161.28 µm × 158.76 µm, 25,604.8 µm², with 42 rows of 336 sites. The die is 172.82 µm × 191.54 µm: the computed edge of 161.30 µm plus margins of 12 sites (5.76 µm) left and right and of 4 rows (15.12 µm) at the bottom and top. Of the computed square, 0.02 µm at the right and 2.54 µm at the top do not fill a whole site or row and stay empty. The finished layout reports 58.7 % utilization, 15,023.2 µm² of cells, because placement, clock tree synthesis, and timing repair added 2015 µm² of buffers and larger cells.
-3. With 75 %, the core shrinks to 16,903 µm², and the finished layout fills 89.2 % of it. The detailed router starts with 1139 instead of 683 violations and needs 6 instead of 4 iterations, the wire length grows from 40,693 to 45,974 µm, and the worst setup slack in the typical corner drops from 1.075 to 0.997 ns. The core is 34 % smaller, but harder to route and slower. For a macro that the parent places in a fixed slot, the margin is worth more.
+3. Every `VDD` strap has a `VSS` strap next to it. On Metal4, the 1 µm wide straps of the first pair start at x = 15.26 µm and 18.26 µm, and a pair follows every 50 µm. On TopMetal1, the 2 µm wide straps of the first pair start at y = 24.12 µm and 30.12 µm, again every 50 µm. The fourth Metal4 pair would place its `VSS` strap at x = 168.26 µm, beyond the right edge of the core at 167.04 µm, so only its `VDD` strap at 165.26 µm remains.
+4. With 75 %, the core shrinks to 16,903 µm², and the finished layout fills 89.2 % of it. The detailed router starts with 1139 instead of 683 violations and needs 6 instead of 4 iterations, the wire length grows from 40,693 to 45,974 µm, and the worst setup slack in the typical corner drops from 1.075 to 0.997 ns. The core is 34 % smaller, but harder to route and slower. For a macro that the parent places in a fixed slot, the margin is worth more.
 :::
 
 ## Placement {#sec-digital-flow-place}
@@ -106,13 +124,25 @@ A clock gate (@sec-synth-opt-cg) sits inside the clock tree, and the flip-flops 
 
 A divided clock (@sec-modeling-clken) gets no such help. In `div_mix`, a flip-flop divides `clk_i` by two, and a 16-bit register on the divided clock takes over the value of a register on `clk_i`. Its SDC file defines the divided clock with `create_generated_clock` (@sec-sequential-genclk). CTS finds two clock nets, `clk_i` and the output `div_q` of the divider, and builds a tree for each without balancing them against each other. The flip-flops behind the divider therefore see the clock later, by the clock-to-output delay of the divider and the delay of the second tree, and after CTS all 16 paths from `clk_i` into the divided clock violate hold, by up to 0.25 ns in the typical corner. The timing repair fixes them with 32 delay cells, two in front of each flip-flop. A clock enable on `clk_i` needs neither the second tree nor the delay cells.
 
+The Clock Tree Viewer of the GUI (menu Windows) draws the tree of each clock in a tab of its own (@fig-digital-flow-gui-cts). The source of the clock sits at the top, and each buffer and each flip-flop sits at the time when the rising clock edge reaches it, in the corner chosen at the top left, so a balanced tree ends in one flat row of flip-flops. In `cg_mix`, the gated branch passes two `buf_8`, the clock gate (drawn as a circle), and one more `buf_8` before its four leaf buffers, and the ungated branch passes the three delay buffers and two more `buf_8`. Both end in the same row. In `div_mix`, the 17 flip-flops of `clk_i`, the divider included, see the edge after about 0.14 ns. The tab `clk_div` starts at the output of the divider, after about 0.3 ns, and its 16 flip-flops see the edge only after about 0.49 ns. The hold repair fills this difference with delay cells.
+
+::: {#fig-digital-flow-gui-cts layout-ncol=2}
+
+![`cg_mix`, clock `clk_i`: the clock gate in one branch, three delay buffers in the other.](/figures/digital_flow/gui_cts_cg_mix.png){#fig-digital-flow-gui-cts-cg fig-alt="Clock tree drawing with time increasing downward: a red triangle at the top, two branches of blue triangles, one of them with a pink circle, ending in one row of blue leaf triangles with small red squares below them."}
+
+![`div_mix`, clock `clk_div`: the tree behind the divider.](/figures/digital_flow/gui_cts_div_mix.png){#fig-digital-flow-gui-cts-div fig-alt="Clock tree drawing with a time axis from 0.30 to 0.50 ns: a red triangle at about 0.32 ns, one blue triangle below it, four blue leaf triangles, and rows of small red squares at about 0.49 ns."}
+
+The Clock Tree Viewer of the OpenROAD GUI in the typical corner, with the time running downward: the clock source (red triangle), the buffers (blue triangles), and the flip-flops (red squares).
+:::
+
 ::: {.callout-tip title="Exercise: Follow the Clock and the Reset"}
 All commands start in the folder `content/digital_flow/code/bs_reg` and use the run `base` of the previous exercise.
 
 1. Sketch the clock tree of `bs_reg` from the log of CTS, `runs/base/35-openroad-cts/openroad-cts.log`: how many flip-flops does it drive, how many buffers did it create, how many buffers are in each clock path, and how many flip-flops does each last buffer drive? What are the dummy loads that CTS reports?
-2. How large is the skew? The worst skew of each corner is in `runs/base/final/metrics.json` (`clock__skew__worst_setup__corner:...`). Which output drives the only fanout violation of the run (`runs/base/55-openroad-stapostpnr/nom_typ_1p20V_25C/checks.rpt`), and why did the repair of the design not fix it?
-3. The reset input `rst_ni` drives the `RESET_B` pins of all flip-flops. Follow it in the final netlist `runs/base/final/nl/bs_reg.nl.v`: how many buffers lie between `rst_ni` and a flip-flop at most, and how many `RESET_B` pins does one buffer drive at most? How large is the worst recovery slack in the typical and the slow corner? The path that starts at `rst_ni` in the file `max.rpt` of each corner shows it.
-4. No path needed a hold repair. Ask for a larger hold margin and run again:
+2. Open the run in the GUI and its Clock Tree Viewer, and compare the tree with your sketch. When does the clock edge reach the earliest and the latest flip-flop? The file `clock.rpt` in the folder of the typical corner, `runs/base/55-openroad-stapostpnr/nom_typ_1p20V_25C/`, names both. Compare their difference with the worst setup skew of the corner in `runs/base/final/metrics.json` (`clock__skew__worst_setup__corner:...`), and explain the difference with the file `skew.max.rpt` in the same folder.
+3. Which output drives the only fanout violation of the run (`checks.rpt` in the same folder), and why did the repair of the design not fix it?
+4. The reset input `rst_ni` drives the `RESET_B` pins of all flip-flops. Follow it in the final netlist `runs/base/final/nl/bs_reg.nl.v`: how many buffers lie between `rst_ni` and a flip-flop at most, and how many `RESET_B` pins does one buffer drive at most? How large is the worst recovery slack in the typical and the slow corner? The path that starts at `rst_ni` in the file `max.rpt` of each corner shows it.
+5. No path needed a hold repair. Ask for a larger hold margin and run again:
 
    ```bash
    librelane config.yaml --pdk ihp-sg13cmos5l --pdk-root $PDK_ROOT \
@@ -127,9 +157,12 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 
 ::: {.callout-tip title="Solution: Follow the Clock and the Reset" collapse="true"}
 1. The clock net `clk_i` has 71 sinks. CTS builds an H-tree with 17 `buf_8`: one at the root, which drives 16 leaf buffers, and each leaf drives 4 or 5 flip-flops (9 × 4 + 7 × 5 = 71). Every clock path has exactly 2 buffers. The 9 leaves with only 4 flip-flops get a **dummy load**, an `inv_1` whose output stays open, so that all 16 leaves carry about the same load and the same delay. Together they make the 80 sinks that the log reports.
-2. The worst setup skew is 0.118 ns in the typical corner, 0.124 ns in the slow and 0.116 ns in the fast one. The fanout violation belongs to the root buffer `clkbuf_0_clk_i`, which drives 16 leaves against a limit of 8. The repair of the design ran before CTS and skips clock nets anyway, and CTS groups the sinks by the load its buffers can drive, not by the fanout limit.
-3. The repair of the design turned the reset net into a tree of 13 `buf_1`, the input buffer included, and the `RESET_B` pins hang on 12 of its nets, with 2 to 8 pins each. At most five buffers lie between `rst_ni` and a flip-flop. In @sec-sequential-opensta, one `buf_2` drove all 71 pins with a slew of 0.87 ns. The tree splits this load, at the price of more delay, which the recovery check easily allows: its worst slack is 1.912 ns in the typical and 1.356 ns in the slow corner.
-4. The flow inserts 131 `dlygate4sd3_1`, the delay cell with the largest delay, and the area of the cells grows by 14 %, from 15,023.2 to 17,162.4 µm². The resizer still warns that it cannot repair all hold checks within the margin: it reaches only 0.22 ns on its estimates, and at signoff the fast corner has 0.268 ns, far below the 0.5 ns asked for. Hold margin costs area, so the default asks for 0.1 ns only.
+2. The viewer shows the tree of the sketch (@fig-digital-flow-gui-cts-bs): the root, 16 leaves, and the flip-flops in one row. The edge reaches the earliest flip-flop, `_1508_`, after 0.225 ns and the latest, `_1482_`, after 0.250 ns, so the tree itself has a skew of 0.025 ns. The worst setup skew in `metrics.json` is 0.118 ns in the typical corner, 0.124 ns in the slow and 0.116 ns in the fast one. `skew.max.rpt` shows how STA gets there: it takes the latest clock at a launching flip-flop (0.250 ns at `_1482_`) minus the earliest at a capturing one (0.225 ns at `_1508_`), adds the clock uncertainty of 0.1 ns from the SDC (@sec-sequential-path), and subtracts 0.007 ns of clock reconvergence pessimism (@sec-sequential-opensta). The metric is a margin for the setup check, not the spread of the tree.
+3. The fanout violation belongs to the root buffer `clkbuf_0_clk_i`, which drives 16 leaves against a limit of 8. The repair of the design ran before CTS and skips clock nets anyway, and CTS groups the sinks by the load its buffers can drive, not by the fanout limit.
+4. The repair of the design turned the reset net into a tree of 13 `buf_1`, the input buffer included, and the `RESET_B` pins hang on 12 of its nets, with 2 to 8 pins each. At most five buffers lie between `rst_ni` and a flip-flop. In @sec-sequential-opensta, one `buf_2` drove all 71 pins with a slew of 0.87 ns. The tree splits this load, at the price of more delay, which the recovery check easily allows: its worst slack is 1.912 ns in the typical and 1.356 ns in the slow corner.
+5. The flow inserts 131 `dlygate4sd3_1`, the delay cell with the largest delay, and the area of the cells grows by 14 %, from 15,023.2 to 17,162.4 µm². The resizer still warns that it cannot repair all hold checks within the margin: it reaches only 0.22 ns on its estimates, and at signoff the fast corner has 0.268 ns, far below the 0.5 ns asked for. Hold margin costs area, so the default asks for 0.1 ns only.
+
+![The clock tree of `bs_reg` in the Clock Tree Viewer, typical corner: the clock pin, the root `buf_8`, 16 leaf buffers, and the 71 flip-flops between 0.225 and 0.250 ns.](/figures/digital_flow/gui_cts_bs_reg.png){#fig-digital-flow-gui-cts-bs fig-alt="Clock tree drawing with time increasing downward: a red triangle and one blue triangle at the top, a row of sixteen small blue triangles at about 0.12 ns, and red squares in one row at about 0.23 ns."}
 :::
 
 ## Routing {#sec-digital-flow-route}
@@ -142,6 +175,46 @@ After routing, **fill insertion** closes the gaps in the rows with filler cells,
 
 ![The finished layout of `bs_reg`, 172.82 µm × 191.54 µm, rendered by LibreLane. The rows of cells fill the core, the signal wires run vertically on Metal2 and Metal4 and horizontally on Metal3 and TopMetal1, and the pins sit on the edges of the die.](/figures/digital_flow/bs_reg_layout.png){#fig-digital-flow-layout width="80%" fig-alt="Layout of a rectangular block, slightly taller than wide, densely filled with rows of standard cells and covered by a mesh of vertical and horizontal wires, with pins along all four edges."}
 
+The GUI shows the global routing as a heat map, `Routing Congestion` under `Heat Maps` in the Display Control. It reads the grid of tiles that the global router stores in the layout database, 7.2 µm wide for `bs_reg`, and colors each tile by the share of its routing capacity in use, over all layers or, after a double click on the entry, for one layer. The map belongs to the global routing, so open the state that the step of the global routing left, with `--with-initial-state`:
+
+```bash
+librelane config.yaml --pdk ihp-sg13cmos5l --pdk-root $PDK_ROOT \
+  --manual-pdk --run-tag base --flow OpenInOpenROAD \
+  --with-initial-state \
+  runs/base/39-openroad-globalrouting/state_out.json
+```
+
+@fig-digital-flow-gui-congestion shows the map of `base` with the signal and clock nets hidden. The middle of the core is the fullest, 82 % on average in its central quarter, against 38 % in the margins around the core, and 10 tiles reach 100 %, 8 of them in the central quarter. A full tile is not yet congested, since no tile overflows. The other heat maps work the same way: the placement density, RUDY (Rectangular Uniform wire Density, a quick estimate of the routing demand from the placement alone), the power density, the pin density, and the IR drop of @sec-digital-flow-signoff.
+
+![The routing congestion of `bs_reg` after global routing in the OpenROAD GUI, with the signal and clock nets hidden and the legend at the top right. The middle of the core is the fullest.](/figures/digital_flow/gui_congestion_base.png){#fig-digital-flow-gui-congestion fig-alt="Layout with a colored grid of square tiles over it: dark red tiles in the middle of the core, orange and yellow around them, and green and turquoise tiles along the edges, next to a color legend from 0 to 100 percent."}
+
+::: {.callout-tip title="Exercise: Find the Congestion"}
+All commands start in the folder `content/digital_flow/code/bs_reg` and use the runs `base` and `util75` of the first exercise.
+
+1. Sketch the core of `util75` next to the core of `base` from the first exercise, at the same scale, and shade where you expect the routing to be fullest.
+2. Open `util75` at the state after global routing, as above, and show its routing congestion map. Where are the full tiles now, and how many are there compared with @fig-digital-flow-gui-congestion? Compare the usage per layer in the log of the global routing of both runs, the table after `GRT-0096` in `39-openroad-globalrouting/openroad-globalrouting.log`.
+3. Choose Metal4 alone in the settings of the map. Why does it show bright columns, and why does it read 30 % or more even between them, although the log gives Metal4 only 13 % of usage?
+4. Open the final state of `util75`, without `--with-initial-state`, and show the map again. What do you see, and which state do you trust for this map?
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Find the Congestion" collapse="true"}
+1. The denser core holds the same cells and nets on a third less area, so expect more demand everywhere, and most of it in the middle, as in `base`.
+2. After global routing, the map of `util75` is full almost everywhere in the core (@fig-digital-flow-gui-congestion-u75): 152 of its 418 tiles reach 90 % or more and 33 reach 100 %, against 60 of 624 and 10 in `base`, and the margins around the core reach 57 % on average instead of 38 %. The log agrees. The global router uses 45.65 % of all tracks instead of 28.20 %, 58.89 % of Metal2 and 64.18 % of Metal3 instead of 43.96 % and 38.85 %. No tile overflows, but full tiles leave the router no room for detours, so the detailed router starts with 1139 instead of 683 violations (first exercise).
+3. The bright columns lie on the Metal4 straps of the power grid, at x = 15, 65, and 115 µm, where the map reads 57 to 68 % instead of 31 to 48 % between them. The map counts the tracks under a strap as used. It also counts the 30 % of the tracks of every layer that the global router keeps free for the detailed router (`GRT_ADJUSTMENT` of 0.3), so even a layer with few wires reads 30 % or more. The log counts only the tracks that are left, and of those the routes use 13 % on Metal4.
+4. The final database of `util75` holds a different map: at most 57 %, 38 % on average, cooler than `base` after global routing. The step of the detailed routing stored other values in the grid, so the map of the final state no longer shows the global routing. In `base`, both states hold the same map, which makes the difference easy to miss. Open the state of the global routing for this map, and compare it with the log of the global router.
+
+::: {#fig-digital-flow-gui-congestion-u75 layout-ncol=2}
+
+![After global routing](/figures/digital_flow/gui_congestion_util75.png){#fig-digital-flow-gui-congestion-u75-grt fig-alt="Layout with a colored grid of tiles that are dark red over almost the whole core and orange to yellow in the margins."}
+
+![Final state](/figures/digital_flow/gui_congestion_util75_final.png){#fig-digital-flow-gui-congestion-u75-final fig-alt="The same layout with tiles in green and turquoise only, and yellow columns along the power straps."}
+
+The routing congestion of `util75` in the OpenROAD GUI, with the signal and clock nets hidden.
+:::
+:::
+
 ## Signoff {#sec-digital-flow-signoff}
 
 Only now are the wires known. **Parasitic extraction** with OpenRCX computes the resistance of every wire and its capacitance to ground and to its neighbors from the routed layout and the rules of the PDK, and writes them as SPEF. STA reads the SPEF instead of the estimates, and it writes SDF files with the delays of every cell and every wire, which a gate-level simulation can back-annotate (@sec-digital-flow-postlayout). The **signoff STA** checks setup and hold in every corner, the slow corner for setup and the fast one for hold in particular, and LibreLane collects the results in `55-openroad-stapostpnr/summary.rpt`.
@@ -150,12 +223,18 @@ Only now are the wires known. **Parasitic extraction** with OpenRCX computes the
 
 {{< include /content/digital_flow/_fig_slack.qmd >}}
 
+The Timing Report of the GUI lists the worst paths of the default corner for setup and hold. `Update` fills the list, and a click on a path draws it into the layout: the clock path of the launching flip-flop, the data path, and the clock path of the capturing flip-flop, each in its own color, while the table below lists the path pin by pin, as `max.rpt` does. The Charts show how many endpoints reach which slack (`Endpoint Slack`). Both cover the default corner only (@sec-digital-flow-gui).
+
 Besides timing, the signoff checks the layout itself:
 
 - **IR drop.** OpenROAD computes the voltage drop in the power grid for the estimated currents of the cells. The worst drop on `VDD` in `bs_reg` is 1.33 mV, 0.11 % of the 1.2 V supply, and `VSS` rises by at most 1.99 mV.
 - **DRC.** Magic and KLayout check the GDSII against the design rules of the PDK, with 0 violations each for `bs_reg`. KLayout also compares the GDSII files that Magic and KLayout stream out (an XOR, 0 differences).
 - **LVS.** Magic extracts a netlist from the layout, and Netgen compares it with the netlist with supply connections (`pnl/`): "Circuits match uniquely". In the flow, the cells are abstracts, boxes with their pins and nothing inside, so the comparison covers the connections between the cells and not the transistors inside them. The AMS chip template can also run a full LVS of the GDSII with KLayout (`make klayout-lvs`).
 - **Antenna.** A second antenna check on the routed layout, with 0 violations.
+
+In the GUI, `analyze_power_grid -net VDD` in the Scripting pane repeats the IR drop analysis of the flow, and the heat map `IR Drop` then shows where the drop arises (@fig-digital-flow-gui-irdrop). On `VDD`, it is largest in the top rows of the core, at about x = 40 µm and y = 150 µm, halfway between two Metal4 straps and above the last TopMetal1 strap of `VDD` at y = 125 µm. The configuration of `bs_reg` names no voltage sources (`VSRC_LOC_FILES`), so OpenROAD decides on its own where the supply enters the grid. `warning.log` warns that this may make the result inaccurate, and that only a chip for manufacture, with its supply pads, has to set them.
+
+![The IR drop of `VDD` in `bs_reg` in the OpenROAD GUI after `analyze_power_grid -net VDD`, with the signal and clock nets hidden: the map with its legend in mV, and the report of the analysis in the Scripting pane.](/figures/digital_flow/gui_irdrop_vdd.png){#fig-digital-flow-gui-irdrop fig-alt="Screenshot of the OpenROAD window: a layout covered by horizontal bands of colored tiles, red at the top and in two bands lower down, blue and green in between, a legend from 0 to 1.33 mV, and a text report below with a worst case IR drop of 1.33e-03 V."}
 
 One more check proves that the netlist still does what the RTL describes. The layout flow changed it: buffers, a clock tree, resized cells, and delay cells. LibreLane's own equivalence step prepares the cell models only for sky130, so we run EQY ourselves on the final netlist, with the setup of @sec-synthesis-lib-lec. Flattening the RTL keeps the net names of the submodule `u_shift` as second names of the nets of `bs_reg`, which would confuse the matching, so both sides hide the hierarchical names:
 
@@ -167,10 +246,11 @@ One more check proves that the netlist still does what the RTL describes. The la
 All commands start in the folder `content/digital_flow/code/bs_reg` and use the run `base` of the first exercise.
 
 1. Sketch the worst path of the failing corner. Open `runs/base/55-openroad-stapostpnr/summary.rpt`: which corner fails, by how much, and at how many endpoints? Then draw the worst path of that corner from the file `max.rpt` in the folder of the corner: where does it start, through which cells does it run, and where does it end?
-2. The timing repair after CTS worked on all corners. Read its log, `runs/base/37-openroad-resizertimingpostcts/openroad-resizertimingpostcts.log`: from which worst slack did it start, and which did it reach? How much slack did the slow corner lose between the repair and signoff, compared with the typical corner in @fig-digital-flow-slack?
-3. Try a delay-oriented synthesis first, `-c SYNTH_STRATEGY="DELAY 4"` with `--run-tag delay4`. What happens to the slack in the slow corner and to the area of the cells (`design__instance__area__stdcell`)?
-4. Ask the repair for a setup margin of 0.6 ns, `-c PL_RESIZER_SETUP_SLACK_MARGIN=0.6` with `--run-tag margin`. Why this value? Do all corners pass now, and at which cost in area?
-5. The resizer changed the netlist. Prove that the final netlist of `runs/base` still implements the RTL:
+2. Open the run in the GUI in the failing corner (`-c DEFAULT_CORNER=<corner>`, @sec-digital-flow-gui) and draw the worst setup path of the Timing Report into the layout. Where on the die do its first and its last flip-flop sit, and why does the path cross so much of the core? How many endpoints fail, according to the histogram of the Charts?
+3. The timing repair after CTS worked on all corners. Read its log, `runs/base/37-openroad-resizertimingpostcts/openroad-resizertimingpostcts.log`: from which worst slack did it start, and which did it reach? How much slack did the slow corner lose between the repair and signoff, compared with the typical corner in @fig-digital-flow-slack?
+4. Try a delay-oriented synthesis first, `-c SYNTH_STRATEGY="DELAY 4"` with `--run-tag delay4`. What happens to the slack in the slow corner and to the area of the cells (`design__instance__area__stdcell`)?
+5. Ask the repair for a setup margin of 0.6 ns, `-c PL_RESIZER_SETUP_SLACK_MARGIN=0.6` with `--run-tag margin`. Why this value? Do all corners pass now, and at which cost in area?
+6. The resizer changed the netlist. Prove that the final netlist of `runs/base` still implements the RTL:
 
    ```bash
    ln -sf $LIB stdcell.lib
@@ -184,10 +264,55 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 
 ::: {.callout-tip title="Solution: Close the Timing" collapse="true"}
 1. The slow corner fails with a worst setup slack of -0.586 ns at 31 endpoints, with a total of -6.98 ns, while the typical corner has 1.075 ns and the fast corner 2.072 ns. Hold passes everywhere, with 0.204 ns in the fast corner. The worst path starts at `_1537_`, the flip-flop of `shamt_q[1]`, and ends at the input of a flip-flop of `out_q`. Of the 3.59 ns from the output of the first flip-flop to the input of the second, 1.83 ns go into six buffers of the repair of the design: two behind the flip-flop, whose output drove 36 loads before the repair, and a chain of four behind an XNOR gate, whose output drove 53. The rest goes into the XNOR gate, two multiplexers, and four other gates.
-2. The repair started at -0.725 ns, the worst slack over all corners, i.e., in the slow corner, resized 8 cells, removed one buffer, and reached +0.031 ns on its estimates, below its margin of 0.05 ns, so it reported that it could not repair all violations. After routing, the slow corner ends at -0.586 ns, so it lost 0.62 ns on the way to signoff, against 0.38 ns in the typical corner. The estimates before routing are optimistic, and the slow corner suffers most, because its weaker cells turn the same extra capacitance into more delay.
-3. With `DELAY 4`, the slow corner improves only to -0.542 ns, while the area of the cells grows by 12 % to 16,852.1 µm². The synthesis was not the problem: the repair reached 0.088 ns on its estimates, above its margin, and the wires again took 0.63 ns.
-4. The margin covers the loss of about 0.6 ns that the slow corner showed in the second step. With it, all corners pass: 0.048 ns in the slow corner, 1.512 ns in the typical corner. The cells take 15,170.2 µm², only 1 % more than in `base`. The right knob depends on the mechanism: here the estimate before routing was the problem, not the logic.
-5. EQY proves the designs equivalent in 32 partitions, one per output bit, in less than half a minute. With the replaced cell, it fails the partitions of two output bits, `data_o[1]` and `data_o[17]`. The equivalence check belongs after every step that changes the netlist, and the layout flow changes it a lot.
+2. The GUI draws the path across the core (@fig-digital-flow-gui-timing). It starts at `_1537_` in the top left corner, at x = 10.1 µm and y = 162.5 µm, next to the input pin `shamt_i[1]` that feeds it, and ends at `_1516_` near the right edge, at x = 153.6 µm and y = 117.2 µm, next to the output pin `data_o[12]` that it drives. Both flip-flops sit next to their pins, on opposite sides of the die, so the logic between them has to cross the core. The histogram shows 31 endpoints below 0 ns, 2 of them below -0.5 ns.
+3. The repair started at -0.725 ns, the worst slack over all corners, i.e., in the slow corner, resized 8 cells, removed one buffer, and reached +0.031 ns on its estimates, below its margin of 0.05 ns, so it reported that it could not repair all violations. After routing, the slow corner ends at -0.586 ns, so it lost 0.62 ns on the way to signoff, against 0.38 ns in the typical corner. The estimates before routing are optimistic, and the slow corner suffers most, because its weaker cells turn the same extra capacitance into more delay.
+4. With `DELAY 4`, the slow corner improves only to -0.542 ns, while the area of the cells grows by 12 % to 16,852.1 µm². The synthesis was not the problem: the repair reached 0.088 ns on its estimates, above its margin, and the wires again took 0.63 ns.
+5. The margin covers the loss of about 0.6 ns that the slow corner showed in the third step. With it, all corners pass: 0.048 ns in the slow corner, 1.512 ns in the typical corner. The cells take 15,170.2 µm², only 1 % more than in `base`. The right knob depends on the mechanism: here the estimate before routing was the problem, not the logic.
+6. EQY proves the designs equivalent in 32 partitions, one per output bit, in less than half a minute. With the replaced cell, it fails the partitions of two output bits, `data_o[1]` and `data_o[17]`. The equivalence check belongs after every step that changes the netlist, and the layout flow changes it a lot.
+
+![The worst setup path of the slow corner in the OpenROAD GUI: the Timing Report with the path list and its details on the right, the path in the layout, with the launching clock path in cyan, the data path in red, and the capturing clock path in green.](/figures/digital_flow/gui_timing_slow.png){#fig-digital-flow-gui-timing fig-alt="Screenshot of the OpenROAD window with a highlighted path that runs from the top left of the layout across to the right edge, and a table of paths with slacks of -0.586, -0.504, and -0.417 ns."}
+:::
+
+### The Reports of a Run {#sec-digital-flow-reports}
+
+The run `base` ends with `Flow complete.`, and still its slow corner fails. Besides a step that ends with an error, only a checker that fails stops a run (@sec-digital-flow-librelane), and each checker of the timing counts only the corners in its own variable. The PDK sets `TIMING_VIOLATION_CORNERS` to the typical corners (`*typ*`), so the checker of the setup violations lists the slow corner in `flow.log` and `warning.log` and lets the run go on, while `HOLD_VIOLATION_CORNERS` covers all corners. The report `manufacturability.rpt` at the end of the run says `Passed` for antenna, LVS, and DRC, and nothing about the timing. A finished flow is therefore not a clean design. After every run, read the reports of @tbl-digital-flow-reports, and `final/metrics.json`, which collects most of their numbers.
+
+| Question | Folder in `runs/base/` | Report |
+|:-----------------------------|:------------------------------|:-------------------------|
+| Which steps warned or failed? | the run folder | `warning.log`, `error.log` |
+| Which settings did the run use? | the run folder | `resolved.json` |
+| How large is the synthesized netlist? | `06-yosys-synthesis/reports/` | `stat.rpt` |
+| Is the timing met in every corner? | `55-openroad-stapostpnr/` | `summary.rpt` |
+| Which paths fail, and by how much? | `55-openroad-stapostpnr/<corner>/` | `max.rpt`, `min.rpt`, `violator_list.rpt` |
+| Which slew, capacitance, and fanout limits fail? | the same | `checks.rpt` |
+| How large are the latency and the skew? | the same | `clock.rpt`, `skew.max.rpt` |
+| How much power does the block take? | the same | `power.rpt` |
+| How large is the IR drop? | `56-openroad-irdropreport/` | `irdrop.rpt` |
+| Are there antenna violations? | `46-openroad-checkantennas-1/reports/` | `antenna_summary.rpt` |
+| Does the layout pass DRC? | `64-magic-drc/reports/`, `65-klayout-drc/reports/` | `drc.magic.rpt`, `drc.klayout.json` |
+| Does the layout match the netlist? | `70-netgen-lvs/reports/` | `lvs.netgen.rpt` |
+| Do antenna, LVS, and DRC pass? | `76-misc-reportmanufacturability/` | `manufacturability.rpt` |
+
+: The reports of the run `base` and the questions they answer. `<corner>` stands for the folder of a corner, e.g., `nom_slow_1p08V_125C/`. {#tbl-digital-flow-reports}
+
+::: {.callout-tip title="Exercise: Read the Reports"}
+All commands start in the folder `content/digital_flow/code/bs_reg` and use the run `base` of the first exercise.
+
+1. Draw the power grid of `bs_reg` from the first exercise again, with the straps of `VDD` and `VSS` on Metal4 and TopMetal1, and mark where you expect `VSS` to rise most, compared with the drop of `VDD` in @fig-digital-flow-gui-irdrop.
+2. Open the run in the GUI, analyze the ground net with `analyze_power_grid -net VSS`, and show its map: a double click on `IR Drop` in the Display Control opens the settings, where you choose the net. Where does `VSS` rise most, by how much, and why there? Compare with `irdrop.rpt`.
+3. Count the lines of `warning.log` by their text, with `sort warning.log | uniq -c`. Which warnings concern the run, and which only the tools?
+4. Which group in `power.rpt` of the typical corner takes the most power, and which share goes into the clock tree?
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Read the Reports" collapse="true"}
+1. `VSS` has its straps next to those of `VDD` and should behave the same, with one exception: the fourth Metal4 pair on the right has no `VSS` strap (first exercise).
+2. `VSS` rises most at the right edge of the core, by 1.99 mV at about x = 155 µm and y = 65 µm (@fig-digital-flow-gui-irdrop-vss), as `irdrop.rpt` reports (`Worstcase voltage: 1.99e-03 V`). There, the nearest Metal4 strap of `VSS` lies about 40 µm away, at x = 118 µm, while `VDD` has its fourth strap at x = 165 µm. The worst rise per column of tiles stays near 1.75 mV left of the last strap of `VSS` and grows to 1.99 mV toward the right edge.
+3. Of the 37 lines, 25 are `ORD-0032` about the number of threads that LibreLane passes to OpenROAD, and 7 are `DRT-0349` about rules of the technology LEF that the detailed router skips. They concern only the tools. The run shows in the remaining 5: the setup violations in the slow corner (two lines), `RSZ-0062` of the repair that could not fix them, the missing voltage sources of the IR drop analysis, and a checker of long wires that was skipped, because no threshold was set.
+4. The sequential cells take 45.1 % of the 2.33 mW, the combinational cells 32.0 %, and the clock tree 22.9 %. The flip-flops and the clock tree switch in every cycle and take two thirds together, which is why clock gating (@sec-synth-opt-cg) pays.
+
+![The IR drop of `VSS` in `bs_reg` in the OpenROAD GUI after `analyze_power_grid -net VSS`, with the signal and clock nets hidden.](/figures/digital_flow/gui_irdrop_vss.png){#fig-digital-flow-gui-irdrop-vss fig-alt="Screenshot of the OpenROAD window with a layout covered by horizontal bands of colored tiles, red at the top and at the right edge, a legend from 0 to 1.99 mV, and a text report with a worst case IR drop of 1.99e-03 V."}
 :::
 
 ## Post-Layout Simulation {#sec-digital-flow-postlayout}
@@ -281,6 +406,10 @@ The template switches off the fill step of the flow. After the run, it adds the 
 
 ![The chip top level of the AMS chip template on SG13CMOS5L, 1.6 mm × 1.6 mm, rendered by LibreLane before the seal ring and the fill: 32 bondpads with their IO cells on four sides, the core ring, and in the core the macros, an SRAM (green), two instances of the hardened counter, and two of the inverter, and the two logo macros in the upper corners.](/figures/digital_flow/chip_top_librelane.png){#fig-digital-flow-chip width="80%" fig-alt="Layout of a square chip with a ring of bondpads and IO cells along the four edges, a supply ring inside it, and several rectangular macros in the core, the largest one an SRAM."}
 
+The Makefiles of the template wrap the GUI and the reports in two targets, for the chip and for each macro. `make librelane-openroad` opens the last run with `--last-run --flow OpenInOpenROAD`, i.e., the run that changed last, and `make copy-reports` copies the most important reports of the run into the repository, to `verification/reports/` of the chip and to `verification/` of a macro. At the top level, a macro is a black box with pins and a timing model. In the Clock Tree Viewer of the template chip (@fig-digital-flow-gui-chip), the clock from its pad reaches only three sinks through three clock buffers: the two counters and the SRAM. Each macro appears as a bar from the arrival of the edge at its clock pin to the arrival at its registers, which its timing model gives (`min_clock_tree_path` and `max_clock_tree_path`, about 0.1 ns inside a counter). The timing model that LibreLane writes for a hardened macro, `final/lib/` of the counter, holds no power tables, though. The power report of the chip counts such a macro with its leakage only, and the IR drop analysis of the chip, which takes its currents from these numbers, misses its switching current. The signoff of a hardened macro therefore stays in its own run.
+
+![The clock tree of the AMS chip template in the Clock Tree Viewer of the OpenROAD GUI, typical corner at 1.5 V: three clock buffers take the clock from its pad to the two counters and the SRAM, and each macro appears as a bar from its clock pin to its registers.](/figures/digital_flow/gui_cts_chip.png){#fig-digital-flow-gui-chip fig-alt="Clock tree drawing with time increasing downward: a red triangle at the top, one blue triangle, two blue leaf triangles at about 0.15 ns, and three turquoise bars below them, two long ones reaching about 0.28 and 0.32 ns and a short one."}
+
 ### Static Cells and PCells {#sec-digital-flow-pcells}
 
 Most of this chip consists of **static cells**, layouts with fixed geometry. The standard cells, the IO cells, and the SRAM macros come as GDSII files with the PDK (@sec-synthesis-lib-views), and a macro hardened by LibreLane is a static cell as well. A different size is a different cell, e.g., `inv_1` and `inv_4`. In return, a fixed layout has to be characterized only once per corner, so a library can describe each cell with one LEF abstract and its Liberty tables.
@@ -292,12 +421,14 @@ A PCell exists only in the layout tool, because GDSII stores only polygons, path
 ## Summary {#sec-digital-flow-summary}
 
 - LibreLane runs the flow as a list of steps, each with its own folder of logs and reports in the run folder, and collects GDSII, LEF, netlists, SPEF, SDF, and metrics in `final/`. A YAML file sets what the defaults of LibreLane and the PDK do not.
+- The flow `OpenInOpenROAD` opens a run in the OpenROAD GUI, with the timing of the default corner only. The Clock Tree Viewer shows when the clock edge reaches each buffer and flip-flop, the heat maps show the routing congestion after global routing and the IR drop after `analyze_power_grid`, and the Timing Report draws the worst paths into the layout.
 - The floorplan sizes the core from the cell area and a utilization, divides it into rows of 3.78 µm, and builds the power grid from Metal1 rails and Metal4 and TopMetal1 straps.
 - Placement spreads the cells and buffers every net beyond the limits of slew, capacitance, and fanout, e.g., the reset net. CTS builds an H-tree of `buf_8` with a small skew and balances clock gates, but not divided clocks. The timing repair fixes setup and hold with the propagated clock.
 - Routing assigns and draws every wire, repairs antenna violations, and fill insertion adds decaps and fillers.
 - Signoff extracts the wires and checks the timing in all corners, the IR drop, the design rules, and the layout against the netlist. EQY then proves the final netlist equivalent to the RTL. The estimates before routing are optimistic, so the repair needs a margin, and in `bs_reg` the slow corner passes with a setup margin of 0.6 ns.
+- `Flow complete.` does not mean a clean design: the setup checker counts only the typical corners, and `manufacturability.rpt` covers antenna, LVS, and DRC only. Read the timing, the limits, the power, and the IR drop in the reports of the run.
 - The post-layout simulation compiles the final netlist with `-gspecify -ginterconnect` and runs the testbench with the SDF file of one corner. Check one path against the SDF file to prove the annotation, and drive the inputs and sample the outputs as the SDC describes, because the clock tree delays the clock edge at every flip-flop. Without timing checks, it finds only paths whose data arrives after the clock edge, and only when its stimulus triggers them, so signoff rests on STA.
-- The chip top level of the AMS chip template runs LibreLane's Chip flow, which places the macros in a core inside a padframe of IO cells and bondpads and draws the seal ring.
+- The chip top level of the AMS chip template runs LibreLane's Chip flow, which places the macros in a core inside a padframe of IO cells and bondpads and draws the seal ring. At the top level, a hardened macro is a black box with a timing model that holds its clock latency but no power, so its signoff stays in its own run.
 - The cells of the PDK's libraries and hardened macros are static cells with fixed geometry. A PCell draws a layout from parameters, e.g., the bondpad and the seal ring, and a layout for tapeout is exported as static cells.
 
 In @sec-project, these steps build a complete chip with the AMS chip template.
