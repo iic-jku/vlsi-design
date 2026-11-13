@@ -9,6 +9,7 @@
 # if any result differs from the value in the chapter. The fault
 # simulation of all cell pins through the scan chain takes about two
 # minutes, the placement of the 32-bit bs_reg about one.
+# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -17,7 +18,6 @@ D=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
 LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
 CELLS=$D/verilog
 export SWIFT_DETERMINISTIC_HASHING=1 FAULT_THREADS=4  # as in the chapter
-fails=0
 
 rm -rf "$W" && mkdir -p "$W/content"
 for ch in dft sequential verification synthesis_lib cdc synth_opt; do
@@ -30,20 +30,9 @@ X=$W/content/dft/code/transistor
 CONSTR=$W/content/synthesis_lib/code/synth/abc.constr
 cd "$W" || exit 1
 
-check() {  # check <what> <got> <expected>
-  if [ "$2" == "$3" ]; then
-    echo "  ok    $1: $2"
-  else
-    echo "  FAIL  $1: got '$2', expected '$3'"
-    fails=$((fails + 1))
-  fi
-}
+source "$REPO/scripts/lib_check.sh"
 
 calc() { awk "BEGIN { $1 }"; }
-
-lint() {  # lint <files>: number of Verilator warnings and errors
-  verilator --lint-only -Wall "$@" 2>&1 | grep -c -E '%Warning|%Error'
-}
 
 area() {  # area <log>: the chip area of the last stat -liberty
   grep -oE 'Chip area for (top )?module .*: [0-9.]+' "$1" | tail -1 | awk '{print $NF}'
@@ -81,6 +70,34 @@ tb() {  # tb <netlist> <iverilog options...>: the two result lines of tb_scan
   iverilog -g2012 -gno-specify "$@" -o tb.vvp "$CELLS/sg13cmos5l_udp.v" \
     "$CELLS/sg13cmos5l_stdcell.v" "$nl" "$S/tb/tb_scan.sv" > /dev/null 2>&1
   vvp -n tb.vvp | grep -E '^(chain|scan) test' | tr '\n' ';'
+}
+
+atpg() {  # atpg <log> <fault atpg arguments>: Fault ATPG, rerun after a crash
+  # Fault 0.9.4 dies with "Illegal instruction" (exit status 132) when the
+  # terminationStatus of a finished simulator process traps in Swift
+  # Foundation, a race between its threads. On an idle machine, no run of 20
+  # crashed at FAULT_THREADS=4. On a machine loaded three times over, 18 of
+  # 20 crashed at 4 threads and 10 of 20 at 1 thread. So the first run uses
+  # the setting of the chapter, the reruns use 1 thread. The vectors do not
+  # depend on it.
+  local log=$1 n rc
+  shift
+  for n in 1 2 3 4 5 6 7 8 9 10; do
+    if [ "$n" -eq 1 ]; then
+      fault atpg "$@" > "$log" 2>&1
+    else
+      FAULT_THREADS=1 fault atpg "$@" > "$log" 2>&1
+    fi
+    rc=$?
+    [ $rc -le 128 ] && return $rc
+    echo "  info  fault atpg for $log crashed with exit status $rc (run $n of 10)"
+    rm -rf thr0x*
+  done
+  return $rc
+}
+
+verdict() {  # verdict <tb output>: the result of tb with the pattern count left out
+  echo "$1" | sed -E 's/scan test: [1-9][0-9]* patterns/scan test: N patterns/'
 }
 
 echo "== Versions"
@@ -126,9 +143,19 @@ check "nor2_1: transistors, gates, widths" \
 check "nor2_1: drain of XP0, source of XP1, both at Y: XN0 and XN1 drains, XP1 drain" \
   "$(awk '/^\.subckt sg13cmos5l_nor2_1 /, /^\.ends/' "$D/spice/sg13cmos5l_stdcell.spice" | awk '$1 == "XP0" {a = $2} $1 == "XP1" {b = $4; c = $2} $1 == "XN0" {d = $2} $1 == "XN1" {e = $2} END {print a, b, d, e, c}')" \
   "net1 net1 Y Y Y"
+runs=""
 for f in good n_open n_on p_on; do
   python3 nor2_faults.py $f > nor2_$f.txt 2>&1
+  runs="$runs$? $(awk 'NR > 2' nor2_$f.txt | wc -l), "
 done
+must "nor2_faults.py, good, n_open, n_on, p_on: exit status, vectors" "$runs" "0 6, 0 6, 0 6, 0 6, "
+amp() {  # amp <fault> <vector number>: IDDQ in A
+  awk -v r="$2" 'NR == r + 2 {m = $5 == "fA" ? 1e-15 : $5 == "pA" ? 1e-12 : $5 == "nA" ? 1e-9 : $5 == "uA" ? 1e-6 : $5 == "mA" ? 1e-3 : 1; print $4 * m}' "nor2_$1.txt"
+}
+must "XN0 stuck-open, 10 after 00: Y stays high, good Y low" \
+  "$(awk 'NR == 4 {print ($2 > 0.6) ? "high" : "low"}' nor2_n_open.txt) $(awk 'NR == 4 {print ($2 > 0.6) ? "high" : "low"}' nor2_good.txt)" "high low"
+must "XN0 stuck-on at 00: IDDQ more than 1000 times the good one" \
+  "$(awk -v f="$(amp n_on 1)" -v g="$(amp good 1)" 'BEGIN {print (f > 1000 * g) ? "yes" : "no"}')" "yes"
 yz() {  # yz <fault>: Y/Z at the end of each vector
   awk 'NR > 2 {y = $2 + 0; z = $3 + 0; printf "%.3f/%.3f ", y == 0 ? 0 : y, z == 0 ? 0 : z}' "nor2_$1.txt"
 }
@@ -235,10 +262,11 @@ EOF
 iverilog -g2012 -gno-specify -o force.vvp "$CELLS/sg13cmos5l_udp.v" \
   "$CELLS/sg13cmos5l_stdcell.v" cons.v force.sv > /dev/null 2>&1
 check "force on u_bc.B reaches c_i, u_anc.B, and y" "$(vvp -n force.vvp)" "0 0 0"
-fault atpg cons.v -c "$CELLS/sg13cmos5l_stdcell.v" \
+atpg cons.log cons.v -c "$CELLS/sg13cmos5l_stdcell.v" \
   -I "$CELLS/sg13cmos5l_udp.v" --clock clk_i --reset rst_ni \
   --activeLow -v 8 -m 100 --ceiling 32 -o cons.tv.json \
-  --output-coverage-metadata cons.cov.yml > cons.log 2>&1
+  --output-coverage-metadata cons.cov.yml
+must "Fault on cons: exit status, vectors written" "$? $(test -s cons.tv.json && echo yes)" "0 yes"
 check "Fault on cons: sites, coverage, compacted vectors" \
   "$(grep -o 'Found [0-9]* fault sites' cons.log | awk '{print $2}') $(grep -o 'Coverage [0-9.]*' cons.log | awk '{printf "%.2f", $2}') $(grep -o 'Compacted TV Count: [0-9]*' cons.log | awk '{print $4}')" \
   "19 94.74 4"
@@ -250,9 +278,9 @@ check "Fault on cons: sa0Uncovered, sa1Uncovered as written" \
 check "Fault on cons: the compacted vectors (a, b, c)" \
   "$(python3 -c "import json; d = json.load(open('cons.tv.json')); print(' '.join('(%d, %d, %d)' % tuple(v[1] for v in e['vector']) for e in d['coverageList']))")" \
   "(0, 0, 1) (1, 0, 1) (0, 1, 0) (1, 1, 0)"
-fault atpg cons.v -c "$CELLS/sg13cmos5l_stdcell.v" \
+atpg cons2.log cons.v -c "$CELLS/sg13cmos5l_stdcell.v" \
   -I "$CELLS/sg13cmos5l_udp.v" --clock clk_i --reset rst_ni \
-  --activeLow -v 8 -m 100 --ceiling 32 -o cons2.tv.json > cons2.log 2>&1
+  --activeLow -v 8 -m 100 --ceiling 32 -o cons2.tv.json
 check "Fault on cons: the same vectors in a second run" \
   "$(python3 -c "import json; a, b = (json.load(open(f))['coverageList'] for f in ('cons.tv.json', 'cons2.tv.json')); print([e['vector'] for e in a] == [e['vector'] for e in b])")" "True"
 check "collapsing rule on cons: P_O F_O G_I N_I, faults left" \
@@ -270,6 +298,7 @@ print(po, fo, gi, ni, 2 * (po + fo) + gi - ni)
 EOF
 )" "1 3 10 1 17"
 python3 collapse.py cons.v > collapse.log 2>&1
+must "collapse.py: exit status" "$?" "0"
 check "collapse.py: faults, sites, groups" \
   "$(head -2 collapse.log | tr '\n' ' ')" \
   "28 faults at 14 sites (8 nets, 6 branches) 13 classes with the same outputs for all 8 input vectors: "
@@ -285,13 +314,16 @@ yosys -p "read_verilog -sv \
   chparam -set WIDTH 8 bs_reg; synth -top bs_reg; flatten; \
   dfflibmap -liberty $LIB; abc -constr $CONSTR -liberty $LIB; \
   opt_clean; stat -liberty $LIB; write_verilog -noattr bs_reg.nl.v" > syn.log 2>&1
+must "bs_reg: Yosys exit status" "$?" "0"
 check "bs_reg: flip-flops, area" "$(ctype syn.log sg13cmos5l_dfrbpq_1) $(area syn.log)" "21 2543.448600"
 fault cut bs_reg.nl.v --sclConfig scl.yml --clock clk_i \
   --reset rst_ni --activeLow -o bs_reg.cut.v > cut.log 2>&1
-fault atpg bs_reg.cut.v -c "$CELLS/sg13cmos5l_stdcell.v" \
+must "fault cut: exit status, netlist" "$? $(test -s bs_reg.cut.v && echo yes)" "0 yes"
+atpg atpg.log bs_reg.cut.v -c "$CELLS/sg13cmos5l_stdcell.v" \
   -I "$CELLS/sg13cmos5l_udp.v" --clock clk_i --reset rst_ni \
   --activeLow -v 100 -r 100 -m 100 --ceiling 1000 \
-  -o bs_reg.tv.json --output-coverage-metadata bs_reg.cov.yml > atpg.log 2>&1
+  -o bs_reg.tv.json --output-coverage-metadata bs_reg.cov.yml
+must "Fault on bs_reg: exit status, vectors written" "$? $(test -s bs_reg.tv.json && echo yes)" "0 yes"
 cov() { grep -oE '\(([0-9.]+)%' "$1" | tr -d '(%' | awk '{printf "%.2f ", $1}'; }
 check "fault sites, faults" "$(grep -o 'Found [0-9]* fault sites' atpg.log | awk '{print $2, 2 * $2}')" "580 1160"
 check "coverage after 100, 200, ..., 900 vectors" "$(cov atpg.log)" \
@@ -305,9 +337,9 @@ check "_253_ drives only _254_.A2" "$(grep -c '(_008_)' bs_reg.nl.v) $(grep -B3 
 check "SAT: _253_.B s-a-0, s-a-1, _254_.A2 s-a-1, _254_.A1 s-a-1" \
   "$(satest bs_reg.cut.v bs_reg _253_/B 0) $(satest bs_reg.cut.v bs_reg _253_/B 1) $(satest bs_reg.cut.v bs_reg _254_/A2 1) $(satest bs_reg.cut.v bs_reg _254_/A1 1)" \
   "none none none found"
-fault atpg bs_reg.cut.v -c "$CELLS/sg13cmos5l_stdcell.v" \
+atpg curve.log bs_reg.cut.v -c "$CELLS/sg13cmos5l_stdcell.v" \
   -I "$CELLS/sg13cmos5l_udp.v" --clock clk_i --reset rst_ni \
-  --activeLow -v 10 -r 10 -m 100 --ceiling 500 -o curve.json > curve.log 2>&1
+  --activeLow -v 10 -r 10 -m 100 --ceiling 500 -o curve.json
 check "coverage curve in steps of 10 equals the figure" \
   "$(python3 - << 'EOF'
 import re
@@ -325,6 +357,7 @@ check "first vector count with 99.66 %" \
 
 echo "== Timing of bs_reg before and after scan insertion"
 TOP=bs_reg openroad -no_init -exit dft.tcl > dft.log 2>&1
+must "scan insertion: OpenROAD exit status, netlist" "$? $(test -s bs_reg_scan.nl.v && echo yes)" "0 yes"
 for n in bs_reg bs_reg_scan; do
   cat > sta_$n.tcl << EOF
 read_liberty $LIB
@@ -365,7 +398,10 @@ check "added area, percent, per flip-flop" \
   "304.8 12.0 14.5"
 check "only the flip-flops changed" \
   "$(diff <(grep -E '^ +[0-9]+ .*sg13cmos5l_' syn.log | grep -v dfrbpq | awk '{print $1, $NF}') <(grep -E '^ +[0-9]+ .*sg13cmos5l_' scanstat.log | grep -v sdfrbpq | awk '{print $1, $NF}') > /dev/null && echo same)" "same"
-check "scan test with the vectors of Fault" "$(tb bs_reg_scan.nl.v -DPATTERNS=\"bs_reg.pat\")" \
+st=$(tb bs_reg_scan.nl.v -DPATTERNS=\"bs_reg.pat\")
+must "scan test with the vectors of Fault: chain, responses" "$(verdict "$st")" \
+  "chain test: 0 of 21 bits wrong;scan test: N patterns, 0 bits differ;"
+check "scan test with the vectors of Fault" "$st" \
   "chain test: 0 of 21 bits wrong;scan test: 32 patterns, 0 bits differ;"
 check "end of the testbench: (2 + 2 * 21 + 725) cycles of 100 ns" \
   "$(vvp -n tb.vvp | grep -o 'finish called at [0-9]*' | awk '{print $4 / 1e3 " ns"}') $(calc 'printf "%d ns", (2 + 42 + 33 * 21 + 32) * 100')" \
@@ -486,13 +522,15 @@ check "testable but missed, test coverage at the cell pins" \
   "$((nmiss - nunt)) $(calc "printf \"%.1f\", 100 * ($nb - $nmiss) / ($nb - $nunt)")" "47 95.4"
 
 echo "== Equivalence after scan insertion"
-check "scan inputs at 0, at 1" \
-  "$(TOP=bs_reg yosys -q -c scan_eq.tcl) / $(TIE=1 TOP=bs_reg yosys -q -c scan_eq.tcl)" \
+eq0=$(TOP=bs_reg yosys -q -c scan_eq.tcl)
+must "scan inputs at 0: unproven points" "$(echo "$eq0" | grep -o ', [0-9]* unproven')" ", 0 unproven"
+check "scan inputs at 0, at 1" "$eq0 / $(TIE=1 TOP=bs_reg yosys -q -c scan_eq.tcl)" \
   "163 points proven equal, 0 unproven / 125 points proven equal, 38 unproven"
 MAX_LENGTH=7 TOP=bs_reg openroad -no_init -exit dft.tcl > dft7.log 2>&1
 check "MAX_LENGTH=7: chains" "$(grep -o 'has [0-9]* cells' dft7.log | awk '{print $2}' | tr '\n' ' ')" "7 7 7 "
-check "three chains: scan inputs at 0, at 1" \
-  "$(TOP=bs_reg yosys -q -c scan_eq.tcl) / $(TIE=1 TOP=bs_reg yosys -q -c scan_eq.tcl)" \
+eq0=$(TOP=bs_reg yosys -q -c scan_eq.tcl)
+must "three chains, scan inputs at 0: unproven points" "$(echo "$eq0" | grep -o ', [0-9]* unproven')" ", 0 unproven"
+check "three chains: scan inputs at 0, at 1" "$eq0 / $(TIE=1 TOP=bs_reg yosys -q -c scan_eq.tcl)" \
   "163 points proven equal, 0 unproven / 131 points proven equal, 32 unproven"
 
 echo "== The scan chain after the placement"
@@ -503,8 +541,12 @@ yosys -p "read_verilog -sv \
   synth -top bs_reg; flatten; dfflibmap -liberty $LIB; \
   abc -constr $CONSTR -liberty $LIB; opt_clean; stat -liberty $LIB; \
   write_verilog -noattr bs_reg32.nl.v" > syn32.log 2>&1
+must "32-bit bs_reg: Yosys exit status" "$?" "0"
 check "32-bit bs_reg: flip-flops" "$(ctype syn32.log sg13cmos5l_dfrbpq_1)" "71"
 NETLIST=bs_reg32.nl.v TOP=bs_reg openroad -no_init -exit dft_place.tcl > place.log 2>&1
+must "placement: OpenROAD exit status" "$?" "0"
+must "the chain ordered by the placement is shorter than by name" \
+  "$(awk '$1 == "chain:" {c = $4} $1 == "same" {n = $5} END {print (c != "" && n != "" && c + 0 < n + 0) ? "yes" : "no"}' place.log)" "yes"
 check "core, chain, same cells by name" \
   "$(grep -E '^(core|chain|same)' place.log | tr '\n' ';')" \
   "core: 5.0 7.0 185.0 185.0 um;chain: 71 cells, 910.7 um;same cells by name: 3024.4 um;"
@@ -566,7 +608,7 @@ check "async_fifo: scan ports" "$(grep -oE '^ *(input|output) scan_[a-z_0-9]+' a
 
 echo "== Exercise: Make It Testable"
 cd "$R"
-check "lint of bs_reg_rs_tm" \
+must "lint of bs_reg_rs_tm" \
   "$(lint --top-module bs_reg_rs_tm rtl/bs_reg_rs_tm.sv ../../../cdc/code/reset/rtl/rst_sync.sv ../../../sequential/code/bs_reg/rtl/bs_reg.sv ../../../verification/code/barrel_shift/rtl/barrel_shift.sv)" "0"
 for top in bs_reg_rs bs_reg_rs_tm; do
   extra=""
@@ -579,12 +621,16 @@ for top in bs_reg_rs bs_reg_rs_tm; do
     chparam -set WIDTH 8 $top; synth -top $top; flatten; \
     dfflibmap -liberty $LIB; abc -constr $CONSTR -liberty $LIB; \
     opt_clean; stat -liberty $LIB; write_verilog -noattr $top.nl.v" > syn_$top.log 2>&1
+  rc=$?
   TOP=$top openroad -no_init -exit ../scan/dft.tcl > dft_$top.log 2>&1
+  must "$top: Yosys, OpenROAD exit status" "$rc $?" "0 0"
 done
 check "bs_reg_rs: flip-flops, chain, area" \
   "$(ctype syn_bs_reg_rs.log sg13cmos5l_dfrbpq_1) $(grep -o 'has [0-9]* cells' dft_bs_reg_rs.log | awk '{print $2}') $(area syn_bs_reg_rs.log)" \
   "23 23 2661.460200"
-check "bs_reg_rs: scan test" "$(tb bs_reg_rs_scan.nl.v -DTOP=bs_reg_rs -DLEN=23)" \
+st=$(tb bs_reg_rs_scan.nl.v -DTOP=bs_reg_rs -DLEN=23)
+must "bs_reg_rs: the chain test fails" "$(echo "$st" | grep -c -E '^chain test: [1-9][0-9]* of 23 bits wrong;')" "1"
+check "bs_reg_rs: scan test" "$st" \
   "chain test: 11 of 23 bits wrong;scan test: 32 patterns, 0 bits differ;"
 check "bs_reg_rs_tm: chain, area, reset multiplexer" \
   "$(grep -o 'has [0-9]* cells' dft_bs_reg_rs_tm.log | awk '{print $2}') $(area syn_bs_reg_rs_tm.log) $(grep -B4 '\.S(test_mode_i)' bs_reg_rs_tm.nl.v | grep -o 'sg13cmos5l_mux2_1')" \
@@ -593,17 +639,14 @@ check "bs_reg_rs_tm: multiplexer inputs" \
   "$(grep -A4 "$(grep -B4 '\.S(test_mode_i)' bs_reg_rs_tm.nl.v | grep -o 'sg13cmos5l_mux2_1 _[0-9]*_')" bs_reg_rs_tm.nl.v | grep -oE '\.(A0|A1)\([^)]*\)' | tr -d ' ' | tr '\n' ' ')" \
   ".A0(\\u_rst_sync.rst_no) .A1(rst_ni) "
 check "area of the fix" "$(calc 'printf "%.1f", 2663.2746 - 2661.4602')" "1.8"
-check "bs_reg_rs_tm: scan test" "$(tb bs_reg_rs_tm_scan.nl.v -DTOP=bs_reg_rs_tm -DLEN=23 -DTEST_MODE)" \
+st=$(tb bs_reg_rs_tm_scan.nl.v -DTOP=bs_reg_rs_tm -DLEN=23 -DTEST_MODE)
+must "bs_reg_rs_tm: chain, responses" "$(verdict "$st")" \
+  "chain test: 0 of 23 bits wrong;scan test: N patterns, 0 bits differ;"
+check "bs_reg_rs_tm: scan test" "$st" \
   "chain test: 0 of 23 bits wrong;scan test: 32 patterns, 0 bits differ;"
 
 echo "== Code listings"
 check "longest line of the code files" \
   "$(cd "$REPO/content/dft/code" && cat atpg/*.v atpg/*.tcl atpg/*.py scan/*.tcl scan/*.py scan/*.yml scan/tb/*.sv reset/rtl/*.sv transistor/*.py | awk '{ if (length > m) m = length } END { print (m <= 70) ? "<= 70" : m }')" "<= 70"
 
-echo
-if [ $fails -eq 0 ]; then
-  echo "All checks passed."
-else
-  echo "$fails checks FAILED."
-  exit 1
-fi
+finish

@@ -7,6 +7,7 @@
 #   bash scripts/check_synth_opt.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter.
+# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -16,7 +17,6 @@ LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
 CELLS=$D/verilog
 LL=$(python3 -c "import librelane, os; print(os.path.dirname(librelane.__file__))")
 PDKLL=$PDK_ROOT/ihp-sg13cmos5l/libs.tech/librelane
-fails=0
 
 rm -rf "$W" && mkdir -p "$W/content"
 for ch in synth_opt sequential verification synthesis_lib; do
@@ -26,14 +26,7 @@ S=$W/content/synth_opt/code
 CONSTR=$W/content/synthesis_lib/code/synth/abc.constr
 cd "$W" || exit 1
 
-check() {  # check <what> <got> <expected>
-  if [ "$2" == "$3" ]; then
-    echo "  ok    $1: $2"
-  else
-    echo "  FAIL  $1: got '$2', expected '$3'"
-    fails=$((fails + 1))
-  fi
-}
+source "$REPO/scripts/lib_check.sh"
 
 attr() {  # attr <cell> <attribute>: first value inside the cell
   awk -v c="cell (sg13cmos5l_$1)" -v a="$2" '
@@ -114,13 +107,15 @@ check "pins of slgcp_1" \
 echo "== Exercise: Ripple or Prefix?"
 cd "$S/adder"
 for f in add_reg add_ripple add_pipe; do
-  check "lint of $f" "$(verilator --lint-only -Wall rtl/$f.sv 2>&1 | grep -c -E '%Warning|%Error')" "0"
+  must "lint of $f" "$(lint rtl/$f.sv)" "0"
 done
 synth() {  # synth <top> <synth options> <abc options> <log>
   yosys -p "read_verilog -sv rtl/$1.sv; synth -top $1 $2; \
     dfflibmap -liberty $LIB; abc $3 -liberty $LIB; opt_clean; \
     stat -liberty $LIB; write_verilog -noattr $1.nl.v" > "$4" 2>&1
+  local rc=$?
   TOP=$1 sta -no_init -exit ../syn/sta.tcl > "${4%.log}.sta" 2>&1
+  must "${4%.log}: Yosys, OpenSTA exit status" "$rc $?" "0 0"
 }
 KS="-extra-map +/choices/kogge-stone.v"
 DELAY="-script ../syn/delay.abc -constr $CONSTR"
@@ -206,14 +201,17 @@ check "overhead of a pipeline stage" "$(awk 'BEGIN {printf "%.3f", 0.207 + 0.127
 
 echo "== Exercise: Pipeline the Adder"
 iverilog -g2012 -o sim.vvp rtl/add_pipe.sv tb/tb_add_pipe.sv > /dev/null 2>&1
-check "testbench of add_pipe" "$(vvp -n sim.vvp | grep sums)" "1000 sums, 0 errors"
+must "testbench of add_pipe" "$(vvp -n sim.vvp | grep sums)" "1000 sums, 0 errors"
 sed 's/ + lo_q\[H\];/;/' rtl/add_pipe.sv > nocarry.sv
 iverilog -g2012 -o nocarry.vvp nocarry.sv tb/tb_add_pipe.sv > /dev/null 2>&1
-check "testbench without the carry" "$(vvp -n nocarry.vvp | grep sums)" "1000 sums, 489 errors"
+nc=$(vvp -n nocarry.vvp | grep sums)
+must "testbench without the carry: the bug is caught" "$(echo "$nc" | grep -c -E '^1000 sums, [1-9][0-9]* errors$')" "1"
+check "testbench without the carry" "$nc" "1000 sums, 489 errors"
 sed 's/      sum_o  <= {hi, lo_q\[H-1:0\]};/      sum_o  <= {a_hi_q + b_hi_q + lo_q[H], lo_q[H-1:0]};/' rtl/add_pipe.sv > concat.sv
 check "concatenation mutant differs" "$(diff rtl/add_pipe.sv concat.sv | grep -c '^>')" "1"
 iverilog -g2012 -o concat.vvp concat.sv tb/tb_add_pipe.sv > /dev/null 2>&1
-check "testbench with the sum inside the concatenation" "$(vvp -n concat.vvp | grep sums | grep -c ' 0 errors')" "0"
+must "testbench with the sum inside the concatenation: the bug is caught" \
+  "$(vvp -n concat.vvp | grep -c -E '^1000 sums, [1-9][0-9]* errors$')" "1"
 synth add_pipe "" "-constr $CONSTR" pipe.log
 check "add_pipe: cells, area, flip-flops" "$(cells pipe.log) $(area pipe.log) $(flops add_pipe.nl.v)" "303 8852.457600 146"
 check "add_pipe: period, with port paths" "$(period pipe.sta 1) $(period pipe.sta 2)" "2.34 427.29 2.78 359.30"
@@ -264,7 +262,7 @@ check "add_reg: reset path with port delay" \
 echo "== Resource sharing"
 cd "$S/share"
 for f in mul_sel mul_sel_shared; do
-  check "lint of $f" "$(verilator --lint-only -Wall rtl/$f.sv 2>&1 | grep -c -E '%Warning|%Error')" "0"
+  must "lint of $f" "$(lint rtl/$f.sv)" "0"
 done
 yosys -p "read_verilog -sv rtl/mul_sel.sv; synth -top mul_sel -run :fine; stat" > coarse.log 2>&1
 check "mul_sel after alumacc: \$macc_v2, \$mul" "$(ctype coarse.log '$macc_v2') $(ctype coarse.log '$mul')" "2 "
@@ -275,7 +273,9 @@ synths() {  # synths <top> <synth options> <log>
   yosys -p "read_verilog -sv rtl/$1.sv; synth -top $1 $2; \
     dfflibmap -liberty $LIB; abc -constr $CONSTR -liberty $LIB; \
     opt_clean; stat -liberty $LIB; write_verilog -noattr $1.nl.v" > "$3" 2>&1
+  local rc=$?
   TOP=$1 sta -no_init -exit ../syn/sta.tcl > "${3%.log}.sta" 2>&1
+  must "${3%.log}: Yosys, OpenSTA exit status" "$rc $?" "0 0"
 }
 synths mul_sel "" two.log
 check "two multipliers: area, period" "$(area two.log) $(period two.sta 1)" "35237.084400 5.25 190.31"
@@ -295,9 +295,11 @@ yosys -p "read_verilog -sv \
   abc -constr ../../../synthesis_lib/code/synth/abc.constr \
   -liberty $LIB; opt_clean; \
   stat -liberty $LIB; write_verilog -noattr bs_reg.nl.v" > bs.log 2>&1
+must "bs_reg: Yosys exit status" "$?" "0"
 check "bs_reg netlist: cells, area" "$(cells bs.log) $(area bs.log)" "915 15276.340800"
 P=../../../synth_opt/code/syn/power.tcl
 TOP=bs_reg sta -no_init -exit $P > p12.log 2>&1
+must "power.tcl: OpenSTA exit status" "$?" "0"
 TOP=bs_reg CORNER=typ_1p50V_25C sta -no_init -exit $P > p15.log 2>&1
 check "1.2 V: sequential, combinational, total" \
   "$(pw p12.log Sequential 5) $(pw p12.log Combinational 5) $(pw p12.log Total 5)" "1.156e-03 5.629e-04 1.719e-03"
@@ -316,11 +318,12 @@ check "power per flip-flop at 1.2 V" "$(awk 'BEGIN {printf "%.1f", 1.156e-3 / 71
 
 echo "== Exercise: Gate the Clock"
 cd "$S/clock_gate"
-check "lint of cg_reg" "$(verilator --lint-only -Wall rtl/cg_reg.sv 2>&1 | grep -c -E '%Warning|%Error')" "0"
+must "lint of cg_reg" "$(lint rtl/cg_reg.sv)" "0"
 synthc() {  # synthc <clockgate command> <log>
   yosys -p "read_verilog -sv rtl/cg_reg.sv; synth -top cg_reg; $1 \
     dfflibmap -liberty $LIB; abc -constr $CONSTR -liberty $LIB; \
     opt_clean; stat -liberty $LIB; write_verilog -noattr cg_reg.nl.v" > "$2" 2>&1
+  must "${2%.log}: Yosys exit status" "$?" "0"
 }
 simc() {  # simc <EVERY> <log>
   iverilog -g2012 -gno-specify -P tb_cg_reg.EVERY=$1 -o sim.vvp \
@@ -336,7 +339,7 @@ check "without clock gating: dfrbpq_1, mux2_1, mux2_2, buf_8" \
   "32 30 2 3"
 simc 16 nocg16
 check "Icarus messages of the cell models" "$(grep -c 'sorry: ifnone' nocg16.comp)" "68"
-check "simulation without clock gating" "$(grep cycles nocg16)" "1600 cycles, en_i in 1 of 16, 0 errors"
+must "simulation without clock gating" "$(grep cycles nocg16)" "1600 cycles, en_i in 1 of 16, 0 errors"
 check "annotated pins without clock gating" "$(awk '/^vcd/ {print $2}' nocg16.pwr) $(awk '/^unannotated/ {print $2}' nocg16.pwr)" "329 0"
 check "no gating, 1 of 16: sequential, combinational, clock, total" \
   "$(pw nocg16.pwr Sequential 5) $(pw nocg16.pwr Combinational 5) $(pw nocg16.pwr Clock 5) $(pw nocg16.pwr Total 5)" \
@@ -352,7 +355,7 @@ check "with clock gating: cells, area" "$(cells cg.log) $(area cg.log)" "33 1594
 check "with clock gating: dfrbpq_1, lgcp_1" "$(ctype cg.log sg13cmos5l_dfrbpq_1) $(ctype cg.log sg13cmos5l_lgcp_1)" "32 1"
 check "area saved by clock gating" "$(awk 'BEGIN {printf "%.0f", (1 - 1594.8576 / 2222.64) * 100}')" "28"
 simc 16 cg16
-check "simulation with clock gating" "$(grep cycles cg16)" "1600 cycles, en_i in 1 of 16, 0 errors"
+must "simulation with clock gating" "$(grep cycles cg16)" "1600 cycles, en_i in 1 of 16, 0 errors"
 check "gating, 1 of 16: sequential, combinational, clock, total" \
   "$(pw cg16.pwr Sequential 5) $(pw cg16.pwr Combinational 5) $(pw cg16.pwr Clock 5) $(pw cg16.pwr Total 5)" \
   "8.245e-05 0.000e+00 7.118e-06 8.957e-05"
@@ -384,16 +387,11 @@ report_checks -path_delay max -to [get_pins -of_objects $icg -filter "name == GA
 report_checks -path_delay min -to [get_pins -of_objects $icg -filter "name == GATE"] -digits 3
 EOF
 sta -no_init -exit cg_sta.tcl > cg_sta.log 2>&1
-check "check_setup with the clock gate" "$(grep -c -i 'unclocked\|unconstrained' cg_sta.log)" "0"
+must "check_setup with the clock gate: OpenSTA exit status, messages" \
+  "$? $(grep -c -i 'unclocked\|unconstrained' cg_sta.log)" "0 0"
 check "clock gating check" "$(grep -c 'clock gating-check end-point' cg_sta.log)" "2"
 check "clock gating setup and hold time, setup slack" \
   "$(awk '/library setup time/ {print $1}' cg_sta.log) $(awk '/library hold time/ {print $1}' cg_sta.log) $(awk '/slack/ {print $1; exit}' cg_sta.log)" \
   "-0.070 -0.003 2.826"
 
-echo
-if [ "$fails" -eq 0 ]; then
-  echo "All checks passed."
-else
-  echo "$fails check(s) failed."
-  exit 1
-fi
+finish

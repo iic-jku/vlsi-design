@@ -10,26 +10,19 @@
 #   bash scripts/check_intro.sh
 # A failure after an image update means that a row may be stale, not that
 # the gap is closed: OpenSTA's crosstalk analysis needs CCS library models.
+# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 W=${CHECK_DIR:-/tmp/vlsi_check_intro}
 LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib
 TPL=${TEMPLATE_DIR:-$REPO/../ihp-sg13cmos5l-ams-chip-template}
-fails=0
 
 rm -rf "$W" && mkdir -p "$W"
 cp -r "$REPO/content/cdc/code" "$W/cdc"
 cd "$W" || exit 1
 
-check() {  # check <what> <got> <expected>
-  if [ "$2" == "$3" ]; then
-    echo "  ok    $1: $2"
-  else
-    echo "  FAIL  $1: got '$2', expected '$3'"
-    fails=$((fails + 1))
-  fi
-}
+source "$REPO/scripts/lib_check.sh"
 
 echo "== Versions"
 check "Verilator" "$(verilator --version | awk '{print $2}')" "5.052"
@@ -209,7 +202,7 @@ check "OpenCDC: pulse_sync, separate resets, CDC009" \
 
 echo "== Agentic workflow"
 for tool in xschem ngspice klayout magic netgen librelane sak-open.py; do
-  check "$tool is in the image" "$(command -v "$tool" | wc -l)" "1"
+  must "$tool is in the image" "$(command -v "$tool" | wc -l)" "1"
 done
 if [ -f "$TPL/Makefile" ]; then
   targets=$(make -s -C "$TPL" help | awk '/^  [a-z]/ {print $1}')
@@ -220,10 +213,4 @@ else
   echo "  skip  no clone of the template at $TPL"
 fi
 
-echo
-if [ "$fails" -eq 0 ]; then
-  echo "All checks passed."
-else
-  echo "$fails check(s) failed."
-  exit 1
-fi
+finish
