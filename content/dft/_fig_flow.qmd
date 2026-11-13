@@ -1,0 +1,56 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-dft-flow
+#| echo: false
+#| fig-cap: "Scan insertion and test generation with the tools of this chapter. `scan_replace` turns the flip-flops into scan flip-flops before the placement, and `execute_dft_plan` stitches the chains after it. The layout flow then continues with the clock tree and the routing. Fault generates test vectors on the netlist with its flip-flops cut open, `scan_patterns.py` arranges them along the chain into scan patterns, and `tb_scan.sv` applies these to the netlist with the scan chains in a simulation. `scan_eq.tcl` checks that the scan insertion did not change the function."
+#| fig-alt: "Flow diagram in three rows. Middle row from left to right: netlist from Yosys, scan_replace in OpenROAD, placement in OpenROAD, execute_dft_plan in OpenROAD, and the netlist with scan chains. Top row: the equivalence check scan_eq.tcl, fed by arrows from the netlist and from the netlist with scan chains. Bottom row from left to right: fault cut and fault atpg, fed by the netlist, then test vectors, scan_patterns.py, scan patterns, and the simulation tb_scan.sv. An arrow labeled chain order leads from the netlist with scan chains to scan_patterns.py, and another arrow from the netlist with scan chains to the simulation. Tools are green boxes, design data blue boxes."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'     # design data
+GREEN, GREEN_L = '#82b366', '#d5e8d4'   # tools
+H = 1.3
+xs = [0.0, 4.0, 8.0, 12.0, 16.0]
+ye, ya, yb = 2.6, 0.0, -2.6
+
+
+def box(x, y, text, fill, edge, w=3.2):
+    return flow.Box(w=w, h=H).at((x, y)).anchor('center').fill(fill).color(edge).label(text, color='black')
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    nl = box(xs[0], ya, 'netlist\n(Yosys)', BLUE_L, BLUE)
+    rep = box(xs[1], ya, 'scan_replace\nOpenROAD', GREEN_L, GREEN)
+    pl = box(xs[2], ya, 'placement\nOpenROAD', GREEN_L, GREEN)
+    ex = box(xs[3], ya, 'execute_dft_plan\nOpenROAD', GREEN_L, GREEN, 3.4)
+    sn = box(xs[4], ya, 'netlist with\nscan chains', BLUE_L, BLUE)
+    eq = box(xs[2], ye, 'equivalence check\nscan_eq.tcl', GREEN_L, GREEN, 3.6)
+    at = box(xs[0], yb, 'fault cut,\nfault atpg', GREEN_L, GREEN)
+    tv = box(xs[1], yb, 'test vectors', BLUE_L, BLUE)
+    sp = box(xs[2], yb, 'scan_patterns.py', GREEN_L, GREEN, 3.4)
+    pt = box(xs[3], yb, 'scan patterns', BLUE_L, BLUE)
+    sim = box(xs[4], yb, 'simulation\ntb_scan.sv', GREEN_L, GREEN)
+    flow.Arrow().at(nl.E).to(rep.W)
+    flow.Arrow().at(rep.E).to(pl.W)
+    flow.Arrow().at(pl.E).to(ex.W)
+    flow.Arrow().at(ex.E).to(sn.W)
+    flow.Arrow().at(nl.S).to(at.N)
+    flow.Arrow().at(at.E).to(tv.W)
+    flow.Arrow().at(tv.E).to(sp.W)
+    flow.Arrow().at(sp.E).to(pt.W)
+    flow.Arrow().at(pt.E).to(sim.W)
+    flow.Arrow().at(sn.S).to(sim.N)
+    elm.Wire('|-', arrow='->').at(nl.N).to(eq.W)
+    elm.Wire('|-', arrow='->').at(sn.N).to(eq.E)
+    ym = (ya + yb) / 2
+    elm.Line().at((xs[4] - 0.8, ya - H / 2)).to((xs[4] - 0.8, ym))
+    elm.Wire('-|', arrow='->').at((xs[4] - 0.8, ym)).to((xs[2], yb + H / 2))
+    elm.Label().at(((xs[2] + xs[3]) / 2, ym + 0.25)).label('chain order', fontsize=9, color='#666666')
+```

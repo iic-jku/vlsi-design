@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 A chip that passed every simulation, every timing check, and the equivalence check can still fail on the bench: a particle on the wafer shorted two wires, a via did not open, a transistor does not switch. Verification checks that the design is right (@sec-verification). The **test** checks that a manufactured die equals the design. It runs on every die, it may take a few seconds at most, and it must find almost every defect. For a design with thousands of flip-flops, this is only possible if the design was prepared for it, which is called **design for test** (DFT). This chapter introduces the fault models that turn defects into something a tool can count, the generation of tests, scan chains, which make every flip-flop accessible to the tester, and the design rules that keep a design testable.
 
 ::: {.callout-note}
-All code of this chapter is available in the folder [`content/dft/code`]({{< meta var.url-repo >}}/tree/main/content/dft/code) of the course repository: a small gate-level netlist and the test generation with a SAT solver in `atpg/`, the scan insertion, the conversion of test vectors into scan patterns, the scan testbench, and the equivalence check after scan insertion in `scan/`, and the barrel shifter with a reset synchronizer and a test mode in `reset/`. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (Yosys 0.70, OpenROAD 26Q4 as the standalone `openroad`, OpenSTA 3.1.0, Fault 0.9.4, Icarus Verilog 14.0) and SG13CMOS5L, in the typical corner. The script [`scripts/check_dft.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_dft.sh) reproduces all of them: run `bash scripts/check_dft.sh` in the container from the root of the repository.
+All code of this chapter is available in the folder [`content/dft/code`]({{< meta var.url-repo >}}/tree/main/content/dft/code) of the course repository: transistor faults of a NOR gate in ngspice in `transistor/`, a small gate-level netlist, its fault classes, and the test generation with a SAT solver in `atpg/`, the scan insertion with and without placement, the conversion of test vectors into scan patterns, the scan testbench, and the equivalence check after scan insertion in `scan/`, and the barrel shifter with a reset synchronizer and a test mode in `reset/`. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (ngspice 47, Yosys 0.70, OpenROAD 26Q4 as the standalone `openroad`, OpenSTA 3.1.0, Fault 0.9.4, Icarus Verilog 14.0) and SG13CMOS5L, in the typical corner. The script [`scripts/check_dft.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_dft.sh) reproduces all of them: run `bash scripts/check_dft.sh` in the container from the root of the repository.
 :::
 
 For the exercises, clone the course repository into your designs folder once, if you have not done so yet:
@@ -35,21 +35,23 @@ Fault is written in Swift, whose hash tables take a new random seed in every run
 
 After this chapter, you will be able to:
 
-- explain why every manufactured die is tested, and relate yield, fault coverage, and defect level
-- model defects as stuck-at, transition, bridging, and stuck-open faults, and explain IDDQ testing
-- find a test for a fault by hand and with a SAT solver, and recognize untestable faults
-- explain how scan makes a sequential circuit testable, insert scan chains with OpenROAD, and compute the test time
+- explain why every manufactured die is tested, relate yield, fault coverage, and defect level, and tell catastrophic from parametric yield loss
+- model defects as stuck-at, transition, bridging, and transistor faults, collapse equivalent faults, and explain IDDQ testing
+- find a test for a fault by hand with the D-algorithm and with a SAT solver, and recognize untestable faults
+- explain how scan makes a sequential circuit testable, insert scan chains with OpenROAD with and without a placement, and compute the test time
 - generate test vectors with Fault and apply them through a scan chain in simulation
 - apply the design rules for testability to clocks, clock gates, resets, clock domains, and the scan chain itself
 - name the tests beyond scan: at-speed test, built-in self-test, and boundary scan
 
 ## Why Test? {#sec-dft-why}
 
-Manufacturing is never perfect. Particles on the wafer, defects in the lithography, and variations of the process cause shorts between wires, open vias, and transistors that do not switch. The share of good dies on a wafer is the **yield** $Y$. It falls with the die area and rises as a process matures, but it never reaches 100 %, so every die must be tested before it is shipped. Verification asks whether the design is right, the test asks whether a die equals the design (@sec-verification-why). The test assumes that the design is correct, and it compares the responses of the die with those of the netlist.
+Manufacturing is never perfect, and the share of good dies on a wafer, the **yield** $Y$, never reaches 100 %. Particles on the wafer and defects in the lithography cause shorts between wires, open vias, and transistors that do not switch. Such random defects make a die fail outright, which is the **catastrophic** yield loss. Variations of the process instead make a die without any defect too slow or too leaky, which is the **parametric** yield loss. The design limits it with the corners of @sec-synthesis-lib-corners and the timing margins of @sec-sequential-sta. The yield falls with the die area and rises as a process matures, but every die must be tested before it is shipped. Verification asks whether the design is right, the test asks whether a die equals the design (@sec-verification-why). The test assumes that the design is correct, and it compares the responses of the die with those of the netlist.
 
-Most chips are tested twice. The **wafer test** contacts the pads of each die with the needles of a probe card before the wafer is sawn, and the failing dies are recorded in a wafer map and never packaged. The **final test** repeats the test after packaging, because sawing, bonding, and molding add defects of their own. Parts for cars or medical devices often also run a **burn-in** at raised temperature and supply voltage, which makes weak parts fail before they are shipped. The tester, called **automatic test equipment** (ATE), applies the test: in every clock cycle, it drives a vector onto the inputs and compares the outputs with the expected values. Tester time is expensive, so the test of a die takes seconds at most, and every vector counts.
+Most chips are tested twice. The **wafer test** contacts the pads of each die with the needles of a probe card before the wafer is sawn, and the failing dies are recorded in a wafer map and never packaged. The **final test** repeats the test after packaging, because sawing, bonding, and molding add defects of their own. Over the lifetime of a population of chips, the failure rate has the shape of a bathtub (@fig-dft-bathtub): parts with weak spots fail early, then failures are rare and random for years, until wear-out sets in. Parts for cars or medical devices therefore often also run a **burn-in** at raised temperature and supply voltage, which makes weak parts fail before they are shipped. The tester, called **automatic test equipment** (ATE), applies the test. A computer runs the test program, which sets the timing of the vectors, and the pin electronics drive each pin and sample its response through a probe card or a socket. In every clock cycle, the tester drives a vector onto the inputs and compares the outputs with the expected values. Tester time is expensive, so the test of a die takes seconds at most, and every vector counts.
 
-A defect that escapes the test costs more the later it is found. A rule of thumb says that the cost grows by about a factor of ten from step to step: on the wafer, in the package, on the board, and in the system of the customer, where a defective part in a car can mean a recall. The **fault coverage** $T$ of a test is the share of the modeled faults that it detects (@sec-dft-faults). With less than 100 %, some defective dies pass. The **defect level** $DL$, the share of defective dies among those that pass the test, follows from the yield and the coverage in the model of Williams and Brown [@Williams_DL]:
+{{< include /content/dft/_fig_bathtub.qmd >}}
+
+A defect that escapes the test costs more the later it is found. A rule of thumb says that the cost grows by about a factor of ten from step to step: on the wafer, in the package, on the board, and in the system of the customer, where a defective part in a car can mean a recall. The **fault coverage** $T$ of a test is the share of the modeled faults that it detects (@sec-dft-faults). With less than 100 %, some defective dies pass. The opposite error exists as well: a test whose limits are too tight, e.g., on the supply current or the speed, rejects good dies, which is called **overkill**. It costs yield, but no customer sees it. The **defect level** $DL$, the share of defective dies among those that pass the test, follows from the yield and the coverage in the model of Williams and Brown [@Williams_DL]:
 
 $$
 DL = 1 - Y^{1-T}
@@ -61,18 +63,58 @@ With 80 % yield and 99 % coverage, 0.22 % of the shipped dies are defective, 222
 
 ## Fault Models {#sec-dft-faults}
 
-A test cannot target physical defects directly: their number is endless, and their effect depends on the layout. Instead, it targets **faults**, models of defects on the netlist that a tool can list and simulate [@Bushnell_Agrawal].
+A test cannot target physical defects directly: their number is endless, and their effect depends on the layout. Instead, it targets **faults**, models of defects on the netlist that a tool can list and simulate [@Bushnell_Agrawal]. The terms form a chain. A **defect** is the physical flaw, e.g., a short between two wires. A **fault** models it on the netlist, e.g., as a net stuck at 0. For some inputs, the fault causes an **error**, a wrong value at an output, and an error that reaches the application becomes a **failure** of the system. The test looks for errors at the outputs of the die, long before any failure.
 
 The **stuck-at fault** model assumes that a net or a pin of a cell is fixed at 0 (stuck-at-0, s-a-0) or at 1 (stuck-at-1, s-a-1), while all cells keep their functions. The **single** stuck-at model assumes one fault at a time, so $n$ fault sites give $2n$ faults, whereas multiple faults would give $3^n - 1$ combinations. The model is simple, yet a test that detects all single stuck-at faults also detects many other defects, because a short or an open usually forces some net to a wrong value for some input. The tool Fault of @sec-dft-atpg counts every pin of every cell and every port bit, except the clock and the reset input, as a fault site.
 
-Many faults are **equivalent**, i.e., exactly the same tests detect them. A stuck-at-1 at an input of an OR gate forces its output to 1, just like a stuck-at-1 at the output. Tools merge equivalent faults, which shortens the list (**fault collapsing**). Some faults cannot be detected at all, because no input makes the faulty circuit behave differently from the good one, e.g., in redundant logic. Such a fault is **untestable**, like an equivalent mutant in @sec-verification-mutation. The **fault coverage** counts all faults, the **test coverage** leaves out the untestable ones, so it reaches 100 % when every detectable fault is detected.
+Many faults are **equivalent**, i.e., exactly the same tests detect them. A stuck-at-1 at an input of an OR gate forces its output to 1, just like a stuck-at-1 at the output. Tools merge equivalent faults, which shortens the list (**fault collapsing**). A net that drives several cell inputs has fault sites on its **stem**, the net as a whole, and on each **branch** to one of the inputs, because a defect can cut off a single branch. For a netlist of AND, OR, NAND, NOR, and NOT gates, merging the faults that are equivalent within each gate leaves
+
+$$
+N = 2\,(P_O + F_O) + G_I - N_I
+$$
+
+faults, with $P_O$ **primary outputs**, the outputs of the design itself, $F_O$ fanout stems, $G_I$ inputs of all gates, inverters included, and $N_I$ inverters [@Wang_VLSI_Test]. In large netlists, this removes about half of the faults. Some faults cannot be detected at all, because no input makes the faulty circuit behave differently from the good one, e.g., in redundant logic. Such a fault is **untestable**, like an equivalent mutant in @sec-verification-mutation. The **fault coverage** counts all faults, the **test coverage** leaves out the untestable ones, so it reaches 100 % when every detectable fault is detected.
 
 Other fault models and test methods capture defects that the stuck-at model misses:
 
-- **Transition faults** model a gate that is too slow: its output rises (slow-to-rise) or falls (slow-to-fall) too late. Their test needs two vectors: the first sets the old value, the second launches the transition, and the response is captured one clock period later, at the speed of the chip (@sec-dft-beyond). **Path delay faults** model the delay of a whole path.
-- **Bridging faults** short two nets. The result depends on the drivers: the stronger one wins, or the bridge acts like an AND or an OR of both nets. A test drives the two nets to opposite values.
-- **Stuck-open faults** model a transistor that never conducts. For some inputs, the output of the CMOS gate then floats and keeps its last value, so the gate turns into a memory, and the test needs two vectors.
+- **Transition faults** model a gate that is too slow: its output rises (slow-to-rise) or falls (slow-to-fall) too late. Their test needs two vectors: the first sets the old value, the second launches the transition, and the response is captured one clock period later, at the speed of the chip (@sec-dft-beyond). The test detects an extra delay only if it exceeds the slack that the path along which the two vectors propagate the transition has on this die at the test clock period (@sec-sequential-sta). Through a short path, only a large delay shows up, so timing-aware test generation tries to propagate the transition along the longest testable path through each fault site, to catch **small delay defects** as well. A transition fault models a local spot defect. **Path delay faults** [@Smith_Path_Delay] model the sum of small extra delays along a whole path, e.g., from variations of the process. Each path has two such faults, one for a rising and one for a falling transition, and the number of paths can grow exponentially with the depth of the logic, so a test targets only the critical paths from the STA.
+- **Bridging faults** short two nets. The result depends on the drivers: the stronger one wins, or the bridge acts like an AND or an OR of both nets. A test drives the two nets to opposite values. With $n$ nets, $n(n-1)/2$ pairs could short, so tools take only pairs of neighboring wires from the layout. Stuck-at tests detect many bridges as well. A test for net $A$ stuck-at-0 drives $A$ to 1. If it also drives the bridged net $B$, which does not depend on $A$, to 0, and $B$ has the stronger driver, the bridge acts like the stuck-at fault, and the test detects it.
+- **Stuck-open** and **stuck-on faults** model a transistor that never or always conducts. With a stuck-open transistor, the output of the CMOS gate floats for some inputs and keeps its last value, so the gate turns into a memory, and the test needs two vectors. For some inputs, a stuck-on transistor fights the transistors that should drive the output, which gives a level between the rails and a current from the supply to ground.
 - **IDDQ testing** measures the quiescent supply current. A CMOS circuit at rest draws only its leakage current. A defect that connects the supply to ground in some states only, e.g., a bridge between two nets driven to opposite values, raises the current far above that in these states, which a current measurement after a few vectors finds, even when no output shows a wrong value. In large chips of modern processes, the leakage itself is high and varies from die to die, which hides the extra current.
+
+::: {.callout-tip title="Exercise: Transistor Faults"}
+All commands start in the folder `content/dft/code/transistor`. The script `nor2_faults.py` simulates the NOR gate `sg13cmos5l_nor2_1` of the PDK in ngspice, with an `inv_1` at its output `Y`. It applies the input vectors (`A`, `B`) = 00, 10, 11, 10, 00, 01, each for 2 ns, and prints `Y` and the output `Z` of the inverter at the end of each vector, and the quiescent supply current IDDQ of each vector from an operating point, i.e., after a long wait.
+
+1. Draw the transistor schematic of `nor2_1` from its subcircuit in the file `sg13cmos5l_stdcell.spice` in `libs.ref/sg13cmos5l_stdcell/spice/` of the PDK, with the instance names of the transistors.
+2. The NMOS transistor `XN0` at input `A` is stuck-open. For which input vector does `Y` float? Find a test of two vectors, and a sequence in which the same second vector does not detect the fault.
+3. Check your answer with `python3 nor2_faults.py n_open`, and compare with `python3 nor2_faults.py good`. Why is `Y` slightly above VDD in the vector where it floats? How long does the floating gate keep its value? With `HOLD=1` and two vectors in `SEQ`, e.g., `HOLD=1 SEQ="00 01" python3 nor2_faults.py n_open`, the script applies the first vector and then holds the second one for a second. Try your test and your sequence of step 2.
+4. Instead, `XN0` is stuck-on, or the PMOS transistor `XP0` at input `A` is stuck-on: run `python3 nor2_faults.py n_on` and `python3 nor2_faults.py p_on`. For which vectors do transistors fight? Which of the two faults does a test of the logic values detect, and which one only IDDQ? Which level does `Y` take in a fight, and why?
+:::
+
+Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
+
+::: {.callout-tip title="Solution: Transistor Faults" collapse="true"}
+1. The two PMOS transistors connect `Y` in series to VDD, the two NMOS transistors in parallel to VSS (@fig-dft-nor2).
+
+{{< include /content/dft/_fig_nor2.qmd >}}
+
+2. With (`A`, `B`) = 10, `XP0` is off, `XN1` is off, and `XN0` should pull `Y` to 0, but it never conducts, so `Y` floats. The test 00 followed by 10 detects the fault: 00 sets `Y` to 1, which the faulty gate keeps at 10, where the good gate gives 0. After 11 or 01, `Y` is already 0, and the faulty gate keeps the right value at 10 for the few nanoseconds of a test cycle, so the fault stays hidden.
+3. The simulation confirms it:
+
+   | (`A`, `B`) | good `Y` (V) | good `Z` (V) | faulty `Y` (V) | faulty `Z` (V) |
+   |:--|--:|--:|--:|--:|
+   | 00 | 1.200 | 0.000 | 1.200 | 0.000 |
+   | 10 | 0.000 | 1.200 | 1.279 | 0.000 |
+   | 11 | 0.000 | 1.200 | 0.000 | 1.200 |
+   | 10 | 0.000 | 1.200 | 0.080 | 1.200 |
+   | 00 | 1.200 | 0.000 | 1.200 | 0.000 |
+   | 01 | 0.000 | 1.200 | 0.000 | 1.200 |
+
+   Only the first 10 gives a wrong `Z`. At the second 10, `Y` takes 0.080 V because `net1`, which kept its charge while `XP1` was off during 11, passes part of it to `Y` when `XP1` turns on. In the first 10, the floating `Y` rises 79 mV above VDD because the rising input `A` couples charge onto it through the capacitance between gate and drain of `XP0`, whose drain connects to `Y` through `XP1`. More capacitance at `Y` makes the step smaller. With `SEQ="00 10"`, the leakage of the transistors that are off pulls `Y` from 1.279 V after 1 ns to 1.254 V after 1 µs and to 0.857 V after 1 ms, where it stays: there, the leakage currents balance. The inverter still reads 0.857 V as a 1, so `Z` stays wrong for the whole second. The balance does not depend on where `Y` starts: with `SEQ="11 10"`, `Y` climbs from 0.071 V after 1 ns to 0.160 V after 1 µs and to 0.857 V after 1 ms, so after a long wait, `Z` is wrong after 11 as well. This is why the IDDQ column, which shows the state after a long wait, gives 328 nA for both vectors 10. The circuit draws 328 nA instead of 76 pA, mostly in the inverter, whose input sits between the rails, so even this fault raises IDDQ. In the fault-free circuit, IDDQ stays between 48 and 138 pA for all vectors.
+4. The transistors fight when the faulty transistor conducts while the path that should drive `Y` is on as well. With `XN0` stuck-on, this is 00: `XP0` and `XP1` pull `Y` up, `XN0` pulls it down. `Y` is 0.121 V instead of 1.2 V, the inverter reads a 0, and `Z` is 1.2 V instead of 0, so a test of the logic values with 00 detects the fault. IDDQ is 108 µA instead of 138 pA. With `XP0` stuck-on, the fight happens at 10: `XP0` and `XP1` (`B` = 0) pull up, `XN0` pulls down. `Y` is 0.121 V, which the inverter reads as the correct 0, so no static test of the logic values detects the fault. IDDQ does: 108 µA instead of 76 pA, more than a million times more. The fight also slows the edge at `Y`, which only a test at speed through a path with almost no slack could notice. Both fights are the same circuit, two PMOS transistors in series against `XN0`, so both give the same values. `Y` ends up close to 0 V because the single NMOS transistor, 0.74 µm wide, is much stronger than the two PMOS transistors in series, 1.12 µm wide each: in series, they drive only half the current of one, and holes have a lower mobility than electrons.
+:::
+
+A stuck-on transistor can thus escape every static test of the logic values, whenever the fight ends on the side of the correct value, and in practice, only IDDQ testing finds it.
 
 ## Test Generation {#sec-dft-atpg}
 
@@ -80,7 +122,35 @@ A **test vector** for a fault, or simply a test, is an input vector for which th
 
 {{< include /content/dft/_fig_sensitize.qmd >}}
 
-Exciting and propagating need **controllability** and **observability**: how easily a net can be set to a value from the inputs, and how easily its value can be seen at an output. Nets behind many levels of logic are hard to control and hard to observe. Justification fails when two required values conflict. The classic algorithms of automatic test pattern generation (ATPG), the D-algorithm and PODEM, then go back and try other assignments, and when every alternative fails, the fault is untestable.
+Exciting and propagating need **controllability** and **observability**: how easily a net can be set to a value from the inputs, and how easily its value can be seen at an output. Nets behind many levels of logic are hard to control and hard to observe. Justification fails when two required values conflict. The classic algorithms of automatic test pattern generation (ATPG) then go back and try other assignments, and when every alternative fails, the fault is untestable.
+
+### The D-Algorithm and PODEM {#sec-dft-dalg}
+
+Roth's **D-algorithm** [@Roth_D_Algorithm] made this search systematic in 1966, and its notation is still in use. It writes $D$ for 1/0, a net that is 1 in the good and 0 in the faulty circuit, and $\bar{D}$ for 0/1. It computes with five values: 0, 1, $X$ for a value not assigned yet, $D$, and $\bar{D}$. A gate applies its function to the good and to the faulty value separately (@tbl-dft-dcalc). The non-controlling value at the other input lets $D$ pass an AND gate, the controlling value blocks it. $D$ and $\bar{D}$ at the two inputs give a constant, because the good and the faulty circuit both see a 1 at one input and a 0 at the other.
+
+| $a$ | $b$ | $a$ AND $b$ | $a$ OR $b$ | $a$ XOR $b$ |
+|:-:|:-:|:-:|:-:|:-:|
+| $D$ | 0 | 0 | $D$ | $D$ |
+| $D$ | 1 | $D$ | 1 | $\bar{D}$ |
+| $D$ | $X$ | $X$ | $X$ | $X$ |
+| $D$ | $D$ | $D$ | $D$ | 0 |
+| $D$ | $\bar{D}$ | 0 | 1 | 1 |
+
+: Gates with the input $a = D$. Each output applies the function to the good and to the faulty values, e.g., $D$ AND 1 is 1/0 = $D$, and $D$ XOR $D$ is 0/0 = 0. Swapping $D$ and $\bar{D}$ gives the rows for $a = \bar{D}$, NOT turns $D$ into $\bar{D}$, and NAND, NOR, and XNOR invert the results of AND, OR, and XOR. {#tbl-dft-dcalc}
+
+The algorithm keeps two lists. The **D-frontier** holds the gates with $D$ or $\bar{D}$ at an input and $X$ at the output, i.e., the gates through which the fault effect can still move on. The **J-frontier** holds the gates whose output value is required but not yet justified by their inputs. After each assignment, **implication** derives the values that follow directly from it, forward and backward, e.g., a 0 required at the output of an OR gate implies a 0 at each of its inputs. The algorithm proceeds in three steps:
+
+1. It excites the fault: the fault site gets $D$ for a stuck-at-0 and $\bar{D}$ for a stuck-at-1.
+2. It moves the fault effect on: it picks a gate of the D-frontier and sets its other inputs to the non-controlling value, or to any known value for an XOR gate, until $D$ or $\bar{D}$ reaches an output.
+3. It justifies the J-frontier: it picks input values for each gate in it, back to the **primary inputs**, the inputs of the design itself.
+
+Where a step has several choices, e.g., which gate of the D-frontier, or which input of an OR gate justifies its 1, the algorithm records a decision. When two values conflict, or the D-frontier runs empty before the fault effect reaches an output, it goes back to the last decision and tries the next choice. When no choice is left, the fault is untestable.
+
+In @fig-dft-sensitize, the stuck-at-0 at the inverter output gets $D$, and $c = 0$ follows by implication. The D-frontier holds the NAND gate, and $d = 1$ propagates $\bar{D}$ to its output. Now the D-frontier holds the NOR gate, and a 0 at its other input gives $y = D$ at the output. The 0 required at the output of the OR gate implies $a = b = 0$, so the J-frontier stays empty. No step had a second choice, and the test is $(a, b, c, d) = (0, 0, 0, 1)$. The J-frontier fills up when a required value has several justifications, e.g., a 0 at the output of an AND gate whose inputs are all unassigned, and then each choice is a decision.
+
+The D-algorithm decides on internal nets, so it may find out only many steps later that a decision cannot be justified from the inputs. **PODEM** [@Goel_PODEM] decides on the primary inputs only. It takes an objective, e.g., a 1 at the fault site, traces it back along a path to an input that has no value yet (the **backtrace**), assigns that input, and simulates the circuit forward. When the fault can no longer be excited, or no path of unassigned nets leads from the D-frontier to an output, it flips the last input decision, and when both values of that input have failed, it goes back to the decision before. Only the $n$ inputs are decided, so the search tree has at most $2^n$ leaves, and all values inside the circuit follow from the inputs by simulation, so they never conflict. Later ATPG algorithms refined this search.
+
+### SAT Solvers and Random Vectors {#sec-dft-sat}
 
 Modern tools often hand this search to a SAT solver, the same kind of solver as in the equivalence check of @sec-synthesis-lib-lec. A **miter** joins the good and the faulty netlist: both get the same inputs, an XOR compares each pair of outputs, and the solver searches for an input that sets one of the XORs to 1. Every solution is a test, and if there is none, the fault is proven untestable. The script `sat_test.tcl` does this with Yosys for one fault: it ties the listed cell pins to the stuck value in a copy of the netlist, builds the miter, and lets the command `sat` search:
 
@@ -96,7 +166,7 @@ The IIC-OSIC-TOOLS image contains **Fault** [@Fault] 0.9.4, an open-source DFT t
 All commands start in the folder `content/dft/code/atpg`, which holds the gate-level netlist `cons.v` of SG13CMOS5L cells.
 
 1. Draw the circuit of `cons.v` with its cell instances and net names, and write down its function $y = f(a, b, c)$ as a sum of products. Which product could you remove without changing the function?
-2. Find by hand a test for each of these faults: `ab` stuck-at-0, `a_n` stuck-at-1, `bc` stuck-at-1, and `bc` stuck-at-0. Which values does each one need to be excited and propagated? If you find no test, explain why none exists.
+2. Find by hand a test for each of these faults: `ab` stuck-at-0, `a_n` stuck-at-1, `bc` stuck-at-1, and `bc` stuck-at-0. Write the values along the path with $D$ and $\bar{D}$, and note the D-frontier and the J-frontier at each step. Which values does each fault need to be excited and propagated? If you find no test, explain why none exists.
 3. Check your answers with the SAT solver. A fault on a net with one load needs only that load pin, e.g., for `ab` stuck-at-0:
 
    ```bash
@@ -114,6 +184,7 @@ All commands start in the folder `content/dft/code/atpg`, which holds the gate-l
    ```
 
    How many fault sites and faults does Fault find, and which coverage does it reach? Which faults stay undetected (the list `sa0Uncovered` in `cons.cov.yml`, the list `sa1Uncovered` of Fault 0.9.4 repeats it by mistake)? How many vectors remain after the compaction, which ones are they (`cons.tv.json`), and could fewer vectors detect the same faults? Does Fault agree with step 3 on the pin `A` of `u_bc`?
+5. Count the fault sites of `cons.v` with a site on each net and on each branch of a net with several loads, and ignore the unused `clk_i` and `rst_ni`. How many stuck-at faults are there, and how many does the collapsing rule of @sec-dft-faults leave? `python3 collapse.py cons.v` simulates every fault for all 8 inputs and groups the faults that give the same outputs. How many groups does it find, and why does it find fewer than the rule?
 :::
 
 Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
@@ -124,12 +195,13 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 {{< include /content/dft/_fig_cons.qmd >}}
 
 2. With the inputs written as $(a, b, c)$:
-   - `ab` stuck-at-0: excite with $a = b = 1$. To pass the OR gate, `anc` and `bc` must be 0: `anc` is 0 because `a_n` is 0, and `bc` = 0 needs $c = 0$. The test is (1, 1, 0), with $y$ = 1 in the good and 0 in the faulty circuit.
-   - `a_n` stuck-at-1: excite with `a_n` = 0, i.e., $a = 1$. Propagate through `u_anc` with $c = 1$ and through `u_or` with `ab` = 0, i.e., $b = 0$, which also keeps `bc` at 0. The test is (1, 0, 1).
-   - `bc` stuck-at-1: excite with `bc` = 0 and propagate with `ab` = `anc` = 0, i.e., any input with $y$ = 0 in the good circuit: (0, 0, 0), (0, 1, 0), (1, 0, 0), or (1, 0, 1).
-   - `bc` stuck-at-0: excite with $b = c = 1$. To propagate, `ab` = 0 needs $a = 0$, and `anc` = 0 needs `a_n` = 0, i.e., $a = 1$. The two requirements conflict, so no test exists: the fault is untestable, because `bc` is redundant.
+   - `ab` stuck-at-0: excite with $a = b = 1$, so `ab` = $D$. The D-frontier holds `u_or`, whose other inputs `anc` and `bc` must be 0: `anc` is 0 because `a_n` is 0, and with $b = 1$, `bc` = 0 implies $c = 0$. Then $y = D$, and the test is (1, 1, 0), with $y$ = 1 in the good and 0 in the faulty circuit.
+   - `a_n` stuck-at-1: excite with `a_n` = 0, i.e., $a = 1$, so `a_n` = $\bar{D}$. The D-frontier holds `u_anc`, and $c = 1$ gives `anc` = $\bar{D}$. Then it holds `u_or`, and `ab` = 0, i.e., $b = 0$, which also keeps `bc` at 0, gives $y = \bar{D}$. The test is (1, 0, 1).
+   - `bc` stuck-at-1: `bc` = $\bar{D}$ needs `bc` = 0 in the good circuit. The D-frontier holds `u_or`, and `ab` = `anc` = 0 propagate $\bar{D}$ to $y$. Each of the three AND gates now needs a 0 at its output that two inputs could give, so all three sit in the J-frontier, and one decision, e.g., $a = 0$ and $c = 0$, justifies all of them. Any input with $y$ = 0 in the good circuit is a test: (0, 0, 0), (0, 1, 0), (1, 0, 0), or (1, 0, 1).
+   - `bc` stuck-at-0: excite with $b = c = 1$, so `bc` = $D$. The D-frontier holds only `u_or`, which needs `ab` = 0 and `anc` = 0. With $b = 1$, `ab` = 0 implies $a = 0$, and with $c = 1$, `anc` = 0 implies `a_n` = 0, i.e., $a = 1$. The implications conflict, and no step had another choice, so no test exists: the fault is untestable, because `bc` is redundant.
 3. The solver confirms all four: it prints (1, 1, 0) for `PINS=u_or/A SA=0`, (1, 0, 1) for `PINS=u_anc/A SA=1`, (0, 0, 0) for `PINS=u_or/C SA=1`, and "NO TEST EXISTS" for `PINS=u_or/C SA=0`. A fault on `b_i` acts on both cells it drives, so it needs `PINS="u_ab/B u_bc/A"`. The solver finds (1, 1, 1) for stuck-at-0 and (1, 0, 0) for stuck-at-1. A stuck-at-0 at the pin `A` of `u_bc` alone forces `bc` to 0, like `bc` stuck-at-0, and is untestable as well.
-4. Fault finds 19 fault sites, the 15 cell pins and the 4 ports `a_i`, `b_i`, `c_i`, and `y_o` (it leaves out `clk_i` and `rst_ni`), i.e., 38 faults, and reaches 94.74 %, 36 of 38. The two undetected faults, the stuck-at-0 at `u_bc.X` and at `u_or.C`, are both the untestable stuck-at-0 on the net `bc`. The compaction keeps 4 vectors: (0, 0, 1), (1, 0, 1), (0, 1, 0), and (1, 1, 0). Fewer cannot detect the same faults: `ab` stuck-at-0 has the single test (1, 1, 0), because in (1, 1, 1) `bc` = 1 hides the fault. `anc` stuck-at-0 has the single test (0, 0, 1), and `a_n` stuck-at-1 the single test (1, 0, 1). The input `c_i` stuck-at-1 needs $a = c = 0$, which none of these three vectors has. Fault reports the stuck-at-0 at the pin `A` of `u_bc` as detected, which step 3 proved untestable. Fault forces the pin, and Icarus merges the input pin of a cell with the net it connects to when the net has one bit. The force thus acts on the whole net `b_i`, its **stem**, instead of its **branch** to `u_bc` alone, so the fault that Fault simulates is `b_i` stuck-at-0, which (1, 1, 0) detects. Commercial ATPG tools list the stem and every branch of a net as separate faults.
+4. Fault finds 19 fault sites, the 15 cell pins and the 4 ports `a_i`, `b_i`, `c_i`, and `y_o` (it leaves out `clk_i` and `rst_ni`), i.e., 38 faults, and reaches 94.74 %, 36 of 38. The two undetected faults, the stuck-at-0 at `u_bc.X` and at `u_or.C`, are both the untestable stuck-at-0 on the net `bc`. The compaction keeps 4 vectors: (0, 0, 1), (1, 0, 1), (0, 1, 0), and (1, 1, 0). Fewer cannot detect the same faults: `ab` stuck-at-0 has the single test (1, 1, 0), because in (1, 1, 1) `bc` = 1 hides the fault. `anc` stuck-at-0 has the single test (0, 0, 1), and `a_n` stuck-at-1 the single test (1, 0, 1). The input `c_i` stuck-at-1 needs $a = c = 0$, which none of these three vectors has. Fault reports the stuck-at-0 at the pin `A` of `u_bc` as detected, which step 3 proved untestable. Fault forces the pin, and Icarus merges the input pin of a cell with the net it connects to when the net has one bit. The force thus acts on the whole net `b_i`, its stem, instead of its branch to `u_bc` alone, so the fault that Fault simulates is `b_i` stuck-at-0, which (1, 1, 0) detects. Commercial ATPG tools list the stem and every branch of a net as separate faults.
+5. The 8 nets `a_i`, `b_i`, `c_i`, `a_n`, `ab`, `anc`, `bc`, and `y_o` and the two branches of each input give 14 sites and 28 faults. With $P_O = 1$, $F_O = 3$, $G_I = 1 + 3 \cdot 2 + 3 = 10$, and $N_I = 1$, the rule leaves $2 \cdot (1 + 3) + 10 - 1 = 17$ faults. `collapse.py` finds 13 groups, one of them the untestable `bc`, `u_bc.A`, and `u_bc.B` stuck-at-0. The rule merges only faults that are equivalent within one gate. The four extra merges all involve `u_bc`, the gate of the redundant product, whose faults the rest of the function absorbs. `u_bc.A` stuck-at-1 makes `bc` = $c$, so $y = ab + c$, the same function as with `a_n` stuck-at-1. `b_i` stuck-at-1 gives $y = a + c$, whether or not its branch into `u_bc` sees the fault, so it equals `u_ab.B` stuck-at-1. Fault counts differently: it lists every cell pin and port bit, so a net with one load has two sites, its driver pin and its load pin, which are equivalent.
 :::
 
 ## Scan Design {#sec-dft-scan}
@@ -142,7 +214,7 @@ In a sequential circuit, the logic between the registers is reachable only throu
 
 SG13CMOS5L has five scan flip-flops (@sec-synthesis-lib-cells): `sdfrbpq_1` and `sdfrbpq_2` with the output `Q`, `sdfrbp_1` and `sdfrbp_2` with `Q` and `Q_N`, and `sdfbbp_1` with set and reset. Their scan input is `SCD`, their scan enable `SCE`. `sdfrbpq_1` takes 63.5 µm², 30 % more than `dfrbpq_1` with 49.0 µm², but less than `dfrbpq_1` and `mux2_1` together (67.1 µm²). The Liberty file describes the scan function of each cell in a `test_cell` group, from which tools learn which pin is the scan input and which flip-flop it can replace.
 
-@fig-dft-scan-timing shows how the tester applies the patterns one after the other. A **scan pattern** is a test vector arranged for the scan test: the values of the flip-flops in the order in which they are shifted in, and the values of the **primary inputs**, the inputs of the design itself. While `scan_enable` is high, every clock edge shifts the chain by one bit, so after $L$ edges, a chain of $L$ flip-flops holds the pattern. The tester applies the primary inputs, compares the primary outputs, sets `scan_enable` low, and gives one clock edge, the **capture**, at which every flip-flop loads the response of the logic. The next $L$ shift edges unload this response at `scan_out` while they load the next pattern, and the tester compares each bit with its expected value. Before the first pattern, a test program runs a **chain test**: it shifts a known sequence such as 0011... through the chain without a capture and checks that it arrives unchanged at `scan_out`.
+@fig-dft-scan-timing shows how the tester applies the patterns one after the other. A **scan pattern** is a test vector arranged for the scan test: the values of the flip-flops in the order in which they are shifted in, and the values of the primary inputs. While `scan_enable` is high, every clock edge shifts the chain by one bit, so after $L$ edges, a chain of $L$ flip-flops holds the pattern. The tester applies the primary inputs, compares the primary outputs, sets `scan_enable` low, and gives one clock edge, the **capture**, at which every flip-flop loads the response of the logic. The next $L$ shift edges unload this response at `scan_out` while they load the next pattern, and the tester compares each bit with its expected value. Before the first pattern, a test program runs a **chain test**: it shifts a known sequence such as 0011... through the chain without a capture and checks that it arrives unchanged at `scan_out`.
 
 {{< include /content/dft/_fig_scan_timing.qmd >}}
 
@@ -176,9 +248,13 @@ Fault holds the reset inactive and finds 580 fault sites, i.e., 1160 faults. @fi
 
 {{< include /content/dft/_fig_coverage.qmd >}}
 
-Coverage numbers depend on the fault model. Fault injects a fault with a `force` on a cell pin. Icarus merges the input pin of a cell with the net it connects to when the net has one bit, so the force acts on the whole net, the **stem**. A force on a pin at one bit of a vector acts on that pin alone, the **branch** of the net to this cell. In this netlist, 300 of the 379 inputs of the logic cells sit on nets of one bit, so Fault mostly simulates faults on whole nets, where commercial ATPG tools list the stem and every branch as separate faults. In a fault simulation with a wire of its own for every cell input, the 32 vectors miss 59 of the 1034 faults at the pins of the 138 logic cells. The SAT solver proves 12 of them untestable, and the other 47 would need more vectors, so the test coverage at the cell pins is 95.4 %.
+Coverage numbers depend on the fault model. Fault injects a fault with a `force` on a cell pin. Icarus merges the input pin of a cell with the net it connects to when the net has one bit, so the force acts on the whole net, its stem. A force on a pin at one bit of a vector acts on that pin alone, the branch of the net to this cell. In this netlist, 300 of the 379 inputs of the logic cells sit on nets of one bit, so Fault mostly simulates faults on whole nets, where commercial ATPG tools list the stem and every branch as separate faults. In a fault simulation with a wire of its own for every cell input, the 32 vectors miss 59 of the 1034 faults at the pins of the 138 logic cells. The SAT solver proves 12 of them untestable, and the other 47 would need more vectors, so the test coverage at the cell pins is 95.4 %.
 
 The scan flip-flop also costs speed. On the worst path of the 8-bit `bs_reg` between two registers, its setup time is 0.204 ns instead of 0.125 ns for `dfrbpq_1`, and its clock-to-output delay 0.344 ns instead of 0.309 ns. The gates on the path take 0.019 ns longer, mainly because the last of them drives the larger input `D` of the scan flip-flop. The minimum period rises from 1.30 to 1.43 ns.
+
+@fig-dft-flow summarizes the steps from the synthesized netlist to the patterns for the tester, with the tools of this chapter. The conversion into scan patterns and their simulation follow in the next exercise, the equivalence check after it.
+
+{{< include /content/dft/_fig_flow.qmd >}}
 
 ::: {.callout-tip title="Exercise: Insert a Scan Chain"}
 All commands start in the folder `content/dft/code/scan` and use `bs_reg.nl.v` and `bs_reg.tv.json` from the commands above.
@@ -221,6 +297,23 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 :::
 
 Scan insertion changes the netlist, so the equivalence check of @sec-synthesis-lib-lec runs after it. With the scan inputs tied to 0, the scanned netlist must compute exactly what the netlist before scan insertion computed. The script `scan_eq.tcl` checks this with the Yosys commands `equiv_make`, `equiv_simple`, and `equiv_induct`. They match the nets of both netlists by name, among them the outputs of all flip-flops, and prove each matched pair, a **point** of the check, equal. After the exercise, `bs_reg_scan.nl.v` holds the netlist with three chains, and `TOP=bs_reg yosys -q -c scan_eq.tcl` in the folder `scan` proves all 163 points of `bs_reg` equal, as it does for the netlist with one chain. With the scan inputs tied to 1 (`TIE=1`), the check fails: 32 points of the netlist with three chains and 38 of the one with one chain cannot be proven equal.
+
+Without a placement, `dft.tcl` chains the flip-flops in an order that ignores their positions on the die. The script `dft_place.tcl` runs the complete sequence on the 32-bit `bs_reg` with its 71 flip-flops: `scan_replace`, a floorplan with 50 % utilization, the placement, and then `execute_dft_plan`, which now orders the chain along the placement. In the folder `scan`:
+
+```bash
+yosys -p "read_verilog -sv \
+  ../../../verification/code/barrel_shift/rtl/barrel_shift.sv \
+  ../../../sequential/code/bs_reg/rtl/bs_reg.sv; \
+  synth -top bs_reg; flatten; dfflibmap -liberty $LIB; \
+  abc -constr $CONSTR -liberty $LIB; opt_clean; \
+  write_verilog -noattr bs_reg32.nl.v"
+NETLIST=bs_reg32.nl.v TOP=bs_reg \
+  openroad -no_init -exit dft_place.tcl
+```
+
+The chain now connects neighbors: on the same placement, the distances between neighbors in the chain add up to 911 µm, against 3024 µm for the same flip-flops in the order without placement, 70 % less (@fig-dft-reorder). The scan flip-flops of SG13CMOS5L have no separate scan output, so the chain wire hangs on the output `Q` of each flip-flop, which also drives the logic. A short chain therefore saves routing tracks, and delay and power in normal operation as well as during the shift. OpenROAD also has the command `scan_opt` for reordering the chains of a placed design, but in this version, it only warns that it is not implemented yet.
+
+{{< include /content/dft/_fig_reorder.qmd >}}
 
 ## Design Rules for Testability {#sec-dft-rules}
 
@@ -298,10 +391,10 @@ Scan with stuck-at patterns is the backbone of the test of digital logic, but a 
 
 ## Summary {#sec-dft-summary}
 
-- Every manufactured die is tested, on the wafer and after packaging. The defect level $1 - Y^{1-T}$ of the shipped parts depends on the yield and the fault coverage: 99 % coverage at 80 % yield leaves one defective part in 449.
-- The single stuck-at fault model fixes one net or pin at 0 or 1. Transition, bridging, and stuck-open faults and IDDQ testing cover other defects. Untestable faults sit in redundant logic. The test coverage leaves them out.
-- A test excites a fault, propagates the difference to an output, and justifies the required values from the inputs. ATPG tools start with random vectors and fault simulation and solve the rest with a deterministic search, today often with a SAT solver on a miter of the good and the faulty netlist.
-- Scan replaces every flip-flop by a scan flip-flop and connects them into chains. Shift, capture, and shift turn the test of a sequential circuit into a combinational one. A test of $N$ patterns over chains of $L$ flip-flops takes $(N + 1) L + N$ cycles. In the 8-bit `bs_reg`, scan insertion adds 12 % area. The 32 vectors of Fault detect every fault that its model can detect, but only 95.4 % of the detectable faults at the cell pins: coverage depends on the fault model.
+- Every manufactured die is tested, on the wafer and after packaging. Random defects cause the catastrophic, process variations the parametric yield loss, and a burn-in removes weak parts before they fail early in the field. The defect level $1 - Y^{1-T}$ of the shipped parts depends on the yield and the fault coverage: 99 % coverage at 80 % yield leaves one defective part in 449.
+- The single stuck-at fault model fixes one net, branch, or pin at 0 or 1, and fault collapsing merges equivalent faults. Transition, path delay, bridging, stuck-open, and stuck-on faults and IDDQ testing cover other defects. A transition test detects an extra delay only if it exceeds the slack of the tested path. A stuck-on transistor can hide from every static logic test and show only in IDDQ. Untestable faults sit in redundant logic. The test coverage leaves them out.
+- A test excites a fault, propagates the difference, $D$ or $\bar{D}$, to an output, and justifies the required values from the inputs. The D-algorithm and PODEM search these values and go back on a conflict. ATPG tools start with random vectors and fault simulation and solve the rest with a deterministic search, today often with a SAT solver on a miter of the good and the faulty netlist.
+- Scan replaces every flip-flop by a scan flip-flop and connects them into chains. Shift, capture, and shift turn the test of a sequential circuit into a combinational one. A test of $N$ patterns over chains of $L$ flip-flops takes $(N + 1) L + N$ cycles. In the 8-bit `bs_reg`, scan insertion adds 12 % area. The 32 vectors of Fault detect every fault that its model can detect, but only 95.4 % of the detectable faults at the cell pins: coverage depends on the fault model. Stitched after the placement, the chain of the 32-bit `bs_reg` gets 70 % shorter.
 - Scan needs clocks and resets from pins, clock gates with a connected test enable, no latches, loops, or unknown values, one chain per clock domain, and hold-safe scan paths. A reset synchronizer needs a test-mode bypass, or the chain breaks while it shifts.
 - At-speed test, BIST for logic and memories, and boundary scan complete the test of a chip.
 

@@ -8,7 +8,7 @@
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter. The fault
 # simulation of all cell pins through the scan chain takes about two
-# minutes.
+# minutes, the placement of the 32-bit bs_reg about one.
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -26,6 +26,7 @@ done
 A=$W/content/dft/code/atpg
 S=$W/content/dft/code/scan
 R=$W/content/dft/code/reset
+X=$W/content/dft/code/transistor
 CONSTR=$W/content/synthesis_lib/code/synth/abc.constr
 cd "$W" || exit 1
 
@@ -87,6 +88,7 @@ check "Yosys" "$(yosys -V | awk '{print $2}')" "0.70"
 check "OpenSTA" "$(sta -version)" "3.1.0"
 check "Icarus Verilog" "$(iverilog -V 2>&1 | head -1 | awk '{print $4}')" "14.0"
 check "Fault" "$(fault --version 2>/dev/null)" "0.9.4"
+check "ngspice" "$(ngspice -v 2>&1 | grep -o 'ngspice-[0-9]*' | head -1)" "ngspice-47"
 
 echo "== Defect level and the cost of exhaustive and random tests"
 check "DL at 80 % yield, 99 % coverage: percent, ppm, one in" \
@@ -109,9 +111,107 @@ check "areas of sdfrbpq_1, dfrbpq_1, mux2_1" \
 check "scan flip-flop: percent more, flip-flop plus mux" \
   "$(calc 'printf "%.0f %.1f", (63.504 / 48.9888 - 1) * 100, 48.9888 + 18.144')" "30 67.1"
 check "areas of slgcp_1, lgcp_1" "$(libarea slgcp_1) $(libarea lgcp_1)" "30.8448 27.216"
+check "pins of sdfrbpq_1: no separate scan output" \
+  "$(awk '/cell \(sg13cmos5l_sdfrbpq_1\)/ {on = 1} on && /^ *pin *\(/ {gsub(/[()"{ ]/, ""); sub(/pin/, ""); print} on && /cell \(sg13cmos5l_sdfrbpq_2\)/ {exit}' "$LIB" | sort -u | tr '\n' ' ')" \
+  "CLK D Q RESET_B SCD SCE "
 check "slgcp_1: integrated cell type, test pin" \
   "$(awk '/cell \(sg13cmos5l_slgcp_1\)/ {on = 1} on && /clock_gating_integrated_cell/ {print $3} on && /clock_gate_test_pin/ {print p} {p = $0} on && /^  cell \(sg13cmos5l_[^s]/ {exit}' "$LIB" | tr -d '";' | sed 's/.*pin (\(.*\)) {/\1/' | tr '\n' ' ')" \
   "latch_posedge_precontrol SCE "
+
+echo "== Exercise: Transistor Faults"
+cd "$X"
+check "nor2_1: transistors, gates, widths" \
+  "$(awk '/^\.subckt sg13cmos5l_nor2_1 /, /^\.ends/' "$D/spice/sg13cmos5l_stdcell.spice" | awk '/^X/ {print $1, $3, $7}' | tr '\n' ' ')" \
+  "XN0 A w=740.00n XN1 B w=740.00n XP0 A w=1.12u XP1 B w=1.12u "
+check "nor2_1: drain of XP0, source of XP1, both at Y: XN0 and XN1 drains, XP1 drain" \
+  "$(awk '/^\.subckt sg13cmos5l_nor2_1 /, /^\.ends/' "$D/spice/sg13cmos5l_stdcell.spice" | awk '$1 == "XP0" {a = $2} $1 == "XP1" {b = $4; c = $2} $1 == "XN0" {d = $2} $1 == "XN1" {e = $2} END {print a, b, d, e, c}')" \
+  "net1 net1 Y Y Y"
+for f in good n_open n_on p_on; do
+  python3 nor2_faults.py $f > nor2_$f.txt 2>&1
+done
+yz() {  # yz <fault>: Y/Z at the end of each vector
+  awk 'NR > 2 {y = $2 + 0; z = $3 + 0; printf "%.3f/%.3f ", y == 0 ? 0 : y, z == 0 ? 0 : z}' "nor2_$1.txt"
+}
+iddq() { awk 'NR > 2 {printf "%s %s, ", $4, $5}' "nor2_$1.txt"; }
+check "vectors" "$(awk 'NR > 2 {print $1}' nor2_good.txt | tr '\n' ' ')" "00 10 11 10 00 01 "
+check "good: Y/Z" "$(yz good)" \
+  "1.200/0.000 0.000/1.200 0.000/1.200 0.000/1.200 1.200/0.000 0.000/1.200 "
+check "XN0 stuck-open: Y/Z" "$(yz n_open)" \
+  "1.200/0.000 1.279/0.000 0.000/1.200 0.080/1.200 1.200/0.000 0.000/1.200 "
+check "XN0 stuck-on: Y/Z" "$(yz n_on)" \
+  "0.121/1.200 0.000/1.200 0.000/1.200 0.000/1.200 0.121/1.200 0.000/1.200 "
+check "XP0 stuck-on: Y/Z" "$(yz p_on)" \
+  "1.200/0.000 0.121/1.200 0.000/1.200 0.121/1.200 1.200/0.000 0.000/1.200 "
+check "IDDQ good" "$(iddq good)" "138 pA, 76 pA, 48 pA, 76 pA, 138 pA, 99 pA, "
+check "IDDQ XN0 stuck-open" "$(iddq n_open)" "120 pA, 328 nA, 48 pA, 328 nA, 120 pA, 99 pA, "
+check "IDDQ XN0 stuck-on" "$(iddq n_on)" "108 uA, 96.2 pA, 68.2 pA, 96.2 pA, 108 uA, 119 pA, "
+check "IDDQ XP0 stuck-on" "$(iddq p_on)" "138 pA, 108 uA, 99 pA, 108 uA, 138 pA, 99 pA, "
+check "delay A to Z at 00 -> 10, good and XP0 stuck-on (ps)" \
+  "$(python3 -I -c "
+import sys; sys.path.insert(0, '.')
+import nor2_faults as n
+for f in ('good', 'p_on'):
+    out = n.ngspice(f, n.pwl('01'), n.pwl('00'), '.tran 1e-13 4e-9\n.meas tran d trig v(a) val=0.6 rise=1 targ v(z) val=0.6 rise=1')
+    print(f\"{[float(l.split()[2]) for l in out.splitlines() if l.split()[:1] == ['d']][0] * 1e12:.1f}\", end=' ')")" \
+  "79.7 92.1 "
+check "overshoot above VDD (mV), 108 uA / 76 pA" \
+  "$(calc 'printf "%.0f %.1e", (1.279 - 1.2) * 1000, 108e-6 / 76e-12')" "79 1.4e+06"
+HOLD=1 SEQ="00 10" python3 nor2_faults.py n_open > nor2_hold.txt 2>&1
+check "stuck-open, 10 after 00: Y after 1 ns, 1 us, 1 ms, 1 s" \
+  "$(awk 'NR > 2 {print $2}' nor2_hold.txt | tr '\n' ' ')" "1.279 1.254 0.857 0.857 "
+check "stuck-open, 10 after 00: samples of Z, those above 0.01 V" \
+  "$(awk 'NR > 2 {n++; if ($3 > 0.01) bad++} END {print n + 0, bad + 0}' nor2_hold.txt)" "4 0"
+HOLD=1 SEQ="11 10" python3 nor2_faults.py n_open > nor2_hold2.txt 2>&1
+check "stuck-open, 10 after 11: Y after 1 ns, 1 us, 1 ms, 1 s" \
+  "$(awk 'NR > 2 {print $2}' nor2_hold2.txt | tr '\n' ' ')" "0.071 0.160 0.857 0.857 "
+check "stuck-open, 10 after 11: Z after 1 us, 1 ms" \
+  "$(awk 'NR == 4 || NR == 5 {printf "%.3f ", $3}' nor2_hold2.txt)" "1.200 0.001 "
+check "HOLD without SEQ stops" "$(HOLD=1 python3 nor2_faults.py n_open > /dev/null 2>&1; echo $?)" "1"
+check "stuck-open at 10: operating point Y (V), IDDQ" \
+  "$(python3 -I -c "
+import sys; sys.path.insert(0, '.')
+import nor2_faults as n
+out = n.ngspice('n_open', 1.2, 0.0, '.op').splitlines()
+v = {l.split()[0]: float(l.split()[1]) for l in out if len(l.split()) == 2 and l.split()[0] in ('y', 'vdd#branch')}
+print(f\"{v['y']:.3f} {n.amps(-v['vdd#branch'])}\")")" "0.857 328 nA"
+check "stuck-open: Y after 00 -> 10 with 0, 20 fF more at Y" \
+  "$(python3 -I -c "
+import sys; sys.path.insert(0, '.')
+import nor2_faults as n
+base = n.DECK
+for c in ('1e-24', '20f'):
+    n.DECK = base.replace('CL z 0 5f', 'CL z 0 5f\nCY y 0 ' + c)
+    print(f\"{n.tran('n_open', ['00', '10'], 4e-9, 1e-12, [3.95e-9])[0][0]:.3f}\", end=' ')")" \
+  "1.279 1.225 "
+
+echo "== The D-algorithm"
+check "table of the chapter equals the gates on good/faulty pairs" \
+  "$(python3 - "$W/content/dft/_sec_dft.qmd" << 'EOF'
+import re, sys
+text = open(sys.argv[1], encoding='utf-8').read()
+rows = re.search(r'\| \$a\$ \| \$b\$ \| \$a\$ AND.*?\n\n', text, re.S).group(0)
+val = {'0': [(0, 0)], '1': [(1, 1)], '$D$': [(1, 0)], r'$\bar{D}$': [(0, 1)],
+       '$X$': [(0, 0), (1, 1)]}
+name = {v[0]: k for k, v in val.items() if len(v) == 1}
+ops = [lambda p, q: p & q, lambda p, q: p | q, lambda p, q: p ^ q]
+bad = 0
+lines = [l for l in rows.splitlines() if l.strip()][2:]
+for line in lines:
+    c = [s.strip() for s in line.strip('|').split('|')]
+    for op, want in zip(ops, c[2:]):
+        res = {(op(a[0], b[0]), op(a[1], b[1])) for a in val[c[0]] for b in val[c[1]]}
+        got = name[res.pop()] if len(res) == 1 else '$X$'
+        bad += got != want
+print(len(lines), 'rows,', bad, 'wrong')
+EOF
+)" "5 rows, 0 wrong"
+check "fig-dft-sensitize: all tests for the inverter output s-a-0 (a, b, c, d)" \
+  "$(python3 -c "
+import itertools
+def y(a, b, c, d, f):
+    n1 = 0 if f else 1 - c
+    return 1 - ((1 - (d & n1)) | (a | b))
+print([v for v in itertools.product((0, 1), repeat=4) if y(*v, 0) != y(*v, 1)])")" "[(0, 0, 0, 1)]"
 
 echo "== Exercise: Find the Test"
 cd "$A"
@@ -155,6 +255,27 @@ fault atpg cons.v -c "$CELLS/sg13cmos5l_stdcell.v" \
   --activeLow -v 8 -m 100 --ceiling 32 -o cons2.tv.json > cons2.log 2>&1
 check "Fault on cons: the same vectors in a second run" \
   "$(python3 -c "import json; a, b = (json.load(open(f))['coverageList'] for f in ('cons.tv.json', 'cons2.tv.json')); print([e['vector'] for e in a] == [e['vector'] for e in b])")" "True"
+check "collapsing rule on cons: P_O F_O G_I N_I, faults left" \
+  "$(python3 - << 'EOF'
+import re
+s = open('cons.v').read()
+cells = re.findall(r'sg13cmos5l_(\w+)\s+\w+\s*\((.*?)\);', s, re.S)
+ins = [n for t, b in cells for p, n in re.findall(r'\.(\w+)\((\w+)\)', b)
+       if p not in ('X', 'Y')]
+po = len(re.findall(r'output\s+wire', s))
+fo = sum(ins.count(n) > 1 for n in set(ins))
+gi = len(ins)
+ni = sum(t.startswith('inv') for t, b in cells)
+print(po, fo, gi, ni, 2 * (po + fo) + gi - ni)
+EOF
+)" "1 3 10 1 17"
+python3 collapse.py cons.v > collapse.log 2>&1
+check "collapse.py: faults, sites, groups" \
+  "$(head -2 collapse.log | tr '\n' ' ')" \
+  "28 faults at 14 sites (8 nets, 6 branches) 13 classes with the same outputs for all 8 input vectors: "
+check "collapse.py: the groups of more than one fault" \
+  "$(tail -n +3 collapse.log | grep ',' | sed 's/^ *//' | tr '\n' ';')" \
+  "b_i s-a-1, u_ab.B s-a-1;c_i s-a-1, u_anc.B s-a-1;a_n s-a-0, anc s-a-0, u_inv.A s-a-1, u_anc.B s-a-0;a_n s-a-1, u_inv.A s-a-0, u_bc.A s-a-1;ab s-a-0, u_ab.A s-a-0, u_ab.B s-a-0;ab s-a-1, anc s-a-1, bc s-a-1, y_o s-a-1;untestable: bc s-a-0, u_bc.A s-a-0, u_bc.B s-a-0;u_ab.A s-a-1, u_bc.B s-a-1;"
 
 echo "== bs_reg with 8 bits: synthesis and ATPG"
 cd "$S"
@@ -374,6 +495,48 @@ check "three chains: scan inputs at 0, at 1" \
   "$(TOP=bs_reg yosys -q -c scan_eq.tcl) / $(TIE=1 TOP=bs_reg yosys -q -c scan_eq.tcl)" \
   "163 points proven equal, 0 unproven / 131 points proven equal, 32 unproven"
 
+echo "== The scan chain after the placement"
+cd "$S"
+yosys -p "read_verilog -sv \
+  ../../../verification/code/barrel_shift/rtl/barrel_shift.sv \
+  ../../../sequential/code/bs_reg/rtl/bs_reg.sv; \
+  synth -top bs_reg; flatten; dfflibmap -liberty $LIB; \
+  abc -constr $CONSTR -liberty $LIB; opt_clean; stat -liberty $LIB; \
+  write_verilog -noattr bs_reg32.nl.v" > syn32.log 2>&1
+check "32-bit bs_reg: flip-flops" "$(ctype syn32.log sg13cmos5l_dfrbpq_1)" "71"
+NETLIST=bs_reg32.nl.v TOP=bs_reg openroad -no_init -exit dft_place.tcl > place.log 2>&1
+check "core, chain, same cells by name" \
+  "$(grep -E '^(core|chain|same)' place.log | tr '\n' ';')" \
+  "core: 5.0 7.0 185.0 185.0 um;chain: 71 cells, 910.7 um;same cells by name: 3024.4 um;"
+check "rounded lengths, percent less wire" \
+  "$(calc 'printf "%.0f %.0f %.0f", 910.7, 3024.4, 100 * (1 - 910.7 / 3024.4)')" "911 3024 70"
+check "figure data equals the run, all flip-flops above y = 132 um" \
+  "$(python3 - "$W/content/dft/_fig_reorder.qmd" << 'EOF'
+import ast, re, sys
+fig = open(sys.argv[1], encoding='utf-8').read()
+data = ast.literal_eval(re.search(r'chain = (\[.*?\])\n', fig, re.S).group(1))
+code = {'data_q': 'd', 'shamt_q': 's', 'mode_q': 'm', 'out_q': 'o'}
+run = [(int(f[1].strip('_')), float(f[2]), float(f[3]), code[f[4].split('[')[0]])
+       for f in (l.split() for l in open('place.log')) if f and f[0] == 'cell']
+print(data == run, all(c[2] > 132 for c in run), end=' ')
+hops =[(abs(b[1] - a[1]) + abs(b[2] - a[2]), a[0], b[0]) for a, b in zip(run, run[1:])]
+print('%.1f _%d_ _%d_' % max(hops))
+EOF
+)" "True True 101.8 _1702_ _1693_"
+cat > scan_opt.tcl << 'EOF'
+set lib $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
+read_lef $lib/lef/sg13cmos5l_tech.lef
+read_lef $lib/lef/sg13cmos5l_stdcell.lef
+read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+read_verilog bs_reg32.nl.v
+link_design bs_reg
+create_clock -name clk_i -period 100 [get_ports clk_i]
+scan_replace
+scan_opt
+EOF
+check "scan_opt" "$(openroad -no_init -exit scan_opt.tcl 2>&1 | grep -o 'DFT-0014.*')" \
+  "DFT-0014] Scan Opt is not currently implemented"
+
 echo "== Design rules: clock gates and clock domains"
 mkdir -p "$W/cg" && cd "$W/cg"
 yosys -p "read_verilog -sv $W/content/synth_opt/code/clock_gate/rtl/cg_reg.sv; \
@@ -435,7 +598,7 @@ check "bs_reg_rs_tm: scan test" "$(tb bs_reg_rs_tm_scan.nl.v -DTOP=bs_reg_rs_tm 
 
 echo "== Code listings"
 check "longest line of the code files" \
-  "$(cd "$REPO/content/dft/code" && cat atpg/*.v atpg/*.tcl scan/*.tcl scan/*.py scan/*.yml scan/tb/*.sv reset/rtl/*.sv | awk '{ if (length > m) m = length } END { print (m <= 70) ? "<= 70" : m }')" "<= 70"
+  "$(cd "$REPO/content/dft/code" && cat atpg/*.v atpg/*.tcl atpg/*.py scan/*.tcl scan/*.py scan/*.yml scan/tb/*.sv reset/rtl/*.sv transistor/*.py | awk '{ if (length > m) m = length } END { print (m <= 70) ? "<= 70" : m }')" "<= 70"
 
 echo
 if [ $fails -eq 0 ]; then

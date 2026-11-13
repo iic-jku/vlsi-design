@@ -1,0 +1,49 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-dft-nor2
+#| echo: false
+#| fig-cap: "Transistor schematic of `sg13cmos5l_nor2_1`, as in the SPICE netlist of the PDK. The PMOS transistors `XP0` and `XP1` connect `Y` in series to VDD, and the NMOS transistors `XN0` and `XN1` in parallel to VSS. The faults of the exercise sit in the two transistors at input `A`, `XP0` and `XN0` (red)."
+#| fig-alt: "Transistor schematic. From VDD at the top, the PMOS XP0 with gate A and the PMOS XP1 with gate B are connected in series through the internal net net1 down to the output node Y. From Y, the NMOS XN0 with gate A and the NMOS XN1 with gate B are connected in parallel down to VSS. Y also leads to the right as the output. XP0 and XN0 are drawn in red."
+import schemdraw as sd
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+RED = '#b85450'
+
+
+def fet(kind, x, y, name, gate, color='black'):
+    """FET with its source (PMOS) or drain (NMOS) at (x, y), gate left."""
+    f = kind(bulk=False).right().reverse().at((x, y)).color(color)
+    elm.Line().at(f.gate).left().length(0.5).color(color)
+    elm.Label().at((f.gate[0] - 0.6, f.gate[1])).label(gate, halign='right', color='black')
+    elm.Label().at((x + 0.35, y - 0.75)).label(name, halign='left', color=color)
+    return f
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    elm.Vdd().at((0, 0)).label('VDD')
+    p0 = fet(elm.PFet, 0, 0, 'XP0', 'A', RED)
+    elm.Line().at(p0.drain).down().length(0.5)
+    elm.Dot().at((0, -1.75))
+    elm.Label().at((0.25, -1.75)).label('net1', halign='left', color='black')
+    p1 = fet(elm.PFet, 0, -2.0, 'XP1', 'B')
+    elm.Line().at(p1.drain).down().length(0.5)
+    elm.Dot().at((0, -4.0))
+    elm.Line().at((0, -4.0)).right().length(5.4)
+    elm.Label().at((5.55, -4.0)).label('Y', halign='left', color='black')
+    elm.Line().at((0, -4.0)).down().length(0.5)
+    n0 = fet(elm.NFet, 0, -4.5, 'XN0', 'A', RED)
+    elm.Line().at((4.0, -4.0)).down().length(0.5)
+    elm.Dot().at((4.0, -4.0))
+    n1 = fet(elm.NFet, 4.0, -4.5, 'XN1', 'B')
+    elm.Line().at(n0.source).down().length(0.5)
+    elm.Line().at(n1.source).down().length(0.5)
+    elm.Line().at((0, -6.5)).right().length(4.0)
+    elm.Ground().at((2.0, -6.5))
+    elm.Label().at((2.35, -6.75)).label('VSS', halign='left', color='black')
+```

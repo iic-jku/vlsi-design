@@ -1,0 +1,81 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-dft-reorder
+#| echo: false
+#| fig-cap: "The scan chain of the 32-bit `bs_reg` with 71 flip-flops, placed and stitched by `dft_place.tcl`. Each dot is a scan flip-flop, colored by its register, the gray line is the chain, and the triangle marks the first flip-flop, at `scan_in_0`. Top: the same flip-flops in the order of a chain stitched without placement, by descending instance name, 3024 µm of wire. Bottom: the order of `execute_dft_plan` after the placement, 911 µm. Each length adds the distances between the centers of neighbors in the chain, horizontally plus vertically. The plot shows only the upper part of the 180 µm wide core, where the placement put all flip-flops."
+#| fig-alt: "Two panels with the same scattered dots in a band about 180 micrometers wide and 45 micrometers high, colored by register: data_q blue on the left, out_q red mostly on the right, shamt_q green and mode_q yellow in between. In the top panel, labeled by instance name, as without placement: 3024 micrometers, a gray line connects the dots with many long jumps across the band. In the bottom panel, labeled after the placement: 911 micrometers, the gray line connects mostly neighboring dots: it runs from the left edge to the right, back to the middle, and then jumps about 100 micrometers to the right edge, where it ends."
+import matplotlib.pyplot as plt
+
+# dft_place.tcl on the 32-bit bs_reg: (instance number, x, y in um,
+# register) in chain order after the placement. d = data_q,
+# s = shamt_q, m = mode_q, o = out_q
+chain = [
+    (1672, 14.2, 138.0, 'd'), (1676, 15.1, 145.5, 'd'),
+    (1675, 15.1, 141.8, 'd'), (1668, 14.2, 153.1, 'd'),
+    (1670, 13.7, 149.3, 'd'), (1667, 22.8, 160.7, 'd'),
+    (1669, 15.6, 164.4, 'd'), (1671, 15.6, 168.2, 'd'),
+    (1674, 16.1, 172.0, 'd'), (1677, 13.7, 175.8, 'd'),
+    (1673, 16.1, 179.6, 'd'), (1666, 30.5, 175.8, 'd'),
+    (1681, 38.2, 172.0, 'd'), (1662, 38.2, 179.6, 'd'),
+    (1658, 43.9, 183.3, 'd'), (1700, 56.4, 175.8, 'o'),
+    (1661, 57.4, 172.0, 'd'), (1683, 60.7, 168.2, 'd'),
+    (1659, 61.7, 156.9, 'd'), (1655, 61.2, 153.1, 'd'),
+    (1680, 53.0, 160.7, 'd'), (1660, 46.8, 164.4, 'd'),
+    (1663, 37.7, 168.2, 'd'), (1664, 36.7, 156.9, 'd'),
+    (1678, 30.5, 149.3, 'd'), (1665, 31.9, 141.8, 'd'),
+    (1679, 44.4, 153.1, 'd'), (1719, 73.7, 160.7, 's'),
+    (1656, 78.0, 153.1, 'd'), (1690, 84.2, 156.9, 'o'),
+    (1684, 91.4, 160.7, 'd'), (1654, 101.0, 156.9, 'd'),
+    (1657, 110.2, 160.7, 'd'), (1720, 108.7, 168.2, 's'),
+    (1685, 115.9, 164.4, 'd'), (1716, 117.4, 175.8, 'o'),
+    (1695, 117.8, 172.0, 'o'), (1698, 125.5, 168.2, 'o'),
+    (1708, 132.7, 164.4, 'o'), (1694, 134.6, 175.8, 'o'),
+    (1711, 137.0, 172.0, 'o'), (1686, 141.4, 179.6, 'o'),
+    (1692, 129.8, 183.3, 'o'), (1715, 153.8, 183.3, 'o'),
+    (1701, 153.8, 172.0, 'o'), (1699, 159.6, 175.8, 'o'),
+    (1723, 163.0, 164.4, 'm'), (1705, 159.6, 160.7, 'o'),
+    (1689, 156.7, 156.9, 'o'), (1722, 142.8, 160.7, 's'),
+    (1724, 139.9, 156.9, 'm'), (1710, 127.4, 153.1, 'o'),
+    (1706, 100.6, 175.8, 'o'), (1718, 101.0, 183.3, 's'),
+    (1714, 102.0, 179.6, 'o'), (1703, 85.2, 179.6, 'o'),
+    (1687, 80.9, 183.3, 'o'), (1721, 79.0, 175.8, 's'),
+    (1717, 84.7, 172.0, 'o'), (1682, 64.1, 183.3, 'd'),
+    (1702, 63.6, 179.6, 'o'), (1693, 165.4, 179.6, 'o'),
+    (1712, 175.4, 183.3, 'o'), (1704, 174.5, 172.0, 'o'),
+    (1688, 176.9, 175.8, 'o'), (1713, 176.4, 168.2, 'o'),
+    (1696, 176.4, 160.7, 'o'), (1691, 173.5, 156.9, 'o'),
+    (1709, 174.0, 153.1, 'o'), (1707, 176.9, 141.8, 'o'),
+    (1697, 176.9, 145.5, 'o')]
+by_name = sorted(chain, reverse=True)  # the order without placement
+regs = {'d': ('data_q', '#2171b5'), 'o': ('out_q', '#b85450'),
+        's': ('shamt_q', '#82b366'), 'm': ('mode_q', '#d6a728')}
+
+plt.rcParams.update({'font.size': 10})
+fig, axs = plt.subplots(2, 1, figsize=(6.5, 4.4), sharex=True)
+for ax, order, title in (
+        (axs[0], by_name, 'by instance name, as without placement: 3024 µm'),
+        (axs[1], chain, 'after the placement: 911 µm')):
+    ax.add_patch(plt.Rectangle((5, 7), 180, 178, fill=False,
+                               edgecolor='#999999', linewidth=1))
+    ax.plot([c[1] for c in order], [c[2] for c in order],
+            color='#666666', linewidth=0.8, zorder=1)
+    for code, (name, color) in regs.items():
+        pts = [c for c in order if c[3] == code]
+        ax.scatter([c[1] for c in pts], [c[2] for c in pts], s=14,
+                   color=color, label=name, zorder=2)
+    ax.plot(order[0][1], order[0][2], 'k>', markersize=7, zorder=3)
+    ax.set_title(title, fontsize=10, loc='left')
+    ax.set_ylim(132, 188)
+    ax.set_aspect('equal')
+    ax.set_ylabel('y (µm)')
+axs[1].set_xlim(0, 190)
+axs[1].set_xlabel('x (µm)')
+axs[0].legend(frameon=False, ncol=4, loc='lower right',
+              bbox_to_anchor=(1.0, 1.12))
+fig.tight_layout()
+plt.show()
+```

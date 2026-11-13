@@ -1,0 +1,39 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-dft-bathtub
+#| echo: false
+#| fig-cap: "Failure rate of a population of chips over its lifetime, the bathtub curve, drawn qualitatively. Parts with weak spots from the manufacturing fail early, then failures are rare and random for years, until wear-out, e.g., by electromigration or the breakdown of the gate oxide, raises the rate again. A burn-in at raised temperature and supply voltage ages the parts through the early phase in hours or days, so that most weak parts fail before they are shipped."
+#| fig-alt: "Line chart without numbers, failure rate over time. The curve starts high, falls steeply in a region labeled early failures, stays low and flat in a wide region labeled useful life: random failures, and rises steeply again in a region labeled wear-out. Dashed lines separate the three regions. A red band at the very start is labeled burn-in."
+import math
+import matplotlib.pyplot as plt
+
+# A qualitative failure rate: early failures that die out, a constant
+# rate of random failures, and wear-out at the end of life
+t = [k / 100 for k in range(1001)]
+rate = [3.0 * math.exp(-x / 0.7) + 0.6 + 0.04 * math.exp((x - 6.5) / 0.75)
+        for x in t]
+
+plt.rcParams.update({'font.size': 10})
+fig, ax = plt.subplots(figsize=(6.5, 3.0))
+ax.axvspan(0, 0.9, color='#b85450', alpha=0.15, linewidth=0)
+ax.plot(t, rate, color='#08306b', linewidth=2)
+for x in (2.2, 8.2):
+    ax.axvline(x, color='#999999', linestyle='--', linewidth=1)
+ax.text(1.1, 3.75, 'early failures', ha='center', va='top')
+ax.text(5.2, 3.75, 'useful life: random failures', ha='center', va='top')
+ax.text(8.35, 3.75, 'wear-out', ha='left', va='top')
+ax.text(0.45, 0.25, 'burn-in', color='#b85450', ha='center', va='bottom')
+ax.set_xlim(0, 10)
+ax.set_ylim(0, 3.9)
+ax.set_xticks([])
+ax.set_yticks([])
+ax.set_xlabel('time')
+ax.set_ylabel('failure rate')
+ax.spines[['top', 'right']].set_visible(False)
+fig.tight_layout()
+plt.show()
+```
