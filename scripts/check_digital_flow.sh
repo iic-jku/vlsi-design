@@ -7,7 +7,8 @@
 #   bash scripts/check_digital_flow.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter. It runs LibreLane
-# seven times, at most two at a time, about 30 minutes in total. The AMS
+# seven times, at most two at a time, and opens the run base twice in
+# its GUI flow without a screen, about 35 minutes in total. The AMS
 # chip template is checked only if a clone of the template lies next to
 # the repository (or in TEMPLATE_DIR).
 
@@ -486,6 +487,25 @@ report_clock_latency -digits 3
 EOF
 check "clock latency min, max (typical)" \
   "$(sta -no_init -exit lat.tcl 2>&1 | awk '/rise -> rise/ {on = 1} on && $NF == "latency" && NF == 3 {print $1, $2; exit}')" "0.381 0.440"
+cat >> lat.tcl << EOF
+report_checks -path_delay min -to [all_registers -data_pins] -group_path_count 100 \
+  -endpoint_path_count 1 -format full_clock_expanded -digits 3
+report_checks -path_delay max -to [all_registers -data_pins] -group_path_count 100 \
+  -endpoint_path_count 1 -format full_clock_expanded -digits 3
+EOF
+sta -no_init -exit lat.tcl > lat.rpt 2>&1
+check "late clock arrival (hold capture) and early arrival (setup capture, minus 4 ns) at the 32 flip-flops" \
+  "$(python3 -c "
+import re
+t = open('lat.rpt', encoding='utf-8').read()
+for kind in ('min', 'max'):
+    v = {}
+    for b in t.split('Startpoint:')[1:]:
+        if 'Path Type: %s' % kind in b:
+            e = re.search(r'Endpoint: (\S+)', b).group(1)
+            m = re.findall(r'([-\d.]+) \^ %s/CLK' % re.escape(e), b.split('data arrival time')[1])
+            v[e] = float(m[-1]) % 4
+    print(len(v), '%.3f %.3f' % (min(v.values()), max(v.values())), end=' ')")" "32 0.437 0.440 32 0.381 0.386 "
 
 echo "== A divided clock in the tree (div_mix)"
 check "lint of div_mix" "$(lint --top-module div_mix "$V/rtl/div_mix.sv")" "0"
@@ -604,6 +624,320 @@ else
     "1 PCELL = 'bondpad' 70.0 square "
   check "template: stored PCell parameters in inverter_top.klay.gds, inverter_top.gds" \
     "$(ctx $TPL/macros/inverter/layout/inverter_top.klay.gds) $(ctx $TPL/macros/inverter/layout/inverter_top.gds)" "1 0"
+fi
+
+echo "== The reports of a run"
+cd "$B" || exit 1
+U=$B/runs/util75
+check "violation corners of setup and hold, capacity reserve of the global router" \
+  "$(python3 -c "import json; c = json.load(open('$R/resolved.json')); print(c['TIMING_VIOLATION_CORNERS'], c['HOLD_VIOLATION_CORNERS'], c['GRT_ADJUSTMENT'])")" \
+  "['*typ*'] ['*'] 0.3"
+check "setup checker: listed corner, flow complete" \
+  "$(grep -A1 'Setup violations found in the following corners:' $R/flow.log | tail -1) $(grep -c 'Flow complete' $R/flow.log)" \
+  "* nom_slow_1p08V_125C 1"
+check "manufacturability.rpt" \
+  "$(python3 -c "print(' '.join(l.replace('✅', '').strip() for l in open('$R/76-misc-reportmanufacturability/manufacturability.rpt', encoding='utf-8') if l.strip()))")" \
+  "* Antenna Passed * LVS Passed * DRC Passed"
+S=55-openroad-stapostpnr/nom_slow_1p08V_125C
+check "reports of the table" \
+  "$(cd $R && ls warning.log error.log resolved.json 06-yosys-synthesis/reports/stat.rpt 55-openroad-stapostpnr/summary.rpt \
+    $S/max.rpt $S/min.rpt $S/violator_list.rpt $S/checks.rpt $S/clock.rpt $S/skew.max.rpt $S/power.rpt \
+    56-openroad-irdropreport/irdrop.rpt 46-openroad-checkantennas-1/reports/antenna_summary.rpt \
+    64-magic-drc/reports/drc.magic.rpt 65-klayout-drc/reports/drc.klayout.json \
+    70-netgen-lvs/reports/lvs.netgen.rpt 76-misc-reportmanufacturability/manufacturability.rpt 2> /dev/null | wc -l)" "18"
+WL=$R/warning.log
+check "warning.log: lines, ORD-0032, DRT-0349, the five of the run" \
+  "$(wc -l < $WL) $(grep -c ORD-0032 $WL) $(grep -c DRT-0349 $WL) $(grep -c -e 'Setup violations found' -e '^\* nom_slow_1p08V_125C' -e RSZ-0062 -e VSRC_LOC_FILES -e 'long wires is not set' $WL)" \
+  "37 25 7 5"
+check "power (typical): sequential, combinational, clock, total (mW), sequential and clock" \
+  "$(awk '$1 ~ /^(Sequential|Combinational|Clock)$/ {printf "%s ", $NF} $1 == "Total" && NF == 6 {printf "%.2f", $5 * 1000}' $R/55-openroad-stapostpnr/nom_typ_1p20V_25C/power.rpt) $(awk '$1 == "Sequential" || $1 == "Clock" {s += $NF} END {printf "%.1f", s}' $R/55-openroad-stapostpnr/nom_typ_1p20V_25C/power.rpt)" \
+  "45.1% 32.0% 22.9% 2.33 68.0"
+check "slow corner: failing setup endpoints, of them below -0.5 ns" \
+  "$(grep -c '^\[setup' $R/$S/violator_list.rpt) $(awk '/^\[setup/ && $NF + 0 < -0.5' $R/$S/violator_list.rpt | wc -l)" "31 2"
+DEF=$R/final/def/bs_reg.def
+pos() { grep -m1 -E "^ *- $1 " $DEF | grep -oE 'PLACED \( [0-9]+ [0-9]+' | awk '{printf "%.1f %.1f", $3 / 1000, $4 / 1000}'; }
+pin() { awk -v p="$1" '$1 == "-" && $2 == p && $3 == "+" && $4 == "NET" {f = 1} f && /PLACED/ {print $4 / 1000; exit}' $DEF; }
+check "worst slow path: positions of _1537_ and _1516_, x of the pins shamt_i[1] and data_o[12]" \
+  "$(pos _1537_) $(pos _1516_) $(pin 'shamt_i[1]') $(pin 'data_o[12]')" "10.1 162.5 153.6 117.2 0.2 172.62"
+check "clock tree of the typical corner: earliest and latest flip-flop, tree skew" \
+  "$(awk '/rise -> rise/ {on = 1} on && /network latency/ {printf "%s %.3f ", $NF, $1} on && $NF == "skew" {printf "%.3f", $1; exit}' $R/55-openroad-stapostpnr/nom_typ_1p20V_25C/clock.rpt)" \
+  "_1508_/CLK 0.225 _1482_/CLK 0.250 0.025"
+check "setup skew (typical): source and target latency, uncertainty, CRPR, skew" \
+  "$(awk 'NF && $1 ~ /^-?[0-9.]+$/ {printf "%.3f ", $1}' $R/55-openroad-stapostpnr/nom_typ_1p20V_25C/skew.max.rpt)" \
+  "0.250 -0.225 0.100 -0.007 0.118 "
+
+echo "== The straps in the GUI"
+OR=$TOOLS/openroad-librelane/bin/openroad
+cat > straps.tcl << EOF
+read_db $R/final/odb/bs_reg.odb
+set b [ord::get_db_block]
+foreach n {VDD VSS} {
+  foreach sw [[\$b findNet \$n] getSWires] {
+    foreach w [\$sw getWires] {
+      if {[\$w isVia]} continue
+      set l [[\$w getTechLayer] getName]
+      if {\$l == "Metal4"} { puts "M4 \$n [expr {([\$w xMin] + [\$w xMax]) / 2000.0}] [expr {([\$w xMax] - [\$w xMin]) / 1000.0}]" }
+      if {\$l == "TopMetal1"} { puts "TM1 \$n [expr {([\$w yMin] + [\$w yMax]) / 2000.0}] [expr {([\$w yMax] - [\$w yMin]) / 1000.0}]" }
+    }
+  }
+}
+puts "CORE [expr {[[\$b getCoreArea] xMax] / 1000.0}]"
+exit
+EOF
+$OR -no_splash -exit straps.tcl > straps.txt 2>&1
+st() { awk -v l=$1 -v n=$2 '$1 == l && $2 == n {print $3, $4}' straps.txt | sort -u -n | tr '\n' ' '; }
+check "Metal4 straps of VDD, of VSS (center, width)" "$(st M4 VDD)/ $(st M4 VSS)" \
+  "15.76 1.0 65.76 1.0 115.76 1.0 165.76 1.0 / 18.76 1.0 68.76 1.0 118.76 1.0 "
+check "TopMetal1 straps of VDD, of VSS (center, width)" "$(st TM1 VDD)/ $(st TM1 VSS)" \
+  "25.12 2.0 75.12 2.0 125.12 2.0 / 31.12 2.0 81.12 2.0 131.12 2.0 "
+check "the same centers in SPECIALNETS of the DEF (Metal4 x, TopMetal1 y, nm)" \
+  "$(awk '/^SPECIALNETS/,/^END SPECIALNETS/' $R/final/def/bs_reg.def | grep -oE '(Metal4 1000|TopMetal1 2000) \+ SHAPE STRIPE \( [0-9]+ [0-9]+' | awk '{print ($1 == "Metal4") ? $7 : $8}' | sort -n -u | tr '\n' ' ')" \
+  "15760 18760 25120 31120 65760 68760 75120 81120 115760 118760 125120 131120 165760 "
+check "right edge of the core, place of a fourth VSS strap" \
+  "$(awk '$1 == "CORE" {print $2}' straps.txt) $(awk '$1 == "M4" && $2 == "VSS" {print $3}' straps.txt | sort -n -u | awk 'NR == 1 {a = $1} NR == 2 {printf "%.2f", a + 3 * ($1 - a)}')" "167.04 168.76"
+
+echo "== Routing congestion in the GUI"
+heat() {  # heat <tag> <odb>: dumps the routing congestion map, all layers and Metal4
+  cat > heat_$1.tcl << EOF
+read_db $2
+set c [[ord::get_db_block] getCoreArea]
+puts "CORE [expr {[\$c xMin] / 1000.0}] [expr {[\$c yMin] / 1000.0}] [expr {[\$c xMax] / 1000.0}] [expr {[\$c yMax] / 1000.0}]"
+gui::dump_heatmap Routing $PWD/heat_$1.csv
+gui::set_heatmap Routing Layer Metal4
+gui::set_heatmap Routing rebuild
+gui::dump_heatmap Routing $PWD/heat_$1_m4.csv
+exit
+EOF
+  QT_QPA_PLATFORM=offscreen timeout 600 $OR -no_splash -gui heat_$1.tcl 2>&1 | grep '^CORE' > heat_$1.core
+}
+heat base_grt $R/39-openroad-globalrouting/bs_reg.odb
+heat base_final $R/final/odb/bs_reg.odb
+heat u75_grt $U/39-openroad-globalrouting/bs_reg.odb
+heat u75_final $U/final/odb/bs_reg.odb
+heat u75_diodes $U/42-openroad-repairantennas/1-openroad-diodeinsertion/bs_reg.odb
+cat > heat.py << 'EOF'
+import csv
+import sys
+from collections import defaultdict
+tag = sys.argv[1]
+d = [list(map(float, r)) for r in list(csv.reader(open('heat_%s.csv' % tag, encoding='utf-8')))[1:]]
+x0, y0, x1, y1 = map(float, open('heat_%s.core' % tag, encoding='utf-8').read().split()[1:5])
+qx, qy = (x1 - x0) / 4, (y1 - y0) / 4
+inner = lambda r: x0 + qx <= r[0] < x1 - qx and y0 + qy <= r[1] < y1 - qy
+v = [r[4] for r in d]
+mean = lambda a: sum(a) / len(a)
+full = [r for r in d if r[4] >= 99.95]
+print(len(d), '%.1f' % (d[0][2] - d[0][0]), '%.1f %.1f' % (max(v), mean(v)),
+      '%.1f' % mean([r[4] for r in d if inner(r)]),
+      '%.1f' % mean([r[4] for r in d if not (x0 <= r[0] < x1 and y0 <= r[1] < y1)]),
+      len(full), sum(x >= 90 for x in v), sum(inner(r) for r in full))
+m4 = defaultdict(list)
+for r in list(csv.reader(open('heat_%s_m4.csv' % tag, encoding='utf-8')))[1:]:
+    m4[float(r[0])].append(float(r[4]))
+straps = [x for x in m4 if any(x <= s < x + 7.2 for s in (15.26, 65.26, 115.26))]
+cols = {x: mean(a) for x, a in m4.items()}
+print('m4 straps %.0f-%.0f others %.0f-%.0f' % (min(cols[x] for x in straps), max(cols[x] for x in straps),
+      min(c for x, c in cols.items() if x not in straps), max(c for x, c in cols.items() if x not in straps)))
+EOF
+check "base after global routing: tiles, width, max, mean, middle half in x and y, margins, full, >= 90 %, full in the middle" \
+  "$(python3 heat.py base_grt | head -1)" "624 7.2 100.0 60.8 82.1 38.1 10 60 8"
+check "base: the final database holds the same map" "$(cmp -s heat_base_grt.csv heat_base_final.csv && echo same)" "same"
+check "util75 after global routing" "$(python3 heat.py u75_grt | head -1)" "418 7.2 100.0 75.5 89.3 57.3 33 152 12"
+check "util75 after global routing, Metal4: columns of the straps, the others" "$(python3 heat.py u75_grt | tail -1)" "m4 straps 57-68 others 31-48"
+check "util75, final database: max, mean" "$(python3 heat.py u75_final | head -1 | awk '{print $3, $4}')" "56.7 38.3"
+check "util75: the antenna repair changed the map, detailed routing kept it" \
+  "$(cmp -s heat_u75_grt.csv heat_u75_diodes.csv || echo changed) $(cmp -s heat_u75_diodes.csv heat_u75_final.csv && echo kept)" "changed kept"
+check "util75: antenna violations, diodes; base: diodes" \
+  "$(grep -ho 'Found [0-9]* antenna violations' $U/42-openroad-repairantennas/1-openroad-diodeinsertion/*.log | head -1 | awk '{print $2}') $(metric util75 antenna_diodes_count) $(metric base antenna_diodes_count)" \
+  "6 6 0"
+check "util75, global routing: usage of all layers, Metal2, Metal3, Metal4" \
+  "$(awk '/GRT-0096/ {on = 1} on && ($1 == "Total" || $1 == "Metal2" || $1 == "Metal3" || $1 == "Metal4") {printf "%s ", $4} on && $1 == "Total" {exit}' $U/39-openroad-globalrouting/*.log)" \
+  "58.89% 64.18% 13.12% 45.65% "
+check "the state after global routing names its database" \
+  "$(python3 -c "import json; print(json.load(open('$R/39-openroad-globalrouting/state_out.json'))['odb'])" | grep -c '39-openroad-globalrouting/bs_reg.odb')" "1"
+
+echo "== The GUI flow of LibreLane (run last, it changes the run base)"
+mkdir -p "$W/wrap"
+cat > "$W/wrap/openroad" << 'EOF'
+#!/bin/bash
+# The OpenROAD of LibreLane without a screen, with GUI_TCL after gui.tcl.
+args=()
+for a in "$@"; do
+  if [[ "$a" == */gui.tcl ]]; then
+    printf 'source %s\nsource %s\nexit\n' "$a" "$GUI_TCL" > "$GUI_TCL.run"
+    a=$GUI_TCL.run
+  fi
+  args+=("$a")
+done
+QT_QPA_PLATFORM=offscreen exec "$TOOLS/openroad-librelane/bin/openroad" "${args[@]}"
+EOF
+chmod +x "$W/wrap/openroad"
+gui() {  # gui <tcl> [options]: opens the run GUI_TAG (base) in the GUI flow, runs the Tcl, quits
+  local t=$1 tag=${GUI_TAG:-base}
+  shift
+  GUI_TCL=$t PATH=$W/wrap:$TOOLS/openroad-librelane/bin:$PATH python3 -m librelane --manual-pdk config.yaml \
+    --pdk ihp-sg13cmos5l --pdk-root "$PDK_ROOT" --run-tag $tag --flow OpenInOpenROAD "$@" > /dev/null 2>&1
+  cat "$(ls -d $B/runs/$tag/*-openroad-opengui | sort -V | tail -1)/openroad-opengui.log"
+}
+cat > gui_typ.tcl << EOF
+puts "WNS [format %.3f [sta::worst_slack -max]]"
+foreach n {VDD VSS} {
+  analyze_power_grid -net \$n
+  gui::set_heatmap IRDrop Net \$n
+  gui::set_heatmap IRDrop rebuild
+  gui::dump_heatmap IRDrop $PWD/ir_\$n.csv
+}
+EOF
+n0=$(wc -l < $R/flow.log)
+gui gui_typ.tcl > gui_typ.log
+check "GUI flow: its step folder, flow.log grew, resolved.json replaced" \
+  "$(ls -d $R/*-openroad-opengui | xargs -n1 basename) $(( $(wc -l < $R/flow.log) > n0 )) $(python3 -c "import json; c = json.load(open('$R/resolved.json')); print(c.get('SYNTH_STRATEGY'), len(c) < 200)")" \
+  "77-openroad-opengui 1 None True"
+check "GUI (typical): propagated clock, parasitics of the corner, worst setup slack" \
+  "$(grep -c 'propagating all clocks' gui_typ.log) $(grep -o "parasitics for the '[A-Za-z0-9_]*' corner" gui_typ.log) $(grep -o '^WNS .*' gui_typ.log)" \
+  "1 parasitics for the 'nom_typ_1p20V_25C' corner WNS 1.075"
+check "GUI: worst IR drop of VDD and VSS, as in irdrop.rpt" \
+  "$(grep 'Worstcase IR drop' gui_typ.log | awk '{print $(NF - 1)}' | tr '\n' ' ')$(grep 'Worstcase IR drop' $R/56-openroad-irdropreport/irdrop.rpt | awk '{print $(NF - 1)}' | tr '\n' ' ')" \
+  "1.33e-03 1.99e-03 1.33e-03 1.99e-03 "
+cat > ir.py << 'EOF'
+import csv
+import sys
+from collections import defaultdict
+d = [list(map(float, r)) for r in list(csv.reader(open('ir_%s.csv' % sys.argv[1], encoding='utf-8')))[1:]]
+mx = max(r[4] for r in d)
+ties = sorted('%.0f,%.0f' % (r[0], r[1]) for r in d if r[4] > mx - 0.0005)
+col = defaultdict(float)
+for r in d:
+    col[r[0]] = max(col[r[0]], r[4])
+left = [v for x, v in col.items() if x + 10 <= 118.76]
+print(' '.join(ties), '%.2f' % mx, '%.2f-%.2f' % (min(left), max(left)))
+EOF
+check "IR drop map of VDD: tiles of the peak (lower left x,y), peak (mV)" "$(python3 ir.py VDD | cut -d' ' -f1-3)" "40,150 50,150 1.33"
+check "IR drop map of VSS: tiles of the peak, peak, column maxima left of the last strap" "$(python3 ir.py VSS)" "150,60 160,60 1.99 1.72-1.76"
+check "warning about the voltage sources" "$(grep -c "'VSRC_LOC_FILES' was not given a value, which may make the results of IR drop analysis inaccurate. If you are not integrating a top-level chip for manufacture, you may ignore this warning" $WL)" "1"
+echo 'puts "WNS [format %.3f [sta::worst_slack -max]]"' > gui_slow.tcl
+check "GUI in the slow corner: parasitics of the corner, worst setup slack" \
+  "$(gui gui_slow.tcl -c DEFAULT_CORNER=nom_slow_1p08V_125C | grep -o -e "parasitics for the '[A-Za-z0-9_]*' corner" -e '^WNS .*' | tr '\n' ' ')" \
+  "parasitics for the 'nom_slow_1p08V_125C' corner WNS -0.586 "
+check "the selected cell of the figure" "$(grep -c 'sg13cmos5l_buf_1 input1 ' $R/final/nl/bs_reg.nl.v)" "1"
+check "settings of a step after the GUI replaced resolved.json: GRT_ADJUSTMENT" \
+  "$(python3 -c "import json; print(json.load(open('$R/39-openroad-globalrouting/config.json'))['GRT_ADJUSTMENT'])")" "0.3"
+check "warning.log after the GUI sessions: lines" "$(wc -l < $WL)" "37"
+echo 'puts "ODB [file tail [file dirname $::env(CURRENT_ODB)]]"' > gui_odb.tcl
+GRT=runs/base/39-openroad-globalrouting/state_out.json
+check "own run tag for the state after global routing: database, folders of the new run" \
+  "$(GUI_TAG=base_grt gui gui_odb.tcl --with-initial-state $GRT | grep -o '^ODB .*') $(ls -d $B/runs/base_grt/[0-9]*-* | xargs -n1 basename | tr '\n' ' ')" \
+  "ODB 39-openroad-globalrouting 1-openroad-opengui "
+check "the run base still opens the state of its last step, the final layout" \
+  "$(gui gui_odb.tcl | grep -o '^ODB .*') $(cmp -s $R/53-odb-cellfrequencytables/bs_reg.odb $R/final/odb/bs_reg.odb && echo same)" \
+  "ODB 53-odb-cellfrequencytables same"
+check "an earlier state opened in the run base itself stays for the next sessions" \
+  "$(gui gui_odb.tcl --with-initial-state $GRT | grep -o '^ODB .*') / $(gui gui_odb.tcl | grep -o '^ODB .*')" \
+  "ODB 39-openroad-globalrouting / ODB 39-openroad-globalrouting"
+check "and the GUI step saved that state into final/ of the run base" \
+  "$(cmp -s $R/final/odb/bs_reg.odb $R/39-openroad-globalrouting/bs_reg.odb && echo overwritten)" "overwritten"
+
+echo "== The Clock Tree Viewer"
+python3 - "$G/runs/base/final/nl/cg_mix.nl.v" > cg_tree.txt << 'EOF'
+import re
+import sys
+s = open(sys.argv[1], encoding='utf-8').read()
+cells = re.findall(r'\n\s*(sg13cmos5l_\w+)\s+(\S+)\s*\((.*?)\);', s, re.S)
+pins = {n: dict((p, v.strip()) for p, v in re.findall(r'\.(\w+)\(([^()]*)\)', b)) for t, n, b in cells}
+typ = {n: t.replace('sg13cmos5l_', '') for t, n, b in cells}
+loads = {}
+for n, p in pins.items():
+    for k, v in p.items():
+        if k in ('A', 'CLK'):
+            loads.setdefault(v, []).append(n)
+out = lambda n: pins[n].get('X', pins[n].get('GCLK'))
+for first in sorted(n for n in loads['clk_i'] if typ[n] in ('buf_8', 'lgcp_1')):
+    seq, net, names = [typ[first]], out(first), [first]
+    while True:
+        nxt = [n for n in loads.get(net, []) if typ[n] in ('buf_8', 'lgcp_1')]
+        if len(nxt) != 1:
+            break
+        seq.append(typ[nxt[0]]); names.append(nxt[0]); net = out(nxt[0])
+    print(' '.join(seq), '>', len(nxt), sum('delaybuf' in n for n in names), end=' | ')
+EOF
+check "cg_mix: branches from clk_i (cells > leaves, delay buffers)" "$(cat cg_tree.txt)" \
+  "buf_8 buf_8 lgcp_1 buf_8 > 4 0 | buf_8 buf_8 buf_8 buf_8 buf_8 > 4 3 | "
+cat > bs_arr.tcl << EOF
+read_liberty $LIB
+read_verilog $R/final/nl/bs_reg.nl.v
+link_design bs_reg
+read_spef $R/final/spef/nom/bs_reg.nom.spef
+read_sdc $R/final/sdc/bs_reg.sdc
+set_propagated_clock [all_clocks]
+report_checks -path_delay min -to [all_registers -data_pins] -group_path_count 200 \
+  -endpoint_path_count 1 -format full_clock_expanded -digits 4
+report_checks -path_delay max -to [all_registers -data_pins] -group_path_count 200 \
+  -endpoint_path_count 1 -format full_clock_expanded -digits 4
+EOF
+sta -no_init -exit bs_arr.tcl > bs_arr.rpt 2>&1
+check "bs_reg: late clock arrival (viewer), its spread, early arrival, at the flip-flops (typical)" \
+  "$(python3 -c "
+import re
+t = open('bs_arr.rpt', encoding='utf-8').read()
+r = []
+for kind in ('min', 'max'):
+    v = {}
+    for b in t.split('Startpoint:')[1:]:
+        if 'Path Type: %s' % kind in b:
+            e = re.search(r'Endpoint: (\S+)', b).group(1)
+            m = re.findall(r'([-\d.]+) \^ %s/CLK' % re.escape(e), b.split('data arrival time')[1])
+            v[e] = float(m[-1]) % 4
+    r.append((len(v), min(v.values()), max(v.values())))
+(n, a, b), (m, c, d) = r
+print(n, '%.3f %.3f %.3f' % (a, b, b - a), m, '%.3f %.3f' % (c, d))")" "71 0.237 0.250 0.013 71 0.225 0.238"
+check "pin capacitance ranges in the library" "$(grep -c rise_capacitance_range $LIB)" "206"
+cat > div_arr.tcl << EOF
+read_liberty $LIB
+read_verilog $V/runs/base/final/nl/div_mix.nl.v
+link_design div_mix
+read_spef $V/runs/base/final/spef/nom/div_mix.nom.spef
+read_sdc $V/runs/base/final/sdc/div_mix.sdc
+set_propagated_clock [all_clocks]
+foreach c {clk clk_div} {
+  report_checks -path_delay min -to [all_registers -clock \$c -data_pins] \
+    -group_path_count 100 -endpoint_path_count 1 -format full_clock_expanded -digits 3
+}
+EOF
+sta -no_init -exit div_arr.tcl > div_arr.rpt 2>&1
+check "div_mix: flip-flops and their clock arrival of clk and clk_div, output of the divider (typical)" \
+  "$(python3 -c "
+import re
+t = open('div_arr.rpt', encoding='utf-8').read()
+res = {}
+for b in t.split('Startpoint:')[1:]:
+    e = re.search(r'Endpoint: (\S+) \(.*?clocked by (\w+)\)', b)
+    if not e:
+        continue
+    m = re.findall(r'([-\d.]+) \^ %s/CLK' % re.escape(e.group(1)), b.split('data arrival time')[1])
+    res.setdefault(e.group(2), {})[e.group(1)] = float(m[-1])
+q = [float(x) for x in re.findall(r'([\d.]+) \^ _29_/Q', t)]
+print(*['%s %d %.2f %.2f' % (c, len(d), min(d.values()), max(d.values())) for c, d in sorted(res.items())],
+      '%.1f %.1f' % (min(q), max(q)))")" \
+  "clk 17 0.14 0.14 clk_div 16 0.49 0.49 0.3 0.3"
+
+if [ ! -f "$TPL/netlist/nl/chip_top.nl.v" ]; then
+  echo "  skip  no clone of the template at $TPL"
+else
+  echo "== The template chip in the GUI"
+  check "template chip: clock buffers, sinks of the clock tree" \
+    "$(grep -cE 'sg13cmos5l_buf_[0-9]+ clkbuf_[0-9_f]*_clk_PAD2CORE ' $TPL/netlist/nl/chip_top.nl.v) $(python3 -c "
+import re
+s = open('$TPL/netlist/nl/chip_top.nl.v', encoding='utf-8').read()
+print(*sorted(n.lstrip('\\\\') for t, n, b in re.findall(r'\n\s*(\w+)\s+(\S+)\s*\((.*?)\);', s, re.S)
+      if 'leaf_clk_PAD2CORE' in b and not t.startswith('sg13cmos5l_')))")" \
+    "3 i_chip_core.counter1 i_chip_core.counter2 i_chip_core.sram_0"
+  CL=$TPL/macros/counter/final/lib/nom_typ_1p50V_25C/counter_top__nom_typ_1p50V_25C.lib
+  check "counter timing model: max clock tree path (rise, fall, ns), internal power, leakage entries" \
+    "$(awk '/max_clock_tree_path/ {f = 1} f && /values\(/ {gsub(/[^0-9.]/, "", $0); printf "%.2f ", $0; n++} n == 2 {exit}' $CL)$(grep -c internal_power $CL) $(grep -cE 'cell_leakage_power|leakage_power *\(' $CL)" \
+    "0.11 0.11 0 0"
+  check "template: librelane-openroad of the chip and the counter, report folders" \
+    "$(cat $TPL/Makefile $TPL/macros/counter/Makefile | tr -d '\r' | grep -A1 '^librelane-openroad:' | grep -c -- '--last-run --flow OpenInOpenROAD') $(grep -h -E '^REPORT_DIR' $TPL/Makefile $TPL/macros/counter/Makefile | tr -d '\r' | awk '{print $NF}' | tr '\n' ' ')" \
+    "2 verification/reports verification "
 fi
 
 echo "== Code listings"
