@@ -69,10 +69,15 @@ The course is an elective for students of the Bachelor's program in Computer Sci
 - basic experience with a hardware description language (e.g., VHDL)
 - your own laptop with at least 20 GB of free disk space for VS Code, Git, and the IIC-OSIC-TOOLS (see @sec-intro-installation)
 
-The following JKU courses, whose material is also openly available, complement this course well but are not required:
+The following JKU courses, whose material is also openly available, complement this course well regarding silicon theory, transistor-level design, design methodologies, and layout rules, but are not required:
 
 - **KV Analog Circuit Design**: <https://github.com/iic-jku/analog-circuit-design>
 - **KV Design of Complex Integrated Circuits**: <https://github.com/iic-jku/design-complex-ic>
+
+The following JKU courses complement this course well regarding digital design with VHDL, computer architecture and RISC-V, but are not required:
+
+- **VL+UE Computer Architecture**: <https://studienhandbuch.jku.at/199475>
+- **PR Hardware Design Lab**: <https://studienhandbuch.jku.at/199477>
 
 ## Course Content {#sec-intro-content}
 
