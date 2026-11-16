@@ -483,7 +483,7 @@ set_propagated_clock [all_clocks]
 report_clock_latency -digits 3
 EOF
 check "clock latency min, max (typical)" \
-  "$(sta -no_init -exit lat.tcl 2>&1 | awk '/rise -> rise/ {on = 1} on && $NF == "latency" && NF == 3 {print $1, $2; exit}')" "0.381 0.440"
+  "$(sta -no_init -exit lat.tcl 2>&1 | awk '/rise -> rise/ {on = 1} on && $NF == "latency" && NF == 3 {print $1, $2; exit}')" "0.383 0.442"
 cat >> lat.tcl << EOF
 report_checks -path_delay min -to [all_registers -data_pins] -group_path_count 100 \
   -endpoint_path_count 1 -format full_clock_expanded -digits 3
@@ -502,7 +502,7 @@ for kind in ('min', 'max'):
             e = re.search(r'Endpoint: (\S+)', b).group(1)
             m = re.findall(r'([-\d.]+) \^ %s/CLK' % re.escape(e), b.split('data arrival time')[1])
             v[e] = float(m[-1]) % 4
-    print(len(v), '%.3f %.3f' % (min(v.values()), max(v.values())), end=' ')")" "32 0.437 0.440 32 0.381 0.386 "
+    print(len(v), '%.3f %.3f' % (min(v.values()), max(v.values())), end=' ')")" "32 0.440 0.442 32 0.383 0.389 "
 
 echo "== A divided clock in the tree (div_mix)"
 must "lint of div_mix" "$(lint --top-module div_mix "$V/rtl/div_mix.sv")" "0"

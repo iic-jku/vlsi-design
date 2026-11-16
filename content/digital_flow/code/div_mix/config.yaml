@@ -19,3 +19,7 @@ FP_CORE_UTIL: 40
 STD_CELL_LIBRARY: sg13cmos5l_stdcell
 VDD_NETS: [VDD]
 GND_NETS: [VSS]
+
+# Clock nets at the normal spacing: the double spacing of
+# CTS_APPLY_NDR half left a spacing error at clk_i in OpenROAD 26Q4.
+CTS_APPLY_NDR: none
