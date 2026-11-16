@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Simon Dorrer">
-<meta name="dcterms.date" content="2026-11-14">
+<meta name="dcterms.date" content="2026-11-16">
 
 <title>VLSI Design</title>
 <style>
@@ -682,7 +682,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">November 14, 2026</p>
+      <p class="date">November 16, 2026</p>
     </div>
   </div>
   
@@ -764,10 +764,15 @@ Important
 <li>basic experience with a hardware description language (e.g., VHDL)</li>
 <li>your own laptop with at least 20 GB of free disk space for VS Code, Git, and the IIC-OSIC-TOOLS (see <a href="#sec-intro-installation" class="quarto-xref">Section&nbsp;1.13</a>)</li>
 </ul>
-<p>The following JKU courses, whose material is also openly available, complement this course well but are not required:</p>
+<p>The following JKU courses, whose material is also openly available, complement this course well regarding silicon theory, transistor-level design, design methodologies, and layout rules, but are not required:</p>
 <ul>
 <li><strong>KV Analog Circuit Design</strong>: <a href="https://github.com/iic-jku/analog-circuit-design" class="uri">https://github.com/iic-jku/analog-circuit-design</a></li>
 <li><strong>KV Design of Complex Integrated Circuits</strong>: <a href="https://github.com/iic-jku/design-complex-ic" class="uri">https://github.com/iic-jku/design-complex-ic</a></li>
+</ul>
+<p>The following JKU courses complement this course well regarding digital design with VHDL, computer architecture and RISC-V, but are not required:</p>
+<ul>
+<li><strong>VL+UE Computer Architecture</strong>: <a href="https://studienhandbuch.jku.at/199475" class="uri">https://studienhandbuch.jku.at/199475</a></li>
+<li><strong>PR Hardware Design Lab</strong>: <a href="https://studienhandbuch.jku.at/199477" class="uri">https://studienhandbuch.jku.at/199477</a></li>
 </ul>
 </section>
 <section id="sec-intro-content" class="level2" data-number="1.4">
@@ -10461,7 +10466,7 @@ Note
 <span id="cb155-4"><a href="#cb155-4" aria-hidden="true" tabindex="-1"></a><span class="va">CONSTR</span><span class="op">=</span><span class="va">$CONSTR</span>/synth/abc.constr</span>
 <span id="cb155-5"><a href="#cb155-5" aria-hidden="true" tabindex="-1"></a><span class="va">CELLS</span><span class="op">=</span><span class="va">$PDK_ROOT</span>/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/verilog</span>
 <span id="cb155-6"><a href="#cb155-6" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">SWIFT_DETERMINISTIC_HASHING</span><span class="op">=</span>1 <span class="va">FAULT_THREADS</span><span class="op">=</span>4</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Fault is written in Swift, whose hash tables take a new random seed in every run, so its compaction keeps a different set of vectors from run to run. The first variable fixes the seed, so that your results match those of the book. The second limits Fault to four threads: with one thread per core, it crashed in several of our runs on a machine with 14 cores.</p>
+<p>Fault is written in Swift, whose hash tables take a new random seed in every run, so its compaction keeps a different set of vectors from run to run. The first variable fixes the seed, so that your results match those of the book. The second limits Fault to four threads. Fault 0.9.4 still stops now and then with <code>Illegal instruction</code>, a race between its threads that hits more often the busier the machine is: on an idle machine, none of 20 runs with four threads crashed, on a machine loaded three times over, 18 of 20 did. Run the command again, the vectors do not change.</p>
 <section id="sec-dft-objectives" class="level2" data-number="9.1">
 <h2 data-number="9.1" class="anchored" data-anchor-id="sec-dft-objectives"><span class="header-section-number">9.1</span> Learning Objectives</h2>
 <p>After this chapter, you will be able to:</p>
@@ -11356,7 +11361,11 @@ Figure&nbsp;55: The stages of the Classic flow of LibreLane, with the tools and 
 <span id="cb168-33"><a href="#cb168-33" aria-hidden="true" tabindex="-1"></a><span class="co"># The library; its corners come from the PDK: typical, slow, and fast</span></span>
 <span id="cb168-34"><a href="#cb168-34" aria-hidden="true" tabindex="-1"></a><span class="co"># at 1.2 V, with the typical one as the default corner</span></span>
 <span id="cb168-35"><a href="#cb168-35" aria-hidden="true" tabindex="-1"></a><span class="fu">STD_CELL_LIBRARY</span><span class="kw">:</span><span class="at"> sg13cmos5l_stdcell</span></span>
-<span id="cb168-36"><a href="#cb168-36" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb168-36"><a href="#cb168-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb168-37"><a href="#cb168-37" aria-hidden="true" tabindex="-1"></a><span class="co"># Setup violations fail the run in the typical corners only, the</span></span>
+<span id="cb168-38"><a href="#cb168-38" aria-hidden="true" tabindex="-1"></a><span class="co"># default of the PDK in image 2026.10. Newer PDKs check all corners.</span></span>
+<span id="cb168-39"><a href="#cb168-39" aria-hidden="true" tabindex="-1"></a><span class="fu">TIMING_VIOLATION_CORNERS</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">"*typ*"</span><span class="kw">]</span></span>
+<span id="cb168-40"><a href="#cb168-40" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>The run takes about six minutes. LibreLane writes each step into its own numbered folder of the run folder <code>runs/base/</code>, e.g., <code>06-yosys-synthesis/</code> or <code>35-openroad-cts/</code>, with the log of the tool, its reports, the exact commands in <code>COMMANDS</code>, and the state it hands on. The folder <code>final/</code> collects the results: the layout as GDSII (<code>gds/</code>), as DEF (Design Exchange Format, <code>def/</code>), and as OpenROAD database (<code>odb/</code>), the LEF abstract of the macro for a parent design (<a href="#sec-synthesis-lib-cells" class="quarto-xref">Section&nbsp;5.3</a>, <code>lef/</code>), the netlist without and with supply connections (<code>nl/</code>, <code>pnl/</code>), the extracted parasitics as SPEF (Standard Parasitic Exchange Format, <code>spef/</code>), the delays for a gate-level simulation per corner as SDF (<a href="#sec-verification-gl-sdf" class="quarto-xref">Section&nbsp;4.10.2</a>, <code>sdf/</code>), a timing model of the macro (<code>lib/</code>), the SPICE netlist extracted from the layout (<code>spice/</code>), and all metrics of the run in <code>metrics.json</code>.</p>
 <section id="sec-digital-flow-gui" class="level3" data-number="10.2.1">
@@ -11454,7 +11463,7 @@ Figure&nbsp;57: A floorplan, not to scale. The core inside the die holds rows of
 <h2 data-number="10.5" class="anchored" data-anchor-id="sec-digital-flow-cts"><span class="header-section-number">10.5</span> Clock Tree Synthesis</h2>
 <p>Until now, the timing analyses of our designs assumed an ideal clock that reaches every flip-flop at the same moment (<a href="#sec-sequential-sdc" class="quarto-xref">Section&nbsp;6.6</a>). In reality, one clock pin cannot drive dozens of flip-flops spread over the core. <strong>Clock tree synthesis</strong> (CTS) builds a tree of buffers from the clock pin to every flip-flop, so that the clock edge reaches all of them after about the same delay, the <strong>latency</strong>, with a small difference, the <strong>skew</strong>. TritonCTS, the CTS of OpenROAD, builds an <strong>H-tree</strong>: it divides the region of the flip-flops recursively into halves, connects the halves with branches of equal length, and places buffers along the tree that drive the branches and the flip-flops. It chooses from the clock buffers that the PDK lists, <code>buf_8</code> down to <code>buf_1</code>, with <code>buf_8</code> at the root. From now on, STA uses the <strong>propagated</strong> clock, i.e., the real arrival time of the clock at each flip-flop.</p>
 <p>Skew moves time from one check to the other (<a href="#sec-sequential-hold" class="quarto-xref">Section&nbsp;6.10</a>): a capturing flip-flop whose clock arrives late gains setup time and loses hold time. After CTS, OpenROAD therefore repairs the timing with the real clock: it enlarges cells and adds buffers on paths that violate setup, and it inserts delay cells, <code>dlygate4sd1_1</code> to <code>dlygate4sd3_1</code>, into paths that violate hold, up to the margins <code>PL_RESIZER_SETUP_SLACK_MARGIN</code> and <code>PL_RESIZER_HOLD_SLACK_MARGIN</code> (0.05 and 0.1 ns by default). The candidates for hold violations are short paths, in which one flip-flop drives the next directly, as in the scan chains of <a href="#sec-dft" class="quarto-xref">Section&nbsp;9</a>.</p>
-<p>A clock gate (<a href="#sec-synth-opt-cg" class="quarto-xref">Section&nbsp;7.7</a>) sits inside the clock tree, and the flip-flops behind it see its delay on top of the tree. TritonCTS balances this extra delay. The design <code>cg_mix</code> has two 16-bit registers on one clock, one of them behind an <code>lgcp_1</code>. CTS builds one tree behind the clock gate and one for the ungated register, reports that it balances the latency of the clock, and inserts three <code>buf_8</code> as delay buffers in front of the tree of the ungated register. In the typical corner, the rising clock edge then reaches all 32 flip-flops between 0.437 and 0.440 ns after the clock pin.</p>
+<p>A clock gate (<a href="#sec-synth-opt-cg" class="quarto-xref">Section&nbsp;7.7</a>) sits inside the clock tree, and the flip-flops behind it see its delay on top of the tree. TritonCTS balances this extra delay. The design <code>cg_mix</code> has two 16-bit registers on one clock, one of them behind an <code>lgcp_1</code>. CTS builds one tree behind the clock gate and one for the ungated register, reports that it balances the latency of the clock, and inserts three <code>buf_8</code> as delay buffers in front of the tree of the ungated register. In the typical corner, the rising clock edge then reaches all 32 flip-flops between 0.440 and 0.442 ns after the clock pin.</p>
 <p>A divided clock (<a href="#sec-modeling-clken" class="quarto-xref">Section&nbsp;3.4.2</a>) gets no such help. In <code>div_mix</code>, a flip-flop divides <code>clk_i</code> by two, and a 16-bit register on the divided clock takes over the value of a register on <code>clk_i</code>. Its SDC file defines the divided clock with <code>create_generated_clock</code> (<a href="#sec-sequential-genclk" class="quarto-xref">Section&nbsp;6.8</a>). CTS finds two clock nets, <code>clk_i</code> and the output <code>div_q</code> of the divider, and builds a tree for each without balancing them against each other. The flip-flops behind the divider therefore see the clock later, by the clock-to-output delay of the divider and the delay of the second tree, and after CTS all 16 paths from <code>clk_i</code> into the divided clock violate hold, by up to 0.25 ns in the typical corner. The timing repair fixes them with 32 delay cells, two in front of each flip-flop. A clock enable on <code>clk_i</code> needs neither the second tree nor the delay cells.</p>
 <p>The Clock Tree Viewer of the GUI (menu <code>Windows</code>) draws the tree of each clock in a tab of its own, named after the clock of the SDC file, after a click on <code>Update</code> (<a href="#fig-digital-flow-gui-cts-cg" class="quarto-xref">Figure&nbsp;58</a> and <a href="#fig-digital-flow-gui-cts-div" class="quarto-xref">Figure&nbsp;59</a>). The source of the clock sits at the top, and each buffer and each flip-flop sits at the latest time when the rising clock edge reaches it, in the corner chosen at the top left, so a balanced tree ends in one flat row of flip-flops. In <code>cg_mix</code>, the gated branch passes two <code>buf_8</code>, the clock gate (drawn as a circle), and one more <code>buf_8</code> before its four leaf buffers, and the ungated branch passes the three delay buffers and two more <code>buf_8</code>. Both end in the same row, at 0.44 ns. In <code>div_mix</code>, the tab <code>clk</code> shows the 17 flip-flops on <code>clk_i</code>, the divider included, which see the edge after about 0.14 ns. The tab <code>clk_div</code> starts at the output of the divider, after about 0.3 ns, and its 16 flip-flops see the edge only after about 0.49 ns. This difference causes the hold violations, which the repair fixes with delay cells.</p>
 <div class="quarto-layout-panel" data-layout-ncol="2">
@@ -11785,7 +11794,7 @@ Figure&nbsp;67: The worst setup path of the slow corner in the OpenROAD GUI: the
 </div>
 <section id="sec-digital-flow-reports" class="level3" data-number="10.7.1">
 <h3 data-number="10.7.1" class="anchored" data-anchor-id="sec-digital-flow-reports"><span class="header-section-number">10.7.1</span> The Reports of a Run</h3>
-<p>The run <code>base</code> ends with <code>Flow complete.</code>, and still its slow corner fails. Besides a step that ends with an error, only a failing checker makes a run fail (<a href="#sec-digital-flow-librelane" class="quarto-xref">Section&nbsp;10.2</a>), and each checker of the timing counts only the corners in its own variable. The PDK sets <code>TIMING_VIOLATION_CORNERS</code> to the typical corners (<code>*typ*</code>), so the checker of the setup violations only warns about the slow corner in <code>flow.log</code> and <code>warning.log</code>. <code>HOLD_VIOLATION_CORNERS</code> covers all corners (<code>*</code>), so a hold violation in any corner fails the run, and the checkers of the maximum slew and capacitance count no corner at all. The report <code>manufacturability.rpt</code> at the end of the run says <code>Passed</code> for antenna, LVS, and DRC, and nothing about the timing. A finished flow is therefore not necessarily a clean design. After every run, read the reports of <a href="#tbl-digital-flow-reports" class="quarto-xref">Table&nbsp;39</a>, and <code>final/metrics.json</code>, which collects most of their numbers.</p>
+<p>The run <code>base</code> ends with <code>Flow complete.</code>, and still its slow corner fails. Besides a step that ends with an error, only a failing checker makes a run fail (<a href="#sec-digital-flow-librelane" class="quarto-xref">Section&nbsp;10.2</a>), and each checker of the timing counts only the corners in its own variable. The configuration sets <code>TIMING_VIOLATION_CORNERS</code> to the typical corners (<code>*typ*</code>), the default of the PDK in the image <code>2026.10</code>, so the checker of the setup violations only warns about the slow corner in <code>flow.log</code> and <code>warning.log</code>. Newer versions of the PDK set all corners (<code>*</code>), and without the line in the configuration, the same run then ends with an error. <code>HOLD_VIOLATION_CORNERS</code> covers all corners (<code>*</code>), so a hold violation in any corner fails the run, and the checkers of the maximum slew and capacitance count no corner at all. The report <code>manufacturability.rpt</code> at the end of the run says <code>Passed</code> for antenna, LVS, and DRC, and nothing about the timing. A finished flow is therefore not necessarily a clean design. After every run, read the reports of <a href="#tbl-digital-flow-reports" class="quarto-xref">Table&nbsp;39</a>, and <code>final/metrics.json</code>, which collects most of their numbers.</p>
 <div id="tbl-digital-flow-reports" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-digital-flow-reports-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -12550,12 +12559,12 @@ YosysHQ. 2026b. <em><span>MCY</span>: Mutation Cover with <span>Yosys</span></em
 </div></section><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div>Apache-2.0 license</div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><div class="code-copy-outer-scaffold"><pre class="sourceCode quarto-appendix-bibtex code-with-copy"><code class="sourceCode bibtex">@online{dorrer2026,
   author = {Dorrer, Simon},
   title = {VLSI {Design}},
-  date = {2026-11-14},
+  date = {2026-11-16},
   url = {https://iic-jku.github.io/vlsi-design},
   langid = {en-US}
 }
 </code></pre><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-dorrer2026" class="csl-entry quarto-appendix-citeas" role="listitem">
-Dorrer, Simon. 2026. <span>“VLSI Design.”</span> November 14. <a href="https://iic-jku.github.io/vlsi-design">https://iic-jku.github.io/vlsi-design</a>.
+Dorrer, Simon. 2026. <span>“VLSI Design.”</span> November 16. <a href="https://iic-jku.github.io/vlsi-design">https://iic-jku.github.io/vlsi-design</a>.
 </div></div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
