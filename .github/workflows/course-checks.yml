@@ -113,14 +113,15 @@ jobs:
       - name: Write the summary
         if: always()
         shell: bash
+        # The step runs under bash -e, so a clean log (no match) or a missing one must not fail it
         run: |
           L=$RUN_DIR/logs/$CHAPTER.log
           {
             echo "### $CHAPTER ($CHECK_MODE mode)"
             echo
             echo '```'
-            tail -n 1 "$L" 2> /dev/null
-            grep -E '^  (FAIL|drift) ' "$L" 2> /dev/null
+            tail -n 1 "$L" 2> /dev/null || true
+            grep -E '^  (FAIL|drift) ' "$L" 2> /dev/null || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
