@@ -6,15 +6,15 @@
 # container (image 2026.10). Run from the repository root:
 #   bash scripts/check_cdc.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
-# if any result differs from the value in the chapter. The ngspice
-# characterization takes about five minutes.
+# if any result differs from the value in the chapter. The four ngspice
+# characterizations run in parallel and take about ten minutes.
+# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 W=${CHECK_DIR:-/tmp/vlsi_check_cdc}
 D=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
 LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
-fails=0
 
 rm -rf "$W" && mkdir -p "$W/content"
 for ch in cdc sequential verification synthesis_lib; do
@@ -24,18 +24,7 @@ S=$W/content/cdc/code
 CONSTR=$W/content/synthesis_lib/code/synth/abc.constr
 cd "$W" || exit 1
 
-check() {  # check <what> <got> <expected>
-  if [ "$2" == "$3" ]; then
-    echo "  ok    $1: $2"
-  else
-    echo "  FAIL  $1: got '$2', expected '$3'"
-    fails=$((fails + 1))
-  fi
-}
-
-lint() {  # lint <files>: number of Verilator warnings and errors
-  verilator --lint-only -Wall "$@" 2>&1 | grep -c -E '%Warning|%Error'
-}
+source "$REPO/scripts/lib_check.sh"
 
 cells() {  # cells <log>: the total cell count of the last stat
   grep -E '^ +[0-9]+ +([0-9.E+]+ +)?cells$' "$1" | tail -1 | awk '{print $1}'
@@ -68,13 +57,22 @@ check "ngspice" "$(ngspice -v 2>&1 | grep -o 'ngspice-[0-9]*' | head -1)" "ngspi
 
 echo "== Metastability of dfrbpq_1 in ngspice"
 cd "$S/meta"
-python3 dff_meta.py > typ.log 2>&1
-python3 dff_meta.py slow > slow.log 2>&1
-CPAR=0 python3 dff_meta.py > typ0.log 2>&1
-CPAR=0 python3 dff_meta.py slow > slow0.log 2>&1
+# The spinit of ngspice sets num_threads=8, which overrides OMP_NUM_THREADS.
+# OMP_THREAD_LIMIT caps it, so each of the four runs takes one core. On an
+# idle machine, one run takes 295 s with eight threads and 388 s with one,
+# the four together 541 s. With eight threads each, they stalled for over
+# an hour on a loaded machine. The results do not change.
+export OMP_THREAD_LIMIT=1
+python3 dff_meta.py > typ.log 2>&1 &
+python3 dff_meta.py slow > slow.log 2>&1 &
+CPAR=0 python3 dff_meta.py > typ0.log 2>&1 &
+CPAR=0 python3 dff_meta.py slow > slow0.log 2>&1 &
+wait
+unset OMP_THREAD_LIMIT
 row() { awk -v d="$2" '$1 == d { print $2 }' "$1"; }
 fit() { grep -o 'tau = .*' "$1"; }
 cq0() { grep -o 't_cq0 = [0-9.]*' "$1" | awk '{print $3}'; }
+must "ngspice characterizations with a fit" "$(grep -l 'tau = ' typ.log slow.log typ0.log slow0.log | wc -l)" "4"
 check "internal nodes of dfrbpq_1" "$(python3 -c 'import dff_meta; print(dff_meta.cell(1.5).count("Cp"))')" "15"
 check "typical: t_cq0" "$(cq0 typ.log)" "220.4"
 check "typical: t_cq at 1e-11 to 1e-18 s" \
@@ -127,14 +125,16 @@ check "slow, two flip-flops: period and frequency for 100 years" \
 
 echo "== Synchronizers"
 cd "$S/sync"
-check "lint of sync_2ff, pulse_sync" "$(lint rtl/sync_2ff.sv) $(lint rtl/pulse_sync.sv rtl/sync_2ff.sv)" "0 0"
+must "lint of sync_2ff, pulse_sync" "$(lint rtl/sync_2ff.sv) $(lint rtl/pulse_sync.sv rtl/sync_2ff.sv)" "0 0"
 iverilog -g2012 -o p.vvp rtl/pulse_sync.sv rtl/sync_2ff.sv tb/tb_pulse_sync.sv > /dev/null 2>&1
-check "pulse synchronizer" "$(vvp -n p.vvp | grep sent)" "1000 pulses sent, 1000 through pulse_sync, 699 plain"
+ps=$(vvp -n p.vvp | grep sent)
+must "pulse synchronizer loses no pulse" "$(echo "$ps" | grep -o '^1000 pulses sent, 1000 through pulse_sync')" "1000 pulses sent, 1000 through pulse_sync"
+check "pulse synchronizer" "$ps" "1000 pulses sent, 1000 through pulse_sync, 699 plain"
 check "pulse spacing against 1.5 periods of clk_b" "$(calc 'printf "%.0f %.0f", 5 * 10, 1.5 * 14.3')" "50 21"
 
 echo "== Exercise: Count Across Clock Domains"
 cd "$S/gray"
-check "lint of the crossings" \
+must "lint of the crossings" \
   "$(lint rtl/cnt_cross_bin.sv ../sync/rtl/sync_2ff.sv) $(lint rtl/cnt_cross_gray.sv ../sync/rtl/sync_2ff.sv)" "0 0"
 for d in cnt_cross_bin cnt_cross_gray; do
   iverilog -g2012 -DDUT=$d -o m.vvp rtl/$d.sv ../sync/sim/sync_2ff_meta.sv tb/tb_cnt_cross.sv > /dev/null 2>&1
@@ -142,6 +142,8 @@ for d in cnt_cross_bin cnt_cross_gray; do
   iverilog -g2012 -DDUT=$d -o r.vvp rtl/$d.sv ../sync/rtl/sync_2ff.sv tb/tb_cnt_cross.sv > /dev/null 2>&1
   vvp -n r.vvp > $d.rtl.log 2>&1
 done
+must "with injection: binary counter fails, Gray counter does not" \
+  "$(grep -o '[0-9]* errors' cnt_cross_bin.meta.log | grep -c '^[1-9]') $(grep -o '[0-9]* errors' cnt_cross_gray.meta.log)" "1 0 errors"
 check "binary, injection: errors, random samples" \
   "$(grep -o '[0-9]* errors' cnt_cross_bin.meta.log) $(grep -o '[0-9]* of 5001' cnt_cross_bin.meta.log)" "224 errors 334 of 5001"
 check "binary, first wrong counts" "$(grep 'ns: count' cnt_cross_bin.meta.log | tr '\n' ' ')" \
@@ -153,26 +155,31 @@ sed 's/      if (sample != d_i) n_random++;/      if (sample != d_i) begin n_ran
 iverilog -g2012 -DDUT=cnt_cross_bin -o d.vvp rtl/cnt_cross_bin.sv dbg_meta.sv tb/tb_cnt_cross.sv > /dev/null 2>&1
 check "binary, random samples before 400 ns" "$(vvp -n d.vvp | grep 'sampled' | tr '\n' ' ')" \
   "75.35 ns: d_i 0110 sampled 0111 335.65 ns: d_i 0000 sampled 1100 "
-check "plain RTL synchronizer: binary, Gray" \
+must "plain RTL synchronizer: binary, Gray" \
   "$(grep -o '[0-9]* errors' cnt_cross_bin.rtl.log) $(grep -o '[0-9]* errors' cnt_cross_gray.rtl.log)" "0 errors 0 errors"
 check "Gray code of 0 to 7" \
   "$(for b in 0 1 2 3 4 5 6 7; do calc "printf \"%d \", xor($b, int($b / 2))"; done)" "0 1 3 2 6 7 5 4 "
 
 echo "== The asynchronous FIFO"
 cd "$S/fifo"
-check "lint of async_fifo" "$(lint rtl/async_fifo.sv ../sync/rtl/sync_2ff.sv)" "0"
+must "lint of async_fifo" "$(lint rtl/async_fifo.sv ../sync/rtl/sync_2ff.sv)" "0"
 iverilog -g2012 -o f.vvp rtl/async_fifo.sv ../sync/sim/sync_2ff_meta.sv tb/tb_async_fifo.sv > /dev/null 2>&1
 vvp -n f.vvp > fmeta.log 2>&1
+must "with injection: errors" "$(grep pushed fmeta.log | grep -o ' [0-9]* errors$')" " 0 errors"
 check "with injection" "$(grep pushed fmeta.log)" "9397 pushed, 9395 popped, 0 errors"
 check "random samples in both synchronizers" "$(grep -o '[0-9]* of [0-9]*' fmeta.log | tr '\n' ' ')" "481 of 20000 367 of 13986 "
 iverilog -g2012 -o r.vvp rtl/async_fifo.sv ../sync/rtl/sync_2ff.sv tb/tb_async_fifo.sv > /dev/null 2>&1
-check "with the RTL synchronizer" "$(vvp -n r.vvp | grep pushed)" "9506 pushed, 9504 popped, 0 errors"
+fr=$(vvp -n r.vvp | grep pushed)
+must "with the RTL synchronizer: errors" "$(echo "$fr" | grep -o ' [0-9]* errors$')" " 0 errors"
+check "with the RTL synchronizer" "$fr" "9506 pushed, 9504 popped, 0 errors"
 yosys -p "read_verilog -sv ../sync/rtl/sync_2ff.sv rtl/async_fifo.sv; \
   synth -top async_fifo; flatten; dfflibmap -liberty $LIB; \
   abc -constr $CONSTR -liberty $LIB; opt_clean; \
   stat -liberty $LIB; write_verilog -noattr async_fifo.nl.v" > y.log 2>&1
+must "async_fifo: Yosys exit status" "$?" "0"
 check "async_fifo: cells, area, flip-flops" "$(cells y.log) $(area y.log) $(ctype y.log sg13cmos5l_dfrbpq_1)" "134 3978.979200 54"
 sta -no_init -exit syn/sta.tcl > nocdc.log 2>&1
+must "async_fifo: OpenSTA exit status" "$?" "0"
 check "without CDC constraints: rclk, wclk" \
   "$(endslack nocdc.log rclk max_delay) $(endslack nocdc.log wclk max_delay)" "100.414 -1.414 1330.156 -0.382"
 check "edges of the worst crossing path" \
@@ -180,6 +187,7 @@ check "edges of the worst crossing path" \
 check "startpoint, endpoint of the worst crossing path" \
   "$(awk '/^Startpoint:/ {s = $2} /^Endpoint:/ {print s, $2; exit}' nocdc.log)" "_138_ data_o[0]"
 CDC=1 sta -no_init -exit syn/sta.tcl > cdc.log 2>&1
+must "async_fifo with CDC=1: OpenSTA exit status" "$?" "0"
 check "with clock groups: crossing paths" "$(grep -c 'No paths found' cdc.log)" "2"
 check "with clock groups: rclk, wclk" \
   "$(endslack cdc.log rclk max_delay) $(endslack cdc.log wclk max_delay)" "0.712 12.488 1.632 8.171"
@@ -228,9 +236,10 @@ check "set_max_delay: group, slack" \
 
 echo "== Exercise: Release the Reset"
 cd "$S/reset"
-check "lint of rst_sync" "$(lint rtl/rst_sync.sv)" "0"
+must "lint of rst_sync" "$(lint rtl/rst_sync.sv)" "0"
 iverilog -g2012 -o r.vvp rtl/rst_sync.sv tb/tb_rst_sync.sv > /dev/null 2>&1
 vvp -n r.vvp > r.log 2>&1
+must "testbench of rst_sync: errors" "$(grep -o '^[0-9]* errors$' r.log)" "0 errors"
 check "testbench of rst_sync" "$(grep -v finish r.log | tr '\n' ' ')" \
   "42.1 ns: rst_ni low, rst_no = 0 64.8 ns: rst_ni high, rst_no high at 75.0 ns 0 errors "
 yosys -p "read_verilog -sv \
@@ -239,8 +248,10 @@ yosys -p "read_verilog -sv \
   rtl/rst_sync.sv rtl/bs_reg_rs.sv; synth -top bs_reg_rs; flatten; \
   dfflibmap -liberty $LIB; abc -constr $CONSTR -liberty $LIB; \
   opt_clean; stat -liberty $LIB; write_verilog -noattr bs_reg_rs.nl.v" > y.log 2>&1
+must "bs_reg_rs: Yosys exit status" "$?" "0"
 check "bs_reg_rs: cells, area, flip-flops" "$(cells y.log) $(area y.log) $(grep -c 'sg13cmos5l_dfrbpq_1 ' bs_reg_rs.nl.v)" "927 15343.360200 73"
 sta -no_init -exit syn/sta.tcl > s1.log 2>&1
+must "bs_reg_rs: OpenSTA exit status" "$?" "0"
 rs=$(awk '/^Startpoint:/ {s = $2; getline; if ($0 ~ /recovery/) {print s; exit}}' s1.log)
 check "recovery path starts at the synchronizer" "$(grep -A3 "sg13cmos5l_dfrbpq_1 $rs " bs_reg_rs.nl.v | grep -o '\.Q([^)]*)')" '.Q(\u_bs_reg.rst_ni )'
 check "recovery path: fanout, slew, delay, recovery time, slack" \
@@ -250,7 +261,7 @@ check "minimum period, with port paths" "$(period s1.log 1) $(period s1.log 2)" 
 check "period from the recovery path" "$(calc 'printf "%.3f", 1.375 + 0.451 + 0.1')" "1.926"
 check "max capacitance at the synchronizer" \
   "$(awk -v s="$rs" '$1 == s"/Q" {print $2, $3, $4; exit}' s1.log)" "0.30 0.43 -0.13"
-check "check_setup" "$(grep -c -i 'unclocked\|unconstrained\|missing' s1.log)" "0"
+must "check_setup" "$(grep -c -i 'unclocked\|unconstrained\|missing' s1.log)" "0"
 check "rst_ni: removal and recovery slack at the synchronizer" \
   "$(awk '/RESET_B/ && /MET/ {print $(NF-1)}' s1.log | head -3 | tr '\n' ' ')" "1.007 2.768 1.007 "
 cp syn/bs_reg_rs.sdc syn/bs_reg_rs_rst.sdc
@@ -260,10 +271,4 @@ check "with the false path: rst_ni, worst removal slack" \
   "$(grep -c 'No paths found' s2.log) $(awk '/RESET_B/ && /MET/ {print $(NF-1)}' s2.log | tail -1)" "1 1.341"
 check "with the false path: minimum period" "$(period s2.log 2)" "1.93 519.22"
 
-echo
-if [ "$fails" -eq 0 ]; then
-  echo "All checks passed."
-else
-  echo "$fails check(s) failed."
-  exit 1
-fi
+finish

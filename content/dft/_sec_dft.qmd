@@ -29,7 +29,7 @@ CELLS=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/verilog
 export SWIFT_DETERMINISTIC_HASHING=1 FAULT_THREADS=4
 ```
 
-Fault is written in Swift, whose hash tables take a new random seed in every run, so its compaction keeps a different set of vectors from run to run. The first variable fixes the seed, so that your results match those of the book. The second limits Fault to four threads: with one thread per core, it crashed in several of our runs on a machine with 14 cores.
+Fault is written in Swift, whose hash tables take a new random seed in every run, so its compaction keeps a different set of vectors from run to run. The first variable fixes the seed, so that your results match those of the book. The second limits Fault to four threads. Fault 0.9.4 still stops now and then with `Illegal instruction`, a race between its threads that hits more often the busier the machine is: on an idle machine, none of 20 runs with four threads crashed, on a machine loaded three times over, 18 of 20 did. Run the command again, the vectors do not change.
 
 ## Learning Objectives {#sec-dft-objectives}
 

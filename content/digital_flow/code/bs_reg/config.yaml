@@ -33,3 +33,7 @@ GND_NETS: [VSS]
 # The library; its corners come from the PDK: typical, slow, and fast
 # at 1.2 V, with the typical one as the default corner
 STD_CELL_LIBRARY: sg13cmos5l_stdcell
+
+# Setup violations fail the run in the typical corners only, the
+# default of the PDK in image 2026.10. Newer PDKs check all corners.
+TIMING_VIOLATION_CORNERS: ["*typ*"]

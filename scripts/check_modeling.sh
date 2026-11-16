@@ -7,6 +7,7 @@
 #   bash scripts/check_modeling.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter.
+# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -14,25 +15,18 @@ W=${CHECK_DIR:-/tmp/vlsi_check_modeling}
 LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
 CELLS=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/verilog
 SRAM=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_sram/lef
-fails=0
 
 rm -rf "$W" && mkdir -p "$W" && cp -r "$REPO/content/modeling/code/." "$W/"
 cd "$W" || exit 1
 
-check() {  # check <what> <got> <expected>
-  if [ "$2" == "$3" ]; then
-    echo "  ok    $1: $2"
-  else
-    echo "  FAIL  $1: got '$2', expected '$3'"
-    fails=$((fails + 1))
-  fi
-}
+source "$REPO/scripts/lib_check.sh"
 
 synth() {  # synth <top> <files...>: generic synthesis, map onto SG13CMOS5L, write <top>.nl.v
   local top=$1; shift
   yosys -q -l "$top.syn.log" -p "read_verilog -sv $*; synth -top $top; \
     dfflibmap -liberty $LIB; abc -liberty $LIB; opt_clean; stat -liberty $LIB; \
     write_verilog -noattr $top.nl.v" > /dev/null
+  must "$top: Yosys exit status" "$?" "0"
 }
 
 area() { grep "Chip area" "$1.syn.log" | tail -1 | awk '{print $NF}'; }
@@ -47,8 +41,8 @@ check "cocotb" "$(python3 -c 'import cocotb; print(cocotb.__version__)')" "2.1.0
 
 echo "== Lint of every rtl/ file (no warning or error with -Wall)"
 for f in */rtl/*.sv; do
-  out=$(verilator --lint-only -Wall "$f" 2>&1 | grep -c -E "%Warning|%Error")
-  check "lint $f" "$out" "0"
+  out=$(lint "$f")
+  must "lint $f" "$out" "0"
 done
 
 echo "== ctrl_fsm_noreset: the missing reset"
@@ -60,7 +54,7 @@ check "Icarus RTL cycle 1" "$(sed -n 2p icarus.txt)" "cycle 1: state_q=00 busy_o
 check "Icarus RTL cycle 5" "$(sed -n 6p icarus.txt)" "cycle 5: state_q=10 busy_o=0 done_o=1"
 verilator --binary --timing --timescale 1ns/1ps -Mdir obj_v --top-module ctrl_fsm_noreset_tb \
   rtl/ctrl_fsm_noreset.sv testbenches/verilog/ctrl_fsm_noreset_tb.sv > verilator.log 2>&1
-check "Verilator build warnings" "$(grep -c '%Warning' verilator.log)" "0"
+must "Verilator build: exit status, warnings" "$? $(grep -c '%Warning' verilator.log)" "0 0"
 check "Verilator cycle 0" "$(./obj_v/Vctrl_fsm_noreset_tb | grep 'cycle 0')" "cycle 0: state_q=00 busy_o=0 done_o=0"
 # --x-initial unique is the default: the same build gives random start values with +verilator+rand+reset+2
 for s in 1 2 3 4 5 6 7 8 9 10; do
@@ -100,7 +94,7 @@ iverilog -g2012 -o x.vvp testbenches/verilog/xprop_tb.sv && vvp -n x.vvp | grep 
 check "Icarus a=0 b=1" "$(sed -n 1p icarus.txt)" "sel=x a=0 b=1: if=0 case=x ?:=x and=0"
 check "Icarus a=1 b=1" "$(sed -n 2p icarus.txt)" "sel=x a=1 b=1: if=1 case=x ?:=1 and=x"
 verilator --binary --timing -Mdir obj testbenches/verilog/xprop_tb.sv > verilator.log 2>&1
-check "Verilator build warnings" "$(grep -c '%Warning' verilator.log)" "0"
+must "Verilator build: exit status, warnings" "$? $(grep -c '%Warning' verilator.log)" "0 0"
 ./obj/Vxprop_tb | grep sel > verilator.txt
 check "Verilator a=0 b=1" "$(sed -n 1p verilator.txt)" "sel=x a=0 b=1: if=0 case=0 ?:=0 and=0"
 check "Verilator a=1 b=1" "$(sed -n 2p verilator.txt)" "sel=x a=1 b=1: if=1 case=1 ?:=1 and=0"
@@ -124,13 +118,14 @@ check "lint of the FPGA version (PROCASSINIT warnings)" \
   "$(verilator --lint-only -Wall exercise/led_blink_fpga.sv 2>&1 | grep -c '%Warning-PROCASSINIT')" "3"
 for top in led_blink led_blink_fpga; do
   (cd testbenches/cocotb && TOPLEVEL=$top python3 led_blink_tb.py > $top.log 2>&1)
-  check "cocotb $top (Icarus)" "$(grep -o 'TESTS=[0-9]* PASS=[0-9]* FAIL=[0-9]*' testbenches/cocotb/$top.log)" "TESTS=1 PASS=1 FAIL=0"
+  must "cocotb $top (Icarus)" "$(grep -o 'TESTS=[0-9]* PASS=[0-9]* FAIL=[0-9]*' testbenches/cocotb/$top.log)" "TESTS=1 PASS=1 FAIL=0"
 done
 (cd testbenches/cocotb && rm -rf sim_build && SIM=verilator python3 led_blink_tb.py > verilator.log 2>&1)
-check "cocotb led_blink (Verilator)" "$(grep -o 'TESTS=[0-9]* PASS=[0-9]* FAIL=[0-9]*' testbenches/cocotb/verilator.log)" "TESTS=1 PASS=1 FAIL=0"
+must "cocotb led_blink (Verilator)" "$(grep -o 'TESTS=[0-9]* PASS=[0-9]* FAIL=[0-9]*' testbenches/cocotb/verilator.log)" "TESTS=1 PASS=1 FAIL=0"
 yosys -q -l fpga.syn.log -p "read_verilog -sv exercise/led_blink_fpga.sv; chparam -set DIV 4 led_blink_fpga; \
   synth -top led_blink_fpga; dfflibmap -liberty $LIB; abc -liberty $LIB; opt_clean; stat -liberty $LIB; \
   write_verilog -noattr led_blink_fpga.nl.v" > /dev/null
+must "FPGA version: Yosys exit status" "$?" "0"
 check "Yosys warnings about the dropped initial values" "$(grep -c -i 'warning.*init' fpga.syn.log)" "0"
 check "init attributes left in the netlist" "$(grep -c 'init' led_blink_fpga.nl.v)" "0"
 cat > gl_tb.sv <<'EOF'
@@ -198,12 +193,13 @@ declare -A exp_out=([excl_cnt_bin]=0.49 [excl_cnt_ring]=0.23 [excl_cnt_ring_for]
 declare -A exp_reg=([excl_cnt_bin]=0.52 [excl_cnt_ring]=0.31 [excl_cnt_ring_for]=0.31 [excl_cnt_johnson]=0.35)
 for top in excl_cnt_bin excl_cnt_ring excl_cnt_ring_for excl_cnt_johnson; do
   (cd testbenches/cocotb && rm -rf sim_build && TOPLEVEL=$top python3 excl_cnt_tb.py > $top.log 2>&1)
-  check "cocotb $top" "$(grep -o 'TESTS=[0-9]* PASS=[0-9]* FAIL=[0-9]*' testbenches/cocotb/$top.log)" "TESTS=3 PASS=3 FAIL=0"
+  must "cocotb $top" "$(grep -o 'TESTS=[0-9]* PASS=[0-9]* FAIL=[0-9]*' testbenches/cocotb/$top.log)" "TESTS=3 PASS=3 FAIL=0"
   synth $top rtl/$top.sv
   check "$top cells" "$(ncells $top)" "${exp_cells[$top]}"
   check "$top flip-flops" "$(ncell $top sg13cmos5l_dfrbpq_1)" "${exp_ff[$top]}"
   check "$top area" "$(area $top)" "${exp_area[$top]}"
   TOP=$top sta -no_init -exit syn/sta.tcl > $top.sta.log 2>&1
+  must "$top: OpenSTA exit status" "$?" "0"
   check "$top clock to output (ns)" "$(grep '(output)' $top.sta.log | awk '{print $(NF-2)}')" "${exp_out[$top]}"
   check "$top register to register (ns)" "$(grep 'dfrbpq_1)' $top.sta.log | awk '{print $(NF-2)}')" "${exp_reg[$top]}"
 done
@@ -223,6 +219,7 @@ echo "== ram_ff: flip-flops against an SRAM macro"
 cd ram_ff
 yosys -q -l ram.syn.log -p "read_verilog -sv rtl/ram_ff.sv; synth -top ram_ff; \
   dfflibmap -liberty $LIB; abc -liberty $LIB; opt_clean; stat -liberty $LIB" > /dev/null
+must "256x8 memory: Yosys exit status" "$?" "0"
 check "256x8 flip-flop memory area (um2)" "$(area ram)" "165742.945200"
 check "256x8 flip-flops" "$(ncell ram sg13cmos5l_dfrbpq_1)" "2056"
 check "256x8 mux2_1 cells" "$(ncell ram sg13cmos5l_mux2_1)" "2074"
@@ -257,10 +254,4 @@ yosys -q -l tri3.log -p "read_verilog -sv bus_tri.sv; proc; tribuf; synth -top b
 check "LibreLane-style mapping onto ebufn_2" "$(sed -n '/Printing statistics/,$p' tri3.log | awk '$2=="sg13cmos5l_ebufn_2" {print $1}' | tail -1)" "16"
 cd "$W"
 
-echo
-if [ "$fails" -eq 0 ]; then
-  echo "PASS: all results match the chapter"
-else
-  echo "FAIL: $fails result(s) differ from the chapter"
-  exit 1
-fi
+finish

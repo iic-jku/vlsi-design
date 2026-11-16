@@ -1,6 +1,7 @@
 # VLSI Design
 
 [![Quarto Publish](https://github.com/iic-jku/vlsi-design/actions/workflows/quarto-publish.yml/badge.svg?branch=main)](https://github.com/iic-jku/vlsi-design/actions/workflows/quarto-publish.yml)
+[![Course Checks](https://github.com/iic-jku/vlsi-design/actions/workflows/course-checks.yml/badge.svg?branch=main)](https://github.com/iic-jku/vlsi-design/actions/workflows/course-checks.yml)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-online-brightgreen?logo=github)](https://iic-jku.github.io/vlsi-design/vlsi.html)
 <!-- [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.XXXXXXXX-blue)](https://doi.org/10.5281/zenodo.XXXXXXXX) -->
 
@@ -13,6 +14,13 @@ Moreover, [**LibreLane**](https://github.com/librelane/librelane) is used for di
 The 130 nm CMOS technology [**SG13CMOS5L**](https://github.com/IHP-GmbH/IHP-Open-PDK) from [IHP Microelectronics](https://www.ihp-microelectronics.com) is used.
 
 Tools and PDK are integrated in the [**IIC-OSIC-TOOLS**](https://github.com/iic-jku/IIC-OSIC-TOOLS) Docker image, which will be used during the coursework.
+
+Every tool result that a chapter quotes is reproduced in that image by `scripts/check_<chapter>.sh`, and `scripts/run_checks.sh` runs all chapters:
+
+- `CHECK_MODE=book` (the default) fails on any value that differs from the book, on the image the book names.
+- `CHECK_MODE=regression` fails only where an exercise would break: a tool or PDK file is missing, the course code no longer lints, synthesizes, or passes its testbenches, a seeded bug is not caught, or a LibreLane run does not finish clean. Values that a newer image changes are listed as drift.
+
+The workflow `course-checks` runs the regression mode on `hpretl/iic-osic-tools:latest` for every push and pull request to `main` that changes the code or the scripts, and on any image by hand.
 
 All course material is made publicly available and shared under the Apache-2.0 license.
 

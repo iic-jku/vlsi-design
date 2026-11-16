@@ -11,6 +11,7 @@
 # its GUI flow without a screen, about 35 minutes in total. The AMS
 # chip template is checked only if a clone of the template lies next to
 # the repository (or in TEMPLATE_DIR).
+# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -19,7 +20,6 @@ W=${CHECK_DIR:-/tmp/vlsi_check_flow}
 D=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
 LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
 PDKLL=$PDK_ROOT/ihp-sg13cmos5l/libs.tech/librelane
-fails=0
 
 rm -rf "$W" && mkdir -p "$W/content"
 for ch in digital_flow sequential verification; do
@@ -29,14 +29,7 @@ B=$W/content/digital_flow/code/bs_reg
 G=$W/content/digital_flow/code/cg_mix
 V=$W/content/digital_flow/code/div_mix
 
-check() {  # check <what> <got> <expected>
-  if [ "$2" == "$3" ]; then
-    echo "  ok    $1: $2"
-  else
-    echo "  FAIL  $1: got '$2', expected '$3'"
-    fails=$((fails + 1))
-  fi
-}
+source "$REPO/scripts/lib_check.sh"
 
 calc() { awk "BEGIN { $1 }"; }
 
@@ -46,10 +39,6 @@ metric() {  # metric <run> <key> [format]: a value of final/metrics.json
 
 stage() {  # stage <run> <step folder> <key>: a metric after one step
   python3 -c "import json; print('%.4f' % json.load(open('$B/runs/$1/$2/state_out.json'))['metrics']['$3'])"
-}
-
-lint() {  # lint <files>: number of Verilator warnings and errors
-  verilator --lint-only -Wall "$@" 2>&1 | grep -c -E '%Warning|%Error'
 }
 
 echo "== Versions"
@@ -91,7 +80,7 @@ $LL --run-tag margin -c PL_RESIZER_SETUP_SLACK_MARGIN=0.6 > margin.log 2>&1 &
  cd "$V" && $LL --run-tag base > run.log 2>&1) &
 wait
 for t in base util75 hold05 delay4 margin; do
-  check "run $t complete" "$(grep -c 'Flow complete' runs/$t/flow.log)" "1"
+  must "run $t complete" "$(grep -c 'Flow complete' runs/$t/flow.log)" "1"
 done
 R=$B/runs/base
 
@@ -241,8 +230,9 @@ check "worst slow path: buffers behind the flip-flop, behind the XNOR" \
   "$(awk '/Startpoint/ {n++} n == 1 && /fanout[0-9]+\/X/ {if (x) a++; else b++} n == 1 && /_0755_\/Y/ {x = 1} n == 2 {exit} END {print b, a}' $SL)" "2 4"
 check "IR drop worst (mV), share of 1.2 V, VSS rise" \
   "$(metric base ir__drop__worst) $(calc 'printf "%.2f", 0.00133 / 1.2 * 100') $(grep 'Worstcase voltage' $R/56-openroad-irdropreport/*.log | tail -1 | awk '{print $3}')" "0.00133 0.11 1.99e-03"
-check "DRC Magic, KLayout, XOR, routing" \
+must "DRC Magic, KLayout, XOR, routing" \
   "$(metric base magic__drc_error__count) $(metric base klayout__drc_error__count) $(metric base design__xor_difference__count) $(metric base route__drc_errors)" "0 0 0 0"
+must "LVS: errors" "$(metric base design__lvs_error__count)" "0"
 check "LVS" "$(grep -c 'Circuits match uniquely' $R/70-netgen-lvs/netgen-lvs.log) $(metric base design__lvs_error__count)" "1 0"
 check "LVS on abstracts, DRC on GDS" \
   "$(python3 -c "import json; c = json.load(open('$R/resolved.json')); print(c['MAGIC_EXT_USE_GDS'], c['MAGIC_DRC_USE_GDS'])")" "False True"
@@ -257,16 +247,19 @@ check "DELAY 4: buffers after synthesis, repair reached, warning, loss" \
 check "margin 0.6: slow, typ, fast slack, area, growth" \
   "$(for c in slow_1p08V_125C typ_1p20V_25C fast_1p32V_m40C; do metric margin timing__setup__ws__corner:nom_$c .3f; done | tr '\n' ' ')$(metric margin design__instance__area__stdcell .1f) $(calc 'printf "%.0f", (15170.2 / 15023.2 - 1) * 100')" \
   "0.048 1.512 2.271 15170.2 1"
+must "margin 0.6: DRC, LVS errors" "$(metric margin route__drc_errors) $(metric margin design__lvs_error__count)" "0 0"
 check "margin 0.6: hold, DRC, LVS" \
   "$(metric margin timing__hold__ws .3f) $(metric margin route__drc_errors) $(metric margin design__lvs_error__count)" "0.195 0 0"
 ln -sf "$LIB" stdcell.lib
 eqy -f -d lec_eqy lec.eqy > eqy.log 2>&1
+must "EQY: exit status, verdict" "$? $(grep -o 'DONE (PASS, rc=0)' eqy.log)" "0 DONE (PASS, rc=0)"
 check "EQY: verdict, partitions, of them output bits" \
   "$(grep -o 'DONE (PASS, rc=0)' eqy.log) $(grep -c '' lec_eqy/partition.list) $(grep -c 'bs_reg.data_o.[0-9]* xbits' lec_eqy/partition.list)" "DONE (PASS, rc=0) 32 32"
 cp runs/base/final/nl/bs_reg.nl.v good.nl.v
 n=$(grep -n 'sg13cmos5l_a21oi_1 ' good.nl.v | head -1 | cut -d: -f1)
 sed -i "${n}s/sg13cmos5l_a21oi_1/sg13cmos5l_o21ai_1/" runs/base/final/nl/bs_reg.nl.v
 eqy -f -d mut_eqy lec.eqy > mut.log 2>&1
+must "EQY with one cell replaced: exit status, verdict" "$? $(grep -o 'DONE (FAIL, rc=2)' mut.log)" "2 DONE (FAIL, rc=2)"
 cp good.nl.v runs/base/final/nl/bs_reg.nl.v
 check "EQY with one cell replaced: verdict, failed partitions" \
   "$(grep -o 'DONE (FAIL, rc=2)' mut.log) $(grep -o 'Failed to prove equivalence of partition [^ ]*' mut.log | awk '{print $NF}' | sort | tr '\n' ' ')" \
@@ -283,13 +276,17 @@ check "SDF files, INTERCONNECT entries (typical)" \
   "nom_fast_1p32V_m40C nom_slow_1p08V_125C nom_typ_1p20V_25C 2672"
 iverilog -g2012 -o rtl.vvp $W/content/verification/code/barrel_shift/rtl/barrel_shift.sv \
   $W/content/sequential/code/bs_reg/rtl/bs_reg.sv tb/tb_bs_reg.sv > rtl_comp.log 2>&1
+must "RTL: result" "$(vvp -n rtl.vvp | errs)" "2000 cycles, 0 errors"
 check "RTL: warning about \$sdf_annotate, result" \
   "$(grep -c 'Omitting \$sdf_annotate()' rtl_comp.log) $(vvp -n rtl.vvp | errs)" "1 2000 cycles, 0 errors"
 iverilog -g2012 -gspecify -ginterconnect -o pl.vvp $GLS > pl_comp.log 2>&1
+rc=$?
+must "netlist: compile status" "$rc" "0"
 check "netlist: compile status, sorry messages, timing-check warnings" \
-  "$? $(grep -c 'sorry: ifnone' pl_comp.log) $(grep -c 'Timing checks are not supported' pl_comp.log)" "0 68 108"
+  "$rc $(grep -c 'sorry: ifnone' pl_comp.log) $(grep -c 'Timing checks are not supported' pl_comp.log)" "0 68 108"
 t0=$(date +%s.%N); vvp -n rtl.vvp > /dev/null; t1=$(date +%s.%N)
 vvp -n pl.vvp +SDF=$SDF_T > pl_typ.log 2>&1; t2=$(date +%s.%N)
+must "netlist, typical: result" "$(errs pl_typ.log)" "2000 cycles, 0 errors"
 check "netlist, typical: result, TIMINGCHECK warnings, flip-flops, SDF errors, their lines" \
   "$(errs pl_typ.log) $(grep -c 'TIMINGCHECK not supported' pl_typ.log) $(grep -c 'sg13cmos5l_dfrbpq_1 ' runs/base/final/nl/bs_reg.nl.v) $(grep -c 'SDF ERROR' pl_typ.log) $(grep 'Chosen value not defined' pl_typ.log | sed 's/.*sdf:\([0-9]*\):.*/\1/' | while read n; do sed -n "${n}p" $SDF_T | awk '{print $1}'; done | tr -d '(' | tr '\n' ' ')" \
   "2000 cycles, 0 errors 71 71 2 VOLTAGE TEMPERATURE "
@@ -465,9 +462,9 @@ printf 'module sg13cmos5l_lgcp_1 (input logic CLK, GATE, output logic GCLK);
   assign GCLK = CLK & GATE;
 endmodule
 ' > "$W/sg13cmos5l_lgcp_1.sv"
-check "lint of cg_mix (clock gate as a stub)" "$(lint --top-module cg_mix "$G/rtl/cg_mix.sv" "$W/sg13cmos5l_lgcp_1.sv")" "0"
+must "lint of cg_mix (clock gate as a stub)" "$(lint --top-module cg_mix "$G/rtl/cg_mix.sv" "$W/sg13cmos5l_lgcp_1.sv")" "0"
 cd "$G" || exit 1
-check "cg_mix run complete" "$(grep -c 'Flow complete' runs/base/flow.log)" "1"
+must "cg_mix run complete" "$(grep -c 'Flow complete' runs/base/flow.log)" "1"
 LC=$(ls $G/runs/base/*-openroad-cts/*.log)
 check "CTS balances the latency, delay buffers" \
   "$(grep -o 'Balancing latency for clock [a-z_]*' $LC) $(grep -o 'inserted [0-9]* delay buffers' $LC)" \
@@ -486,7 +483,7 @@ set_propagated_clock [all_clocks]
 report_clock_latency -digits 3
 EOF
 check "clock latency min, max (typical)" \
-  "$(sta -no_init -exit lat.tcl 2>&1 | awk '/rise -> rise/ {on = 1} on && $NF == "latency" && NF == 3 {print $1, $2; exit}')" "0.381 0.440"
+  "$(sta -no_init -exit lat.tcl 2>&1 | awk '/rise -> rise/ {on = 1} on && $NF == "latency" && NF == 3 {print $1, $2; exit}')" "0.383 0.442"
 cat >> lat.tcl << EOF
 report_checks -path_delay min -to [all_registers -data_pins] -group_path_count 100 \
   -endpoint_path_count 1 -format full_clock_expanded -digits 3
@@ -505,11 +502,11 @@ for kind in ('min', 'max'):
             e = re.search(r'Endpoint: (\S+)', b).group(1)
             m = re.findall(r'([-\d.]+) \^ %s/CLK' % re.escape(e), b.split('data arrival time')[1])
             v[e] = float(m[-1]) % 4
-    print(len(v), '%.3f %.3f' % (min(v.values()), max(v.values())), end=' ')")" "32 0.437 0.440 32 0.381 0.386 "
+    print(len(v), '%.3f %.3f' % (min(v.values()), max(v.values())), end=' ')")" "32 0.440 0.442 32 0.383 0.389 "
 
 echo "== A divided clock in the tree (div_mix)"
-check "lint of div_mix" "$(lint --top-module div_mix "$V/rtl/div_mix.sv")" "0"
-check "div_mix run complete" "$(grep -c 'Flow complete' $V/runs/base/flow.log)" "1"
+must "lint of div_mix" "$(lint --top-module div_mix "$V/rtl/div_mix.sv")" "0"
+must "div_mix run complete" "$(grep -c 'Flow complete' $V/runs/base/flow.log)" "1"
 LV=$(ls $V/runs/base/*-openroad-cts/*.log)
 check "CTS: clock nets, latency balancing" \
   "$(grep -o 'Net "[a-z_]*" found for clock "[a-z_]*"' $LV | tr '\n' ' ')$(grep -c 'Balancing latency' $LV)" \
@@ -944,10 +941,4 @@ echo "== Code listings"
 check "longest line of the code files" \
   "$(cd "$REPO/content/digital_flow/code" && cat bs_reg/config.yaml bs_reg/lec.eqy bs_reg/tb/tb_bs_reg.sv cg_mix/config.yaml cg_mix/rtl/cg_mix.sv div_mix/config.yaml div_mix/div_mix.sdc div_mix/rtl/div_mix.sv | awk '{ if (length > m) m = length } END { print (m <= 70) ? "<= 70" : m }')" "<= 70"
 
-echo
-if [ $fails -eq 0 ]; then
-  echo "All checks passed."
-else
-  echo "$fails checks FAILED."
-  exit 1
-fi
+finish

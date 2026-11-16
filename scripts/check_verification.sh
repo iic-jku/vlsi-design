@@ -9,25 +9,18 @@
 # if any result differs from the value in the chapter. FULL=1 also runs
 # the exhaustive test of the 16-bit barrel shifter (about two minutes)
 # and prints the run times of the simulator comparison (about two).
+# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 W=${CHECK_DIR:-/tmp/vlsi_check_verification}
 LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
 CELLS=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/verilog
-fails=0
 
 rm -rf "$W" && mkdir -p "$W" && cp -r "$REPO/content/verification/code/." "$W/"
 cd "$W" || exit 1
 
-check() {  # check <what> <got> <expected>
-  if [ "$2" == "$3" ]; then
-    echo "  ok    $1: $2"
-  else
-    echo "  FAIL  $1: got '$2', expected '$3'"
-    fails=$((fails + 1))
-  fi
-}
+source "$REPO/scripts/lib_check.sh"
 
 verdict() {  # verdict <log> <test>: PASS, FAIL or SKIP of one cocotb test
   grep -E "\*\* [a-z_]+\.$2 +(PASS|FAIL|SKIP)" "$1" | awk '{print $3}'
@@ -60,14 +53,14 @@ check "Yosys" "$(yosys -V | awk '{print $2}')" "0.70"
 check "OpenSTA" "$(sta -version)" "3.1.0"
 check "cocotb" "$(python3 -c 'import cocotb; print(cocotb.__version__)')" "2.1.0"
 check "pyuvm" "$(python3 -c 'import importlib.metadata as m; print(m.version("pyuvm"))')" "5.0.0"
-check "MCY in the image" "$(command -v mcy > /dev/null && echo yes)" "yes"
+must "MCY in the image" "$(command -v mcy > /dev/null && echo yes)" "yes"
 
 echo "== Lint of every rtl/ file (no warning or error with -Wall)"
 for f in */rtl/*.sv; do
-  check "lint $f" "$(verilator --lint-only -Wall "$f" 2>&1 | grep -c -E '%Warning|%Error')" "0"
+  must "lint $f" "$(lint "$f")" "0"
 done
-check "lint barrel_shift_bug.sv, WIDTH 8" \
-  "$(verilator --lint-only -Wall barrel_shift/exercise/barrel_shift_bug.sv 2>&1 | grep -c -E '%Warning|%Error')" "0"
+must "lint barrel_shift_bug.sv, WIDTH 8" \
+  "$(lint barrel_shift/exercise/barrel_shift_bug.sv)" "0"
 check "lint barrel_shift_bug.sv, WIDTH 32, warnings" \
   "$(verilator --lint-only -Wall -GWIDTH=32 barrel_shift/exercise/barrel_shift_bug.sv 2>&1 | grep -o '%Warning-[A-Z]*' | tr '\n' ' ')" \
   "%Warning-WIDTHTRUNC %Warning-UNUSEDSIGNAL "
@@ -75,24 +68,24 @@ check "lint barrel_shift_bug.sv, WIDTH 32, warnings" \
 echo "== Barrel shifter: exhaustive and random stimulus"
 cd barrel_shift/testbenches/cocotb
 python3 barrel_shift_tb.py > ic8.log 2>&1
-check "Icarus, WIDTH 8" "$(summary ic8.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
+must "Icarus, WIDTH 8" "$(summary ic8.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
 check "exhaustive vectors, WIDTH 8" "$(grep -o '[0-9]* vectors,' ic8.log | awk '{print $1}')" "8192"
 rate=$(grep -o '[0-9]* vectors/s' ic8.log | awk '{print $1}')
-check "Icarus rate above 20,000 vectors/s (measured about 70,000)" "$([ "$rate" -gt 20000 ] && echo yes)" "yes"
+check "Icarus rate above 20,000 vectors/s (measured about 70,000)" "$([ "${rate:-0}" -gt 20000 ] && echo yes || echo "no, $rate")" "yes"
 check "cocotb prints the seed" "$(grep -c 'Seeding Python random module with' ic8.log)" "1"
 SIM=verilator python3 barrel_shift_tb.py > ve8.log 2>&1
-check "Verilator, WIDTH 8" "$(summary ve8.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
+must "Verilator, WIDTH 8" "$(summary ve8.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
 rate=$(grep -o '[0-9]* vectors/s' ve8.log | awk '{print $1}')
-check "Verilator rate above 30,000 vectors/s (measured about 100,000)" "$([ "$rate" -gt 30000 ] && echo yes)" "yes"
+check "Verilator rate above 30,000 vectors/s (measured about 100,000)" "$([ "${rate:-0}" -gt 30000 ] && echo yes || echo "no, $rate")" "yes"
 WIDTH=32 python3 barrel_shift_tb.py > ic32.log 2>&1
-check "Icarus, WIDTH 32" "$(summary ic32.log)" "TESTS=2 PASS=1 FAIL=0 SKIP=1"
+must "Icarus, WIDTH 32" "$(summary ic32.log)" "TESTS=2 PASS=1 FAIL=0 SKIP=1"
 check "vectors for WIDTH 16" "$(( (1 << 16) * 16 * 4 ))" "4194304"
 check "vectors for WIDTH 32" "$(( (1 << 32) * 32 * 4 ))" "549755813888"
 TOPLEVEL=barrel_shift_bug python3 barrel_shift_tb.py > bug8.log 2>&1
-check "bug, WIDTH 8" "$(summary bug8.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
+must "bug, WIDTH 8" "$(summary bug8.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
 TOPLEVEL=barrel_shift_bug WIDTH=32 python3 barrel_shift_tb.py > bug32.log 2>&1
-check "bug, WIDTH 32, exit status" "$?" "1"
-check "bug, WIDTH 32" "$(summary bug32.log)" "TESTS=2 PASS=0 FAIL=1 SKIP=1"
+must "bug, WIDTH 32, exit status" "$?" "1"
+must "bug, WIDTH 32" "$(summary bug32.log)" "TESTS=2 PASS=0 FAIL=1 SKIP=1"
 SIM=verilator TOPLEVEL=barrel_shift_bug WIDTH=32 python3 barrel_shift_tb.py > bug32v.log 2>&1
 check "bug, WIDTH 32, Verilator build stops at WIDTHTRUNC" \
   "$(grep -c '%Warning-WIDTHTRUNC' bug32v.log) $(grep -c 'TESTS=' bug32v.log)" "1 0"
@@ -111,6 +104,7 @@ echo "== FIFO: the hardware figure, as Yosys maps the RTL"
 cd fifo
 yosys -q -l hw.log -p "read_verilog -sv rtl/fifo.sv; hierarchy -top fifo; proc; opt; memory -nomap; stat; \
   dump t:\$adffe t:\$not t:\$mux t:\$mem_v2" > /dev/null
+must "fifo: Yosys exit status" "$?" "0"
 check "cell types" "$(awk '$1 ~ /^[0-9]+$/ && $2 ~ /^\$/ {print $2 ":" $1}' hw.log | sort | tr '\n' ' ')" \
   "\$add:2 \$adffe:2 \$eq:2 \$logic_and:2 \$logic_not:2 \$mem_v2:1 \$mux:3 \$not:1 "
 # the hold multiplexer of each pointer becomes the enable that the figure draws
@@ -131,13 +125,13 @@ cd "$W"
 echo "== FIFO: RTL simulation, functional and code coverage"
 cd fifo/testbenches/cocotb
 COCOTB_RANDOM_SEED=1 python3 fifo_tb.py > ic.log 2>&1
-check "Icarus" "$(summary ic.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
+must "Icarus" "$(summary ic.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
 check "Icarus messages starting with sorry" "$(grep -c sorry ic.log)" "0"
 check "seed 1 is used" "$(grep -c 'Seeding Python random module with 1$' ic.log)" "1"
 check "directed test, coverage bins" "$(bins ic.log 1)" "2 0 0 1 3 0 0 3 1 0 0 0 "
 check "random test, seed 1, coverage bins" "$(bins ic.log 2)" "51 85 54 16 142 169 126 123 26 47 109 54 "
 SIM=verilator COCOTB_TEST_FILTER=test_fill_and_drain python3 fifo_tb.py > vd.log 2>&1
-check "Verilator, directed test only" "$(summary vd.log)" "TESTS=1 PASS=1 FAIL=0 SKIP=0"
+must "Verilator, directed test only" "$(summary vd.log)" "TESTS=1 PASS=1 FAIL=0 SKIP=0"
 verilator_coverage --annotate-min 1 --annotate-points --annotate ann_directed sim_build/coverage.dat > covd.txt
 check "directed: line coverage" "$(grep -E '^ +line ' covd.txt | sed 's/.*: *//; s/ //g')" "100.0%(3/3)"
 check "directed: branch coverage" "$(grep -E '^ +branch ' covd.txt | sed 's/.*: *//; s/ //g')" "100.0%(8/8)"
@@ -153,11 +147,12 @@ cd "$W"
 
 echo "== FIFO: assertions"
 cd fifo
-check "lint of rtl/ and the checker (no -Wall)" \
-  "$(verilator --lint-only --top-module fifo rtl/fifo.sv testbenches/sva/fifo_sva.sv 2>&1 | grep -c -E '%Warning|%Error')" "0"
+verilator --lint-only --top-module fifo rtl/fifo.sv testbenches/sva/fifo_sva.sv > lint_sva.log 2>&1
+must "lint of rtl/ and the checker (no -Wall): exit status, messages" \
+  "$? $(grep -c -E '%Warning|%Error' lint_sva.log)" "0 0"
 cd testbenches/cocotb
 SIM=verilator SVA=1 COCOTB_RANDOM_SEED=1 python3 fifo_tb.py > sva.log 2>&1
-check "Verilator with the checker" "$(summary sva.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
+must "Verilator with the checker" "$(summary sva.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
 check "cover property c_full_push_pop, seed 1" \
   "$(tr '\001\002' '|=' < sim_build/coverage.dat | grep -a 'o=c_full_push_pop' | awk '{print $NF}')" "54"
 cd "$W"
@@ -206,13 +201,13 @@ yosys -q -p "plugin -i slang; read_slang $W/fifo/rtl/fifo.sv $W/fifo/testbenches
 check "Yosys slang, the checker" "$(grep -o -m1 'unsupported SVA feature' y3.log)" "unsupported SVA feature"
 yosys -q -p "plugin -i slang; read_slang imm_ff.sv --top imm_ff; synth -top imm_ff" > y4.log 2>&1
 check "Yosys slang, immediate assertion with else, exit status" "$?" "0"
-check "sby in the image" "$(command -v sby > /dev/null && echo yes)" "yes"
+must "sby in the image" "$(command -v sby > /dev/null && echo yes)" "yes"
 cd "$W"
 
 echo "== FIFO: mutants (seed 1)"
 for m in 1 2 3 4 5 6; do
   rm -rf "mut$m" && cp -r fifo "mut$m" && cd "mut$m" && mutate $m
-  check "M$m differs from the original" "$(diff -q rtl/fifo.sv ../fifo/rtl/fifo.sv > /dev/null || echo yes)" "yes"
+  must "M$m differs from the original" "$(diff -q rtl/fifo.sv ../fifo/rtl/fifo.sv > /dev/null || echo yes)" "yes"
   cd testbenches/cocotb
   COCOTB_RANDOM_SEED=1 python3 fifo_tb.py > sb.log 2>&1
   COCOTB_RANDOM_SEED=1 CHECK=0 python3 fifo_tb.py > nochk.log 2>&1
@@ -225,12 +220,12 @@ for m in 1 2 3 4 5 6; do
     5) d=FAIL; r=FAIL; a="[120000] a_flags"; e="empty_o = 1, 4 entries" ;;
     6) d=PASS; r=PASS; a=""; e="" ;;
   esac
-  check "M$m directed test" "$(verdict sb.log test_fill_and_drain)" "$d"
-  check "M$m random test" "$(verdict sb.log test_random)" "$r"
+  must "M$m directed test" "$(verdict sb.log test_fill_and_drain)" "$d"
+  must "M$m random test" "$(verdict sb.log test_random)" "$r"
   check "M$m first scoreboard message" "$(grep -m1 -o 'AssertionError: .*' sb.log | sed 's/AssertionError: //')" "$e"
   check "M$m assertions only, first failure" \
     "$(grep -m1 'Assertion failed' sva.log | sed 's/\(\[[0-9]*\]\).*fifo\.u_sva\.\([a-z_]*\):.*/\1 \2/')" "$a"
-  check "M$m Icarus without checks" "$(summary nochk.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
+  must "M$m Icarus without checks" "$(summary nochk.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
   if [ $m -eq 5 ]; then
     check "M5 assertion: SimFailure for both tests, then a traceback" \
       "$(grep -c 'SimFailure: cocotb expected it would shut down the simulation' sva.log) \
@@ -254,7 +249,7 @@ open(p, "w").write(s.replace(old, new))
 EOF
   COCOTB_TEST_FILTER=test_fill_and_drain python3 fifo_tb.py > ext.log 2>&1
   [ $m -eq 6 ] && e=PASS || e=FAIL
-  check "M$m extended directed test" "$(verdict ext.log test_fill_and_drain)" "$e"
+  must "M$m extended directed test" "$(verdict ext.log test_fill_and_drain)" "$e"
   cd "$W"
 done
 check "M4: scoreboard fails in test_random at test time (ns)" \
@@ -278,7 +273,7 @@ new = """    await driver(dut, [(1, v, 0) for v in values]
 open(p, "w").write(s.replace(old, new))
 EOF
 COCOTB_TEST_FILTER=test_fill_and_drain python3 fifo_tb.py > ext0.log 2>&1
-check "extended directed test, original design" "$(verdict ext0.log test_fill_and_drain)" "PASS"
+must "extended directed test, original design" "$(verdict ext0.log test_fill_and_drain)" "PASS"
 check "extended directed test, coverage bins" "$(bins ext0.log 1)" "0 2 0 1 3 1 1 3 0 1 0 1 "
 cp fifo_tb.orig fifo_tb.py
 cd "$W"
@@ -288,6 +283,7 @@ cd fifo
 yosys -q -l syn.log -p "read_verilog -sv rtl/fifo.sv; synth -top fifo; \
   dfflibmap -liberty $LIB; abc -liberty $LIB; opt_clean; stat -liberty $LIB; \
   write_verilog -noattr fifo.nl.v" > /dev/null
+must "Yosys exit status" "$?" "0"
 check "cells" "$(sed -n '/Chip area/q;p' syn.log | awk '/ cells$/ {n=$1} END {print n}')" "103"
 check "flip-flops dfrbpq_1" "$(sed -n '/Chip area/q;p' syn.log | awk '$NF=="sg13cmos5l_dfrbpq_1" {n=$1} END {print n}')" "38"
 check "mux2_1" "$(sed -n '/Chip area/q;p' syn.log | awk '$NF=="sg13cmos5l_mux2_1" {n=$1} END {print n}')" "32"
@@ -319,12 +315,13 @@ iverilog -g2012 -gno-specify -o gl_x.vvp $CELLS/sg13cmos5l_udp.v $CELLS/sg13cmos
 check "netlist after reset" "$(vvp -n gl_x.vvp | grep empty=)" "empty=1 full=0 data_o=xxxxxxxx"
 cd testbenches/cocotb
 GL=1 COCOTB_RANDOM_SEED=1 python3 fifo_tb.py > gl.log 2>&1
-check "netlist, zero delay" "$(summary gl.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
+must "netlist, zero delay" "$(summary gl.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
 check "netlist, Icarus sorry messages of the cell models" "$(grep -c 'sorry: ifnone' gl.log)" "68"
 cd "$W/fifo"
 
 echo "== FIFO: static timing analysis and timing simulation"
 sta -no_init -exit syn/sta.tcl > sta20.log 2>&1
+must "OpenSTA exit status, SDF written" "$? $(test -s fifo.sdf && echo yes)" "0 yes"
 check "worst slack at 20 ns" "$(grep 'worst slack' sta20.log | awk '{print $NF}')" "8.863"
 check "critical path start" "$(awk '/^Startpoint/ {s=$2} /^Path Group: clk/ {print s; exit}' sta20.log)" "push_i"
 check "critical path through nor4_1 (ns)" \
@@ -343,8 +340,8 @@ echo "  info  SDF of one flip-flop:"
 grep -m1 -A16 'CELLTYPE "sg13cmos5l_dfrbpq_1"' fifo.sdf | sed 's/^/        /'
 cd testbenches/cocotb
 GL=1 SDF=1 COCOTB_RANDOM_SEED=1 python3 fifo_tb.py > sdf20.log 2>&1
-check "timing simulation at 20 ns" "$(summary sdf20.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
-check "SDF errors" "$(grep -c 'SDF ERROR' sdf20.log)" "0"
+must "timing simulation at 20 ns" "$(summary sdf20.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
+must "SDF errors" "$(grep -c 'SDF ERROR' sdf20.log)" "0"
 check "SDF warnings TIMINGCHECK not supported" "$(grep -c 'TIMINGCHECK not supported' sdf20.log)" "38"
 cd "$W/fifo"
 
@@ -477,23 +474,23 @@ ratio() {  # ratio <slow> <fast> <factor>: yes if slow >= factor * fast
 line() { grep -m1 -o 'cycles=.*' last.log; }
 
 $VBIN rtl/fifo.sv $TB > speed_ve.log 2>&1
-check "Verilator, messages about the testbench" "$(grep -c -E '%Warning|%Error' speed_ve.log)" "0"
+must "Verilator: exit status, messages about the testbench" "$? $(grep -c -E '%Warning|%Error' speed_ve.log)" "0 0"
 iverilog -g2012 -o rtl.vvp rtl/fifo.sv $TB > /dev/null 2>&1
 iverilog -g2012 -gno-specify -o gl.vvp $NL $TB > /dev/null 2>&1
 iverilog -g2012 -gspecify -DDUT=fifo_sdf -o sdf.vvp $NL testbenches/cocotb/fifo_sdf.sv $TB > /dev/null 2>&1
 same="cycles=100000 pops=43775 checksum=6f69c477"
 t_ve=$(timed ./obj_dir/Vfifo_speed_tb +CYCLES=100000)
-check "Verilator, RTL" "$(line)" "$same"
+must "Verilator, RTL" "$(line)" "$same"
 t_ic=$(timed vvp -n rtl.vvp +CYCLES=100000)
-check "Icarus Verilog, RTL" "$(line)" "$same"
+must "Icarus Verilog, RTL" "$(line)" "$same"
 t_gl=$(timed vvp -n gl.vvp +CYCLES=100000)
-check "Icarus Verilog, netlist without delays" "$(line)" "$same"
+must "Icarus Verilog, netlist without delays" "$(line)" "$same"
 t_sd=$(timed vvp -n sdf.vvp +CYCLES=100000 +SDF=fifo.sdf)
-check "Icarus Verilog, netlist with SDF delays" "$(line)" "$same"
+must "Icarus Verilog, netlist with SDF delays" "$(line)" "$same"
 check "Verilator at least 8 times faster than Icarus Verilog (measured about 15)" "$(ratio "$t_ic" "$t_ve" 8)" "yes"
 check "netlist at least 1.5 times slower than RTL (measured about 2.3)" "$(ratio "$t_gl" "$t_ic" 1.5)" "yes"
 t_sp=$(timed vvp -n sdf.vvp +CYCLES=100000)
-check "Icarus Verilog, -gspecify, all delays 0" "$(line)" "$same"
+must "Icarus Verilog, -gspecify, all delays 0" "$(line)" "$same"
 check "-gspecify with all delays 0 at least 1.5 times slower than -gno-specify (measured about 2.5)" "$(ratio "$t_sp" "$t_gl" 1.5)" "yes"
 check "-gspecify with SDF delays at least 1.5 times slower than -gno-specify (measured about 3)" "$(ratio "$t_sd" "$t_gl" 1.5)" "yes"
 # Where the time goes: event controls gain little, procedural code a lot
@@ -642,10 +639,4 @@ check "Icarus Verilog warns that it runs no timing check" "$(grep -c 'warning: T
 check "setup violated by 0.9 ns, Icarus Verilog" "$(vvp -n chk.vvp | grep -v finish | tr '\n' ' ')" "q=1 "
 cd "$W"
 
-echo
-if [ "$fails" -eq 0 ]; then
-  echo "PASS: all results match the chapter"
-else
-  echo "FAIL: $fails result(s) differ from the chapter"
-  exit 1
-fi
+finish

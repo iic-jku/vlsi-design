@@ -9,6 +9,7 @@
 # the AMS chip template is checked only if a clone of the template lies
 # next to the repository (or in TEMPLATE_DIR). Exits with 1 if any result
 # differs from the value in the chapter.
+# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -16,19 +17,11 @@ W=${CHECK_DIR:-/tmp/vlsi_check_sv}
 TPL=${TEMPLATE_DIR:-$REPO/../ihp-sg13cmos5l-ams-chip-template}
 D=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
 LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
-fails=0
 
 rm -rf "$W" && mkdir -p "$W" && cp -r "$REPO/content/sv_crashcourse/code/." "$W/"
 cd "$W" || exit 1
 
-check() {  # check <what> <got> <expected>
-  if [ "$2" == "$3" ]; then
-    echo "  ok    $1: $2"
-  else
-    echo "  FAIL  $1: got '$2', expected '$3'"
-    fails=$((fails + 1))
-  fi
-}
+source "$REPO/scripts/lib_check.sh"
 
 acc() { "$@" > /dev/null 2>&1 && echo accepted || echo rejected; }  # acc <command>
 
@@ -60,16 +53,16 @@ check "Yosys" "$(yosys -V | awk '{print $2}')" "0.70"
 echo "== Every rtl/ file lints without warnings and synthesizes"
 for f in */rtl/*.sv; do
   top=$(basename "$f" .sv)
-  n=$(verilator --lint-only -Wall "$f" 2>&1 | grep -c -E '%Warning|%Error')
+  n=$(lint "$f")
   ys "$top.syn.log" "read_verilog -sv $f; synth -top $top"
-  check "$f: lint messages, Yosys exit status" "$n $?" "0 0"
+  must "$f: lint messages, Yosys exit status" "$n $?" "0 0"
 done
 
 echo "== Every VHDL file analyzes and elaborates with GHDL"
 mkdir -p ghdl_ae && cd ghdl_ae
 for f in ../*/vhdl/*.vhd; do
   out=$(ghdl -a "$f" 2>&1 && ghdl -e "$(basename "$f" _ea.vhd)" 2>&1 && ghdl -a --std=08 "$f" 2>&1)
-  check "${f#../} (93c and 08): exit status, messages" "$? $(printf '%s' "$out" | grep -c .)" "0 0"
+  must "${f#../} (93c and 08): exit status, messages" "$? $(printf '%s' "$out" | grep -c .)" "0 0"
 done
 cd "$W"
 
@@ -429,7 +422,7 @@ for top in ctrl_fsm ctrl_fsm_mealy; do
   SIM=verilator python3 fsm_tb.py $top $top/rtl/$top.sv > $top.verilator.log 2>&1
   SIM=ghdl python3 fsm_vhdl_tb.py $top $top/vhdl/${top}_ea.vhd > $top.ghdl.log 2>&1
   for sim in icarus verilator ghdl; do
-    check "$top, $sim: state | busy_o | done_o in cycles 0 to 5" "$(grep -o 'table: .*' $top.$sim.log | cut -c8-)" "${table[$top]}"
+    must "$top, $sim: state | busy_o | done_o in cycles 0 to 5" "$(grep -o 'table: .*' $top.$sim.log | cut -c8-)" "${table[$top]}"
   done
 done
 check "cocotb: a read right after a write returns the old value" "$(grep -o 'read right after the write: .' ctrl_fsm.icarus.log)" \
@@ -504,7 +497,7 @@ for v in base body hdr pre ret port; do
   s=${src[$v]}
   r=$(acc yosys -l y_$v.log -p "read_verilog -sv $s; synth -top alu")
   check "$v: Yosys" "$(echo $r $(grep -m1 -oE 'ERROR: ?[^,]*' y_$v.log))" "${yexp[$v]}"
-  check "$v: slang, Verilator, Icarus" \
+  must "$v: slang, Verilator, Icarus" \
     "$(acc yosys -p "plugin -i slang; read_slang $s --top alu; synth -top alu") $(acc verilator --lint-only --top-module alu $s) $(acc iverilog -g2012 -o x.vvp $s)" \
     "accepted accepted accepted"
 done
@@ -646,7 +639,7 @@ ys keep.log "read_verilog -sv keep/prio_enc.sv; synth -top prio_enc; stat"
 check "default idx_d = idx_q: \$_DFFE_PN0P_, latches" "$(grep -c 'idx_d   = idx_q;' keep/prio_enc.sv) $(gcell keep.log '$_DFFE_PN0P_') $(ncnt keep.log DLATCH)" "1 3 0"
 iverilog -g2012 -o prio_enc_tb.vvp rtl/prio_enc.sv testbenches/verilog/prio_enc_tb.sv
 out=$(vvp prio_enc_tb.vvp); rc=$?
-check "testbench: message, exit status" "$(echo "$out" | grep -o 'PASS: prio_enc_tb') $rc" "PASS: prio_enc_tb 0"
+must "testbench: message, exit status" "$(echo "$out" | grep -o 'PASS: prio_enc_tb') $rc" "PASS: prio_enc_tb 0"
 sed 's/^module prio_enc /module prio_enc_v /' verilog/prio_enc.v > prio_enc_v.v
 cat > cmp_tb.sv << 'EOF'
 module cmp_tb;
@@ -673,11 +666,11 @@ cd "$W"
 
 echo "== tick_gen: testbenches"
 cd tick_gen
-check "lint: report, exit status" "$(verilator --lint-only -Wall rtl/tick_gen.sv 2>&1 | grep -c 'V e r i l a t i o n   R e p o r t') $(acc verilator --lint-only -Wall rtl/tick_gen.sv)" \
-  "1 accepted"
+check "lint: report" "$(verilator --lint-only -Wall rtl/tick_gen.sv 2>&1 | grep -c 'V e r i l a t i o n   R e p o r t')" "1"
+must "lint: exit status" "$(acc verilator --lint-only -Wall rtl/tick_gen.sv)" "accepted"
 iverilog -g2012 -o testbenches/verilog/tick_gen_tb.vvp rtl/tick_gen.sv testbenches/verilog/tick_gen_tb.sv
 out=$(cd testbenches/verilog && vvp tick_gen_tb.vvp); rc=$?
-check "Icarus: message, exit status, VCD" "$(echo "$out" | grep -o 'PASS: tick_gen_tb') $rc $(ls testbenches/verilog/*.vcd)" \
+must "Icarus: message, exit status, VCD" "$(echo "$out" | grep -o 'PASS: tick_gen_tb') $rc $(ls testbenches/verilog/*.vcd)" \
   "PASS: tick_gen_tb 0 testbenches/verilog/tick_gen_tb.vcd"
 cat > peek.sv << 'EOF'
 module peek;
@@ -693,13 +686,13 @@ check "DIV = 5: ticks, count_q one cycle before each tick" "$(vvp -n peek.vvp | 
 verilator --binary --timing --timescale 1ns/1ps --trace --top-module tick_gen_tb -o tick_gen_tb \
   rtl/tick_gen.sv testbenches/verilog/tick_gen_tb.sv > verilator.log 2>&1
 out=$(cd testbenches/verilog && ../../obj_dir/tick_gen_tb); rc=$?
-check "Verilator: message, exit status" "$(echo "$out" | grep -o 'PASS: tick_gen_tb') $rc" "PASS: tick_gen_tb 0"
+must "Verilator: message, exit status" "$(echo "$out" | grep -o 'PASS: tick_gen_tb') $rc" "PASS: tick_gen_tb 0"
 (cd testbenches/cocotb && python3 tick_gen_tb.py > icarus.log 2>&1)
-check "cocotb with Icarus Verilog: result, files" \
+must "cocotb with Icarus Verilog: result, files" \
   "$(tests testbenches/cocotb/icarus.log) $(cd testbenches/cocotb && ls sim_build/results.xml sim_build/tick_gen.fst | paste -sd' ')" \
   "TESTS=2 PASS=2 FAIL=0 SKIP=0 sim_build/results.xml sim_build/tick_gen.fst"
 (cd testbenches/cocotb && rm -rf sim_build && SIM=verilator python3 tick_gen_tb.py > verilator.log 2>&1)
-check "cocotb with Verilator: result, waveform" "$(tests testbenches/cocotb/verilator.log) $(cd testbenches/cocotb && ls sim_build/dump.vcd)" \
+must "cocotb with Verilator: result, waveform" "$(tests testbenches/cocotb/verilator.log) $(cd testbenches/cocotb && ls sim_build/dump.vcd)" \
   "TESTS=2 PASS=2 FAIL=0 SKIP=0 sim_build/dump.vcd"
 mkdir -p race && cp -r rtl testbenches race/
 sed -i 's/@(negedge clk)/@(posedge clk)/' race/testbenches/verilog/tick_gen_tb.sv
@@ -713,15 +706,15 @@ sed -i 's/^DIV = 5 /DIV = 8 /' testbenches/cocotb/tick_gen_tb.py
 iverilog -g2012 -o testbenches/verilog/tick_gen_tb.vvp rtl/tick_gen.sv testbenches/verilog/tick_gen_tb.sv
 out=$(cd testbenches/verilog && vvp tick_gen_tb.vvp)
 (cd testbenches/cocotb && rm -rf sim_build && python3 tick_gen_tb.py > div8.log 2>&1)
-check "DIV = 8: applied, SystemVerilog, cocotb" \
+must "DIV = 8: applied, SystemVerilog, cocotb" \
   "$(grep -c 'DIV           = 8;' testbenches/verilog/tick_gen_tb.sv)$(grep -c '^DIV = 8 ' testbenches/cocotb/tick_gen_tb.py) $(echo "$out" | grep -o PASS) $(tests testbenches/cocotb/div8.log)" \
   "11 PASS TESTS=2 PASS=2 FAIL=0 SKIP=0"
 sed -i 's/count_q == COUNT_LAST)/count_q == COUNT_LAST - 1)/' rtl/tick_gen.sv
 iverilog -g2012 -o testbenches/verilog/tick_gen_tb.vvp rtl/tick_gen.sv testbenches/verilog/tick_gen_tb.sv
 out=$(cd testbenches/verilog && vvp tick_gen_tb.vvp 2>&1); rc=$?
-check "bug COUNT_LAST - 1, SystemVerilog: applied, FATAL, exit status" "$(grep -c 'COUNT_LAST - 1' rtl/tick_gen.sv) $(echo "$out" | grep -o '^FATAL' | head -1) $rc" "1 FATAL 1"
+must "bug COUNT_LAST - 1, SystemVerilog: applied, FATAL, exit status" "$(grep -c 'COUNT_LAST - 1' rtl/tick_gen.sv) $(echo "$out" | grep -o '^FATAL' | head -1) $rc" "1 FATAL 1"
 (cd testbenches/cocotb && rm -rf sim_build && python3 tick_gen_tb.py > bug.log 2>&1); rc=$?
-check "bug COUNT_LAST - 1, cocotb: failed test, exit status" \
+must "bug COUNT_LAST - 1, cocotb: failed test, exit status" \
   "$(grep -oE 'tick_gen_tb\.[a-z_]+ +FAIL' testbenches/cocotb/bug.log | tr -s ' ') $rc" "tick_gen_tb.test_tick_every_div_cycles FAIL 1"
 cd "$W"
 
@@ -729,16 +722,16 @@ echo "== pwm"
 cd pwm
 iverilog -g2012 -o testbenches/verilog/pwm_tb.vvp rtl/pwm.sv testbenches/verilog/pwm_tb.sv
 out=$(cd testbenches/verilog && vvp pwm_tb.vvp); rc=$?
-check "SystemVerilog testbench: message, exit status" "$(echo "$out" | grep -o 'PASS: pwm_tb') $rc" "PASS: pwm_tb 0"
+must "SystemVerilog testbench: message, exit status" "$(echo "$out" | grep -o 'PASS: pwm_tb') $rc" "PASS: pwm_tb 0"
 for sim in icarus verilator; do
   (cd testbenches/cocotb && rm -rf sim_build && SIM=$sim python3 pwm_tb.py > $sim.log 2>&1)
-  check "cocotb with $sim" "$(tests testbenches/cocotb/$sim.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
+  must "cocotb with $sim" "$(tests testbenches/cocotb/$sim.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
 done
 cp rtl/pwm.sv pwm.sv.orig
 sed -i 's/(count_q < duty_i)/(count_q <= duty_i)/' rtl/pwm.sv
 iverilog -g2012 -o testbenches/verilog/pwm_tb.vvp rtl/pwm.sv testbenches/verilog/pwm_tb.sv
 out=$(cd testbenches/verilog && vvp pwm_tb.vvp 2>&1); rc=$?
-check "< changed to <=: FATAL, message, exit status" "$(echo "$out" | grep -o '^FATAL' | head -1) $(echo "$out" | grep -o 'FAIL: duty 0 gives 1 high cycles') $rc" \
+must "< changed to <=: FATAL, message, exit status" "$(echo "$out" | grep -o '^FATAL' | head -1) $(echo "$out" | grep -o 'FAIL: duty 0 gives 1 high cycles') $rc" \
   "FATAL FAIL: duty 0 gives 1 high cycles 1"
 mkdir -p err && sed 's/\$fatal(1, /$error(/' testbenches/verilog/pwm_tb.sv > err/pwm_tb.sv
 iverilog -g2012 -o err/pwm_tb.vvp rtl/pwm.sv err/pwm_tb.sv
@@ -748,12 +741,12 @@ check "the same with \$error: first message, end, exit status" \
 cp pwm.sv.orig rtl/pwm.sv
 sed -i "s/count_d = count_q + 1'b1;/count_d = (count_q == WIDTH'(2**WIDTH - 2)) ? '0 : count_q + 1'b1;/" rtl/pwm.sv
 (cd testbenches/cocotb && rm -rf sim_build && python3 pwm_tb.py > wrap14.log 2>&1)
-check "counter wraps at 14: applied, cocotb" "$(grep -c '2\*\*WIDTH - 2' rtl/pwm.sv) $(tests testbenches/cocotb/wrap14.log)" "1 TESTS=2 PASS=0 FAIL=2 SKIP=0"
+must "counter wraps at 14: applied, cocotb" "$(grep -c '2\*\*WIDTH - 2' rtl/pwm.sv) $(tests testbenches/cocotb/wrap14.log)" "1 TESTS=2 PASS=0 FAIL=2 SKIP=0"
 # The pulse at the end of the period: the same number of high cycles
 cp pwm.sv.orig rtl/pwm.sv
 sed -i 's/(count_q < duty_i)/(count_q >= 2**WIDTH - duty_i)/' rtl/pwm.sv
 (cd testbenches/cocotb && rm -rf sim_build && python3 pwm_tb.py > shift.log 2>&1)
-check "shifted pulse: applied, failed tests" "$(grep -c '2\*\*WIDTH - duty_i' rtl/pwm.sv) $(grep -oE 'pwm_tb\.[a-z_]+ +FAIL' testbenches/cocotb/shift.log | tr -s ' ')" \
+must "shifted pulse: applied, failed tests" "$(grep -c '2\*\*WIDTH - duty_i' rtl/pwm.sv) $(grep -oE 'pwm_tb\.[a-z_]+ +FAIL' testbenches/cocotb/shift.log | tr -s ' ')" \
   "1 pwm_tb.test_against_model FAIL"
 cd "$W"
 
@@ -761,8 +754,8 @@ echo "== seq_detect"
 cd seq_detect/testbenches/cocotb
 for sim in icarus verilator; do
   rm -rf sim_build && SIM=$sim python3 seq_detect_tb.py > $sim.log 2>&1
-  check "cocotb with $sim: result, detections" "$(tests $sim.log), $(grep -o '[0-9]* detections in 500 bits' $sim.log)" \
-    "TESTS=2 PASS=2 FAIL=0 SKIP=0, 31 detections in 500 bits"
+  must "cocotb with $sim: result" "$(tests $sim.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
+  check "cocotb with $sim: detections" "$(grep -o '[0-9]* detections in 500 bits' $sim.log)" "31 detections in 500 bits"
 done
 check "Icarus: sorry message for unique" "$(grep -m1 -o 'sorry: Case unique/unique0 qualities are ignored' icarus.log)" \
   "sorry: Case unique/unique0 qualities are ignored"
@@ -781,7 +774,7 @@ for d in tick_gen seq_detect; do
   sed -i -e 's/rst_ni.value = 0/rst_i.value = 1/' -e 's/rst_ni.value = 1/rst_i.value = 0/' \
     -e "s#rtl/$d.sv#vhdl/${d}_ea.vhd#" ${d}_tb.py
   SIM=ghdl python3 ${d}_tb.py > ghdl.log 2>&1
-  check "$d: adapted lines, result" "$(grep -c -E 'rst_i.value|_ea.vhd' ${d}_tb.py) $(tests ghdl.log)" "3 TESTS=2 PASS=2 FAIL=0 SKIP=0"
+  must "$d: adapted lines, result" "$(grep -c -E 'rst_i.value|_ea.vhd' ${d}_tb.py) $(tests ghdl.log)" "3 TESTS=2 PASS=2 FAIL=0 SKIP=0"
   cd "$W"
 done
 check "seq_detect (VHDL): detections" "$(grep -o '[0-9]* detections in 500 bits' ghdl_tb/seq_detect/testbenches/cocotb/ghdl.log)" "31 detections in 500 bits"
@@ -847,10 +840,4 @@ else
   cd "$W"
 fi
 
-echo
-if [ "$fails" -eq 0 ]; then
-  echo "PASS: all results match the chapter"
-else
-  echo "FAIL: $fails result(s) differ from the chapter"
-  exit 1
-fi
+finish

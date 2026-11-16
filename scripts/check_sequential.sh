@@ -7,6 +7,7 @@
 #   bash scripts/check_sequential.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter.
+# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -15,7 +16,6 @@ D=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
 LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
 SLOW=slow_1p08V_125C
 FAST=fast_1p32V_m40C
-fails=0
 
 rm -rf "$W" && mkdir -p "$W/content"
 for ch in sequential verification modeling synthesis_lib; do
@@ -24,14 +24,7 @@ done
 S=$W/content/sequential/code
 cd "$W" || exit 1
 
-check() {  # check <what> <got> <expected>
-  if [ "$2" == "$3" ]; then
-    echo "  ok    $1: $2"
-  else
-    echo "  FAIL  $1: got '$2', expected '$3'"
-    fails=$((fails + 1))
-  fi
-}
+source "$REPO/scripts/lib_check.sh"
 
 attr() {  # attr <cell> <attribute>: first value inside the cell
   awk -v c="cell (sg13cmos5l_$1)" -v a="$2" '
@@ -87,6 +80,7 @@ check "delay cells" "$(grep -oE 'cell \(sg13cmos5l_dlygate4sd[0-9]_1\)' "$LIB" |
 echo "== Timing parameters of dfrbpq_1"
 cd "$S/ff"
 sta -no_init -exit ff.tcl > ff.log 2>&1
+must "ff.tcl: OpenSTA exit status" "$?" "0"
 check "clock-to-output, Q rising and falling" "$(dc ff.log 'Reg Clk to Q' 1) $(dc ff.log 'Reg Clk to Q' 2)" "0.207 0.203"
 check "setup, D rising and falling" "$(dc ff.log setup 1) $(dc ff.log setup 2)" "0.127 0.121"
 check "hold, D rising and falling" "$(dc ff.log hold 1) $(dc ff.log hold 2)" "-0.072 -0.043"
@@ -102,14 +96,15 @@ check "T_min for 1 ns of logic" "$(awk 'BEGIN {printf "%.3f", 0.207 + 1 + 0.127}
 
 echo "== bs_reg with buffering and sizing"
 cd "$S/bs_reg"
-check "lint of bs_reg" \
-  "$(verilator --lint-only -Wall rtl/bs_reg.sv ../../../verification/code/barrel_shift/rtl/barrel_shift.sv 2>&1 | grep -c -E '%Warning|%Error')" "0"
+must "lint of bs_reg" \
+  "$(lint rtl/bs_reg.sv ../../../verification/code/barrel_shift/rtl/barrel_shift.sv)" "0"
 synth() {  # synth <abc command> <log>
   yosys -p "read_verilog -sv \
     ../../../verification/code/barrel_shift/rtl/barrel_shift.sv \
     rtl/bs_reg.sv; synth -top bs_reg; flatten; \
     dfflibmap -liberty $LIB; $1; opt_clean; \
     stat -liberty $LIB; write_verilog -noattr bs_reg.nl.v" > "$2" 2>&1
+  must "${2%.log}: Yosys exit status" "$?" "0"
 }
 synth "abc -constr ../../../synthesis_lib/code/synth/abc.constr -liberty $LIB" sized.log
 check "cells, area" "$(cells sized.log) $(area sized.log)" "915 15276.340800"
@@ -118,7 +113,7 @@ check "buffers buf_1, buf_2, buf_4, buf_8" \
   "$(ctype sized.log sg13cmos5l_buf_1) $(ctype sized.log sg13cmos5l_buf_2) $(ctype sized.log sg13cmos5l_buf_4) $(ctype sized.log sg13cmos5l_buf_8)" \
   "74 21 8 1"
 sta -no_init -exit syn/sta.tcl > sized_typ.log 2>&1
-check "check_setup is clean" "$(grep -c '^Warning' sized_typ.log)" "0"
+must "OpenSTA exit status, check_setup is clean" "$? $(grep -c '^Warning' sized_typ.log)" "0 0"
 # Report 1: recovery, 2: setup clk, 3: removal, 4: hold clk
 check "setup path: start and end point" \
   "$(grep -A4 'dfrbpq_1 _1719_ (' bs_reg.nl.v | grep -o 'Q([a-z_]*\[[0-9]*\])') $(grep -A4 'dfrbpq_1 _1716_ (' bs_reg.nl.v | grep -o 'Q([a-z_]*\[[0-9]*\])')" \
@@ -173,6 +168,7 @@ synth "abc -liberty $LIB" default.log
 check "cells, area" "$(cells default.log) $(area default.log)" "811 14398.171200"
 check "area of the sized netlist against the default one" "$(awk 'BEGIN {printf "%.0f", 100 * (15276.3408 / 14398.1712 - 1)}')" "6"
 sta -no_init -exit syn/sta.tcl > default_typ.log 2>&1
+must "default mapping: OpenSTA exit status" "$?" "0"
 check "wns, tns" "$(grep -oE '^(wns|tns) max [-0-9.]+' default_typ.log | awk '{print $3}' | tr '\n' ' ')" "-2.507 -76.407 "
 check "minimum period, fmax" "$(period default_typ.log)" "6.51 153.68"
 check "worst path start point" "$(awk '/^Startpoint:/ {r++} r == 2 && /^Startpoint/ {print $2; exit}' default_typ.log)" "_1510_"
@@ -223,6 +219,7 @@ yosys -p "read_verilog -sv \
   synth -top led_blink_fpga; dfflibmap -liberty $LIB; \
   abc -liberty $LIB; opt_clean; \
   write_verilog -noattr led_blink_fpga.nl.v" > fpga.log 2>&1
+must "FPGA version: Yosys exit status" "$?" "0"
 check "flip-flops of the FPGA version" "$(grep -c 'sg13cmos5l_dfrbpq_1 ' led_blink_fpga.nl.v)" "26"
 check "flip-flops on clk_i" "$(grep -A1 'sg13cmos5l_dfrbpq_1 ' led_blink_fpga.nl.v | grep -c 'CLK(clk_i)')" "25"
 check "count_q width" "$(grep -oE 'wire \[[0-9]+:0\] count_q' led_blink_fpga.nl.v)" "wire [23:0] count_q"
@@ -235,7 +232,7 @@ check "clk only: warnings" \
 check "clk only: path groups" "$(grep -o 'group [a-z_]*' clk.log | tr '\n' ' ')" "group clk "
 cp led_blink_fpga_solution.sdc led_blink_fpga.sdc
 TOP=led_blink_fpga SDC=led_blink_fpga.sdc sta -no_init -exit sta.tcl > gen.log 2>&1
-check "generated clock: warnings" "$(grep -c '^Warning' gen.log)" "0"
+must "generated clock: OpenSTA exit status, warnings" "$? $(grep -c '^Warning' gen.log)" "0 0"
 check "generated clock: period and edges" "$(grep '^slow_clk' gen.log | tr -s ' ')" "slow_clk 500000000.00 0.00250000000.00 (generated)"
 check "generated clock: path groups" "$(grep -o 'group [a-z_]*' gen.log | tr '\n' ' ')" "group clk group slow_clk "
 check "generated clock: endpoint" "$(awk '/group slow_clk/ {on = 1} on && /dfrbpq/ {print $1; exit}' gen.log)" "_175_/D"
@@ -263,6 +260,7 @@ check "four buffers: typical" "$(hold typ_1p20V_25C)" "-0.030 3.941 "
 check "four buffers: slow" "$(hold $SLOW)" "-0.054 3.897 "
 for c in $FAST $SLOW; do
   CORNER=$c sta -no_init -exit hold.tcl > hold_$c.log 2>&1
+  must "hold.tcl, $c: OpenSTA exit status" "$?" "0"
 done
 check "fast: clock latency of ff2, clock-to-output of ff1" \
   "$(awk '/Path Type: min/ {on = 1} on && /network delay/ {n++; if (n == 2) {print $1; exit}}' hold_$FAST.log) $(col hold_$FAST.log 1 'ff1/Q' 1)" \
@@ -282,7 +280,9 @@ check "with dlygate4sd1_1: slow" "$(hold $SLOW)" "0.161 3.697 "
 echo "== Time borrowing"
 cd "$S/borrow"
 TOP=borrow_ff sta -no_init -exit borrow.tcl > ff.log 2>&1
+must "borrow_ff: OpenSTA exit status" "$?" "0"
 TOP=borrow_latch sta -no_init -exit borrow.tcl > latch.log 2>&1
+must "borrow_latch: OpenSTA exit status" "$?" "0"
 check "falling-edge flip-flop: stage 1, stage 2" "$(grep slack ff.log | awk '{print $1}' | tr '\n' ' ')" "-0.474 1.001 "
 check "latch: stage 1, stage 2" "$(grep slack latch.log | awk '{print $1}' | tr '\n' ' ')" "0.000 0.620 "
 check "latch: borrowed time" "$(grep 'actual time borrow' latch.log | awk '{print $NF}')" "0.354"
@@ -291,10 +291,4 @@ check "dllrq_1: hold of D against the closing (rising) edge of GATE_N" \
   "$(sed -n '/cell (sg13cmos5l_dllrq_1)/,/cell (sg13cmos5l_dlygate4sd1_1)/p' "$LIB" | grep -B2 'timing_type : hold' | grep -o 'related_pin : "[A-Z_]*"\|timing_type : [a-z_]*' | tr '\n' ' ')" \
   'related_pin : "GATE_N" timing_type : hold_rising '
 
-echo
-if [ "$fails" -eq 0 ]; then
-  echo "PASS: all results match the chapter"
-else
-  echo "FAIL: $fails result(s) differ from the chapter"
-  exit 1
-fi
+finish

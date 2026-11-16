@@ -7,6 +7,7 @@
 #   bash scripts/check_synthesis_lib.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter.
+# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -14,7 +15,6 @@ W=${CHECK_DIR:-/tmp/vlsi_check_synthesis_lib}
 D=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
 LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
 LEF=$D/lef/sg13cmos5l_stdcell.lef
-fails=0
 
 rm -rf "$W" && mkdir -p "$W/content"
 for ch in synthesis_lib verification sv_crashcourse; do
@@ -23,14 +23,7 @@ done
 C=$W/content/synthesis_lib/code
 cd "$W" || exit 1
 
-check() {  # check <what> <got> <expected>
-  if [ "$2" == "$3" ]; then
-    echo "  ok    $1: $2"
-  else
-    echo "  FAIL  $1: got '$2', expected '$3'"
-    fails=$((fails + 1))
-  fi
-}
+source "$REPO/scripts/lib_check.sh"
 
 attr() {  # attr <lib> <cell> <attribute>: first value inside the cell
   awk -v c="cell (sg13cmos5l_$2)" -v a="$3" '
@@ -68,6 +61,7 @@ synth_bs() {  # synth_bs <abc command> <log>: barrel shifter, WIDTH 32
     chparam -set WIDTH 32 barrel_shift; synth -top barrel_shift; \
     $1; opt_clean; \
     stat -liberty $LIB; write_verilog -noattr barrel_shift.nl.v" > "$2" 2>&1
+  must "barrel shifter, ${2%.log}: Yosys exit status" "$?" "0"
 }
 
 arrival() {  # arrival [corner]: the arrival time of the slowest output
@@ -78,8 +72,8 @@ arrival() {  # arrival [corner]: the arrival time of the slowest output
 echo "== Versions"
 check "Yosys" "$(yosys -V | awk '{print $2}')" "0.70"
 check "OpenSTA" "$(sta -version)" "3.1.0"
-check "EQY in the image" "$(command -v eqy > /dev/null && echo yes)" "yes"
-check "kepler-formal in the image" "$(command -v kepler-formal > /dev/null && echo yes)" "yes"
+must "EQY in the image" "$(command -v eqy > /dev/null && echo yes)" "yes"
+must "kepler-formal in the image" "$(command -v kepler-formal > /dev/null && echo yes)" "yes"
 check "kepler-formal modes" "$(kepler-formal --help 2>&1 | grep -c -- '-v <lec|sec>')" "1"
 
 echo "== Library views"
@@ -87,7 +81,7 @@ for f in lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib lef/sg13cmos5l_stdcell.lef \
   gds/sg13cmos5l_stdcell.gds verilog/sg13cmos5l_stdcell.v \
   cdl/sg13cmos5l_stdcell.cdl spice/sg13cmos5l_stdcell.spice \
   doc/sg13cmos5l_stdcell_typ_1p20V_25C.pdf sch/xschem sym/xschem; do
-  check "view $f" "$([ -e "$D/$f" ] && echo yes)" "yes"
+  must "view $f" "$([ -e "$D/$f" ] && echo yes)" "yes"
 done
 check "corners" "$(ls "$D"/lib/*.lib | sed 's/.*stdcell_//; s/\.lib//' | tr '\n' ' ')" \
   "fast_1p32V_m40C fast_1p65V_m40C slow_1p08V_125C slow_1p35V_125C typ_1p20V_25C typ_1p50V_25C "
@@ -155,6 +149,7 @@ check "constraint table variables" \
 echo "== Delay calculation"
 cd "$C/dcalc"
 sta -no_init -exit dcalc.tcl > typ.log 2>&1
+must "OpenSTA exit status" "$?" "0"
 check "rise delay" "$(dcalc typ.log 'A v -> Y ^' Delay)" "0.2775"
 check "rise slew" "$(dcalc typ.log 'A v -> Y ^' Slew)" "0.2408"
 check "fall delay" "$(dcalc typ.log 'A ^ -> Y v' Delay)" "0.2574"
@@ -227,6 +222,7 @@ check "mux4 generic NAND, AND, NOR, ANDNOT" \
 yosys -p "read_verilog -sv rtl/mux4.sv; synth -top mux4; \
   dfflibmap -liberty $LIB; abc -liberty $LIB; opt_clean; \
   stat -liberty $LIB" > mapped.log 2>&1
+must "mux4 mapped: Yosys exit status" "$?" "0"
 check "mux4 mapped cells" "$(cells mapped.log)" "11"
 check "mux4 mux4_1, nor4_1, and2_1" \
   "$(ctype mapped.log sg13cmos5l_mux4_1) $(ctype mapped.log sg13cmos5l_nor4_1) $(ctype mapped.log sg13cmos5l_and2_1)" "8 2 1"
@@ -236,6 +232,7 @@ yosys -p "read_verilog -sv \
   ../../../verification/code/fifo/rtl/fifo.sv; synth -top fifo; \
   dfflibmap -liberty $LIB; abc -liberty $LIB; opt_clean; \
   stat -liberty $LIB; write_verilog -noattr fifo.nl.v" > fifo_syn.log 2>&1
+must "FIFO: Yosys exit status" "$?" "0"
 check "FIFO cells" "$(cells fifo_syn.log)" "103"
 check "FIFO area" "$(area fifo_syn.log)" "3008.275200"
 check "FIFO GE" "$(awk -v a="$(area fifo_syn.log)" 'BEGIN {printf "%.1f", a / 7.2576}')" "414.5"
@@ -288,7 +285,7 @@ check "hierarchy -check rejects a skipped cell" \
 start=$(date +%s)
 eqy -d fifo_eqy fifo.eqy > fifo.log 2>&1; rc=$?
 secs=$(( $(date +%s) - start ))
-check "FIFO: exit status" "$rc" "0"
+must "FIFO: exit status" "$rc" "0"
 check "FIFO: messages" "$(grep -oE 'Successfully proved designs equivalent|DONE \(PASS, rc=0\)' fifo.log | tr '\n' ' ')" \
   "Successfully proved designs equivalent DONE (PASS, rc=0) "
 check "FIFO: below 10 s (measured about 3 s)" "$([ "$secs" -lt 10 ] && echo yes)" "yes"
@@ -337,7 +334,7 @@ sed -i 's/push_i \&\& !full_o/push_i \&\& (!full_o || pop_i)/' m3/rtl/fifo.sv
 check "M3 applied" "$(grep -c '(!full_o || pop_i)' m3/rtl/fifo.sv)" "1"
 sed 's#../../../verification/code/fifo/rtl/fifo.sv#m3/rtl/fifo.sv#' fifo.eqy > m3.eqy
 eqy -d m3_eqy m3.eqy > m3.log 2>&1; rc=$?
-check "stale RTL (M3): exit status" "$rc" "2"
+must "stale RTL (M3): exit status" "$rc" "2"
 check "stale RTL (M3): failed partition" \
   "$(grep -o 'Failed to prove equivalence of partition [a-z_.0-9]*' m3.log | awk '{print $NF}' | tr '\n' ' ')" "fifo.full_o "
 # EQY compares only the states that the RTL reaches after reset
@@ -355,7 +352,7 @@ eqy -d unreach cnt.eqy > unreach.log 2>&1
 check "mod-3 counter, difference in the unreachable state 3: EQY" "$(grep -o 'DONE ([A-Z]*, rc=[0-9])' unreach.log)" "DONE (PASS, rc=0)"
 sed 's/else q_o <=/else if (q_o == 2'"'"'d1) q_o <= 2'"'"'d3;\n    else q_o <=/' gold.sv > gate.sv
 eqy -d reach cnt.eqy > reach.log 2>&1
-check "mod-3 counter, difference in the reachable state 1: EQY" "$(grep -o 'DONE ([A-Z]*, rc=[0-9])' reach.log)" "DONE (FAIL, rc=2)"
+must "mod-3 counter, difference in the reachable state 1: EQY" "$(grep -o 'DONE ([A-Z]*, rc=[0-9])' reach.log)" "DONE (FAIL, rc=2)"
 cd ..
 # Exercise: the barrel shifter
 yosys -p "read_verilog -sv \
@@ -363,11 +360,12 @@ yosys -p "read_verilog -sv \
   chparam -set WIDTH 32 barrel_shift; synth -top barrel_shift; \
   abc -liberty $LIB; opt_clean; \
   stat -liberty $LIB; write_verilog -noattr barrel_shift.nl.v" > bs_syn.log 2>&1
+must "barrel shifter netlist for EQY: Yosys exit status" "$?" "0"
 check "barrel shifter netlist for EQY: cells" "$(cells bs_syn.log)" "747"
 start=$(date +%s)
 eqy -d bs_eqy barrel_shift.eqy > bs.log 2>&1; rc=$?
 secs=$(( $(date +%s) - start ))
-check "barrel shifter: exit status" "$rc" "0"
+must "barrel shifter: exit status" "$rc" "0"
 check "barrel shifter: below 10 s (measured about 3 s)" "$([ "$secs" -lt 10 ] && echo yes)" "yes"
 check "barrel shifter: partitions" "$(cat bs_eqy/partition.list | tr -s ' ')" "barrel_shift barrel_shift.data_o : data_o[31:0]"
 cp barrel_shift.nl.v barrel_shift_good.nl.v
@@ -375,7 +373,7 @@ sed -i '0,/sg13cmos5l_a21oi_1 /s//sg13cmos5l_o21ai_1 /' \
   barrel_shift.nl.v
 check "mutant: one cell changed" "$(diff barrel_shift_good.nl.v barrel_shift.nl.v | grep -c '^>')" "1"
 eqy -d bs_mut barrel_shift.eqy > bs_mut.log 2>&1; rc=$?
-check "mutant: exit status" "$rc" "2"
+must "mutant: exit status" "$rc" "2"
 check "mutant: message" "$(grep -o 'Failed to prove equivalence of partition [a-z_.0-9]*' bs_mut.log)" \
   "Failed to prove equivalence of partition barrel_shift.data_o"
 T=$(ls bs_mut/strategies/*/sby/*/engine_0/trace.vcd)
@@ -387,10 +385,4 @@ check "counterexample: differing bit" "$(awk -v x=$((2#$gold ^ 2#$gate)) 'BEGIN 
 check "counterexample: gold is the rotation by 8" \
   "$(printf '%08X' $(( ((0x57C45344 << 8) | (0x57C45344 >> 24)) & 0xFFFFFFFF )))" "C4534457"
 
-echo
-if [ "$fails" -eq 0 ]; then
-  echo "PASS: all results match the chapter"
-else
-  echo "FAIL: $fails result(s) differ from the chapter"
-  exit 1
-fi
+finish
