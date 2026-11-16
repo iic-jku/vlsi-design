@@ -11,14 +11,16 @@
 #                    runs two LibreLane runs itself, and the run-time
 #                    checks of check_verification want an idle machine.
 #   RUN_DIR=dir      logs and work folders (default /tmp/vlsi_checks)
-#   CHECK_TIMEOUT=s  limit per chapter in seconds (default 10800, the
-#                    LibreLane chapter alone takes about 30 minutes)
+#   CHECK_TIMEOUT=s  limit per chapter in seconds (default 18000), a net
+#                    against hangs: the LibreLane chapter took 90 minutes
+#                    beside a second chapter on a 14-thread laptop, and a
+#                    GitHub runner has 4 cores
 #   TEMPLATE_DIR     as in the chapter scripts
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 RUN_DIR=${RUN_DIR:-/tmp/vlsi_checks}
 JOBS=${JOBS:-2}
-CHECK_TIMEOUT=${CHECK_TIMEOUT:-10800}
+CHECK_TIMEOUT=${CHECK_TIMEOUT:-18000}
 export CHECK_MODE=${CHECK_MODE:-book}
 # Long chapters first, so that none of them starts last
 SLOW="digital_flow cdc dft verification sv_crashcourse"

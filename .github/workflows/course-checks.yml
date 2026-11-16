@@ -9,11 +9,13 @@ on:
       mode:
         description: 'CHECK_MODE: regression (what the exercises need) or book (every quoted value)'
         default: 'regression'
+  # Every file that a check script reads, see the paths in scripts/check_*.sh
   push:
     branches: [main]
     paths:
       - 'content/*/code/**'
       - 'content/*/_fig_*.qmd'
+      - 'content/dft/_sec_dft.qmd'
       - 'scripts/**'
       - '.github/workflows/course-checks.yml'
   pull_request:
@@ -21,6 +23,7 @@ on:
     paths:
       - 'content/*/code/**'
       - 'content/*/_fig_*.qmd'
+      - 'content/dft/_sec_dft.qmd'
       - 'scripts/**'
       - '.github/workflows/course-checks.yml'
 
@@ -45,14 +48,15 @@ jobs:
         id: list
         # Every scripts/check_<chapter>.sh becomes one job, so a new chapter needs no edit here
         run: |
-          chapters=$(ls scripts/check_*.sh | sed 's#scripts/check_##; s#\.sh$##' | jq -R . | jq -s -c .)
+          chapters=$(for f in scripts/check_*.sh; do basename "$f" .sh | sed 's/^check_//'; done | jq -R . | jq -s -c .)
           echo "chapters=$chapters" >> "$GITHUB_OUTPUT"
 
   checks:
     name: ${{ matrix.chapter }}
     needs: list
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    # The LibreLane chapter took 90 minutes on a 14-thread laptop, a runner has 4 cores
+    timeout-minutes: 330
     strategy:
       fail-fast: false
       matrix:
@@ -125,5 +129,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: check-${{ matrix.chapter }}
-          path: /tmp/vlsi_checks/logs/
+          path: ${{ env.RUN_DIR }}/logs/
           if-no-files-found: ignore
