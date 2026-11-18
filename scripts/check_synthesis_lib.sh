@@ -72,6 +72,7 @@ arrival() {  # arrival [corner]: the arrival time of the slowest output
 echo "== Versions"
 check "Yosys" "$(yosys -V | awk '{print $2}')" "0.70"
 check "OpenSTA" "$(sta -version)" "3.1.0"
+check "KLayout" "$(klayout -v | awk '{print $2}')" "0.30.12"
 must "EQY in the image" "$(command -v eqy > /dev/null && echo yes)" "yes"
 must "kepler-formal in the image" "$(command -v kepler-formal > /dev/null && echo yes)" "yes"
 check "kepler-formal modes" "$(kepler-formal --help 2>&1 | grep -c -- '-v <lec|sec>')" "1"
@@ -118,6 +119,164 @@ check "inv_4: area, GE, capacitance of A, max_capacitance" \
   "10.8864 1.5 0.0112211 1.2"
 check "inv_4/inv_1: capacitance ratio" \
   "$(awk -v a="$(attr "$LIB" inv_4 capacitance)" -v b="$(attr "$LIB" inv_1 capacitance)" 'BEGIN {printf "%.1f", a / b}')" "3.9"
+
+echo "== Cell layouts"
+GDS=$D/gds/sg13cmos5l_stdcell.gds
+E=$PDK_ROOT/ihp-sg13g2/libs.ref/ez130_8t
+ELIB=$E/lib/ez130_8t_tt_1p20v_25c.lib
+ELEF=$E/lef/ez130_8t.lef
+cat > cells.py << 'EOF'
+"""cells.py <gds> <cell...>: Activ polygons, NMOS and PMOS gates with their
+widths, n+ ties in the n-well and p+ ties outside it, shapes on Metal2 and
+Via1"""
+import sys
+
+import klayout.db as db
+
+ly = db.Layout()
+ly.read(sys.argv[1])
+
+
+def region(cell, ld):
+    i = ly.find_layer(*ld)
+    return db.Region(cell.begin_shapes_rec(i)) if i is not None else db.Region()
+
+
+def widths(g):
+    w = sorted({f'{p.bbox().height() * ly.dbu:.2f}' for p in g.each()})
+    return f'{g.count()}:{",".join(w)}'
+
+
+for name in sys.argv[2:]:
+    c = ly.cell(name)
+    act, nw, psd = region(c, (1, 0)).merged(), region(c, (31, 0)), region(c, (14, 0))
+    gates = (act & region(c, (5, 0))).merged()
+    m2 = sum(region(c, (ly.get_info(i).layer, ly.get_info(i).datatype)).count()
+             for i in ly.layer_indexes() if ly.get_info(i).layer in (10, 19))
+    print(name, f'activ={act.count()} n={widths(gates - nw)} p={widths(gates & nw)}'
+          f' ntie={((act & nw) - psd - gates).merged().count()}'
+          f' ptie={((act - nw) & psd - gates).merged().count()} m2={m2}')
+EOF
+python3 cells.py "$GDS" sg13cmos5l_inv_1 sg13cmos5l_inv_16 > cells_ihp.txt
+python3 cells.py "$E/gds/ez130_8t.gds" INVX1 INVX3 WELLTAP > cells_eth.txt
+must "cell layouts read" "$(cat cells_ihp.txt cells_eth.txt | wc -l)" "5"
+check "inv_1: Activ, NMOS, PMOS, ties, nothing above Metal1" "$(grep '^sg13cmos5l_inv_1 ' cells_ihp.txt)" \
+  "sg13cmos5l_inv_1 activ=4 n=1:0.74 p=1:1.12 ntie=1 ptie=1 m2=0"
+check "inv_16: 16 fingers of the transistors of inv_1" "$(grep '^sg13cmos5l_inv_16 ' cells_ihp.txt)" \
+  "sg13cmos5l_inv_16 activ=4 n=16:0.74 p=16:1.12 ntie=1 ptie=1 m2=0"
+check "INVX1: no ties, narrow transistors" "$(grep '^INVX1 ' cells_eth.txt)" "INVX1 activ=2 n=1:0.30 p=1:0.48 ntie=0 ptie=0 m2=0"
+check "INVX3: no ties" "$(grep '^INVX3 ' cells_eth.txt)" "INVX3 activ=2 n=1:0.86 p=1:1.32 ntie=0 ptie=0 m2=0"
+check "WELLTAP: one n+ and one p+ tie" "$(grep '^WELLTAP ' cells_eth.txt)" "WELLTAP activ=2 n=0: p=0: ntie=1 ptie=1 m2=0"
+check "inv_1: channel length of both transistors" \
+  "$(awk '$2 == "sg13cmos5l_inv_1" {on = 1} on && /^M/ {print $1, $9} on && toupper($1) == ".ENDS" {exit}' "$D/cdl/sg13cmos5l_stdcell.cdl" | tr '\n' ' ')" \
+  "MN0 l=130.00n MP0 l=130.00n "
+tcount() {  # tcount <cdl> <subckt>: transistors of a subcircuit
+  awk -v c="$2" 'toupper($1) == ".SUBCKT" && $2 == c {on = 1; next}
+    on && toupper($1) == ".ENDS" {exit} on && /^[Mm]/ {n++} END {print n}' "$1"
+}
+check "transistors of mux2_1, dfrbpq_1" \
+  "$(tcount "$D/cdl/sg13cmos5l_stdcell.cdl" sg13cmos5l_mux2_1) $(tcount "$D/cdl/sg13cmos5l_stdcell.cdl" sg13cmos5l_dfrbpq_1)" "12 32"
+check "inv_16: one transistor pair with 16 fingers" \
+  "$(awk '$2 == "sg13cmos5l_inv_16" {on = 1} on && /^M/ {print $1, $NF} on && toupper($1) == ".ENDS" {exit}' "$D/cdl/sg13cmos5l_stdcell.cdl" | tr '\n' ' ')" \
+  "MN0 ng=16 MP0 ng=16 "
+check "inv_16: width, area, max_capacitance" \
+  "$(width inv_16) $(attr "$LIB" inv_16 area) $(attr "$LIB" inv_16 max_capacitance)" "9.12 34.4736 4.8"
+check "inv_16/inv_1: area, drive" \
+  "$(awk -v a="$(attr "$LIB" inv_16 area)" -v b="$(attr "$LIB" inv_1 area)" 'BEGIN {printf "%.1f", a / b}') $(awk -v a="$(attr "$LIB" inv_16 max_capacitance)" -v b="$(attr "$LIB" inv_1 max_capacitance)" 'BEGIN {print a / b}')" "6.3 16"
+check "dfrbpq_1: sites" "$(awk -v w="$(width dfrbpq_1)" 'BEGIN {print w / 0.48}')" "27"
+check "lowest routing layer of the flow" \
+  "$(grep -oE 'RT_MIN_LAYER\) "[A-Za-z0-9]+"' "$PDK_ROOT/ihp-sg13cmos5l/libs.tech/librelane/config.tcl")" 'RT_MIN_LAYER) "Metal2"'
+cat > tech.py << 'EOF'
+print(pya.CellView.active().technology)
+EOF
+check "KLayout opens the library with the technology of the PDK" \
+  "$(klayout -b -n sg13cmos5l "$GDS" -r tech.py 2>&1 | tail -1)" "sg13cmos5l"
+mkdir -p fig
+(cd "$C/layout" && python3 render_layouts.py "$W/fig" > "$W/render.log" 2>&1)
+check "layout figures: render exit status" "$?" "0"
+for f in layouts_ihp.png layouts_9t_8t.png; do
+  check "layout figure $f equals the committed one" \
+    "$(cmp -s "fig/$f" "$REPO/figures/synthesis_lib/$f" && echo same)" "same"
+done
+
+echo "== ETH LV and tracks"
+lefpitch() {  # lefpitch <tech lef>: preferred direction and pitch of Metal1 to Metal4
+  awk '$1 == "LAYER" && $2 ~ /^Metal[1-4]$/ {l = $2; next}
+    l && $1 == "DIRECTION" {d = substr($2, 1, 1)}
+    l && $1 == "PITCH" {printf "%s %s %s ", l, d, (d == "H" && $3 != ";") ? $3 : $2; l = ""}' "$1"
+}
+check "pitches of IHP LV" "$(lefpitch "$D/lef/sg13cmos5l_tech.lef")" \
+  "Metal1 H 0.42 Metal2 V 0.48 Metal3 H 0.42 Metal4 V 0.48 "
+check "pitches of ETH LV for SG13CMOS5L" "$(lefpitch "$E/lef/ez130_sg13cmos5l_tech.lef")" \
+  "Metal1 H 0.42 Metal2 V 0.42 Metal3 H 0.42 Metal4 V 0.42 "
+check "site of ETH LV" "$(awk '/^SITE +CoreSite/ {on = 1} on && $1 == "SIZE" {print $2, $4; exit}' "$ELEF")" "0.42 3.36"
+HVLEF=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell_hv/lef/sg13cmos5l_stdcell_hv.lef
+check "height of IHP HV" "$(grep -E '^ +SIZE .* BY ' "$HVLEF" | awk '{print $4}' | sort -u | tr '\n' ' ')" "7.14 "
+check "tracks of IHP LV, ETH LV, IHP HV" "$(awk 'BEGIN {print 3.78 / 0.42, 3.36 / 0.42, 7.14 / 0.42}')" "9 8 17"
+check "ETH LV: version" "$(awk '$1 == "Revision" {print $3}' "$E/doc/ReleaseNotes.txt")" "v1.1"
+awk '/^MACRO / {print $2}' "$ELEF" > enames.txt
+check "ETH LV: cells in the LEF, in the Liberty file" "$(wc -l < enames.txt) $(grep -c '^  cell (' "$ELIB")" "220 214"
+check "ETH LV: cells only in the LEF" \
+  "$(comm -23 <(sort enames.txt) <(grep -oE '^  cell \([A-Z0-9]+' "$ELIB" | sed 's/.*(//' | sort) | tr '\n' ' ')" \
+  "FILLER1 FILLER16 FILLER2 FILLER4 FILLER8 WELLTAP "
+en() { grep -cE "$1" enames.txt; }
+check "ETH LV: flip-flops" "$(en '^DFF')" "27"
+check "ETH LV: latches" "$(en '^LAT')" "14"
+check "ETH LV: clock gates" "$(en '^CG')" "7"
+check "ETH LV: tri-state drivers" "$(en '^T(BUF|INV)')" "4"
+check "ETH LV: delay cells" "$(en '^DLY')" "1"
+check "ETH LV: tie cells" "$(en '^TIE')" "2"
+check "ETH LV: physical cells" "$(en '^(FILLER|DECAP|ANTENNA|WELLTAP)')" "13"
+check "ETH LV: combinational logic" "$(grep -cvE '^(DFF|LAT|CG|TBUF|TINV|DLY|TIE|FILLER|DECAP|ANTENNA|WELLTAP)' enames.txt)" "152"
+check "ETH LV, IHP LV: buffers" "$(en '^BUFX') $(n '^buf_')" "13 5"
+check "ETH LV: inverters and buffers from X1 to X64" \
+  "$(grep -E '^(INV|BUF)X(1|64)$' enames.txt | sort | tr '\n' ' ')" "BUFX1 BUFX64 INVX1 INVX64 "
+check "ETH LV: example cells exist" \
+  "$(for c in NAND2X1 AOI21X1 AOI21BX1 XOR2X1 MUX2X1 MUX4X1 FAX1 HAX2 DFFQX1 DFFRQX1 DFFRQ2X1 DFFRQ4X1 DFFMRQX2 LATQX1 LATNRX1 CGX1 CGTSX1 TBUFX1 TINVX1 DLY1X2 TIEHI TIELO FILLER16 DECAP4 DECAP32 ANTENNA2 ANTENNA8 WELLTAP; do grep -qx "$c" enames.txt || echo "$c"; done)" ""
+check "ETH LV: double-height cells" \
+  "$(awk '$1 == "MACRO" {m = $2} $1 == "SIZE" && $4 > 4 {print m, $4}' "$ELEF" | tr '\n' ' ')" \
+  "DFFRQ4X1 6.72 DFFRQ4X1P5 6.72 DFFRQ4X2 6.72 DFFRQ4X3 6.72 "
+eblock() {  # eblock <cell>: the lines of one cell of ETH LV
+  awk -v c="  cell ($1) {" '$0 == c {on = 1; next} on && /^  cell \(/ {exit} on' "$ELIB"
+}
+check "ETH LV: flip-flop banks of 2 and 4 bits" \
+  "$(eblock DFFRQ2X1 | grep -oE 'ff_bank \([A-Z0-9,]+\)') $(eblock DFFRQ4X1 | grep -oE 'ff_bank \([A-Z0-9,]+\)')" \
+  "ff_bank (IQ,IQN,2) ff_bank (IQ,IQN,4)"
+check "ETH LV: DFFQX1 clocked, without reset" \
+  "$(eblock DFFQX1 | grep -cE '^ +clocked_on :') $(eblock DFFQX1 | grep -cE '^ +(clear|preset) :')" "1 0"
+check "ETH LV: DFFMRQX2 is a scan flip-flop" "$(eblock DFFMRQX2 | grep -oE 'next_state : "[^"]*"')" \
+  'next_state : "(D * !SE) + (SD * SE)"'
+ewidth() { awk -v m="MACRO $1" '$0 == m {on = 1} on && $1 == "SIZE" {print $2; exit}' "$ELEF"; }
+eattr() {
+  awk -v c="  cell ($2) {" -v a="$3" '$0 == c {on = 1; next} on && /^  cell \(/ {exit}
+    on && $1 == a {gsub(/[";]/, "", $3); print $3; exit}' "$1"
+}
+check "ETH LV: width of INVX1, INVX2, INVX3, WELLTAP" \
+  "$(ewidth INVX1) $(ewidth INVX2) $(ewidth INVX3) $(ewidth WELLTAP)" "1.26 1.26 1.26 1.26"
+check "max_capacitance of INVX1, INVX3, inv_1" \
+  "$(eattr "$ELIB" INVX1 max_capacitance) $(eattr "$ELIB" INVX3 max_capacitance) $(attr "$LIB" inv_1 max_capacitance)" "0.1 0.3 0.3"
+check "max_capacitance of DFFRQX3, dfrbpq_1" \
+  "$(eattr "$ELIB" DFFRQX3 max_capacitance) $(attr "$LIB" dfrbpq_1 max_capacitance)" "0.3 0.3"
+check "area of INVX3, inv_1, DFFRQX3, dfrbpq_1" \
+  "$(eattr "$ELIB" INVX3 area | awk '{printf "%.2f", $1}') $(attr "$LIB" inv_1 area | awk '{printf "%.2f", $1}') $(eattr "$ELIB" DFFRQX3 area | awk '{printf "%.2f", $1}') $(attr "$LIB" dfrbpq_1 area | awk '{printf "%.2f", $1}')" \
+  "4.23 5.44 28.22 48.99"
+check "ETH LV: area of NAND2X1, GE of DFFRQX1" \
+  "$(eattr "$ELIB" NAND2X1 area) $(awk -v a="$(eattr "$ELIB" DFFRQX1 area)" -v n="$(eattr "$ELIB" NAND2X1 area)" 'BEGIN {print a / n}')" "5.6448 5"
+check "ETH LV: corners" "$(ls "$E"/lib/*.lib | sed 's/.*8t_//; s/\.lib//' | tr '\n' ' ')" \
+  "ff_1p32v_m40c ss_1p08v_125c tt_1p20v_25c "
+check "ETH LV: views" "$(LC_ALL=C ls "$E" | tr '\n' ' ')" "LICENSE NOTICE README cdl doc gds lef lib verilog "
+check "ETH LV: technology LEFs" "$(ls "$E"/lef/*tech.lef | xargs -n1 basename | tr '\n' ' ')" \
+  "ez130_sg13cmos5l_tech.lef ez130_sg13g2_tech.lef "
+check "ETH LV: no LibreLane configuration in the PDK" \
+  "$(ls -d "$PDK_ROOT"/ihp-sg13*/libs.tech/librelane/ez130* 2>/dev/null | wc -l)" "0"
+check "IHP library of SG13G2: the cells of IHP LV" \
+  "$(diff <(grep -oE '^  cell \(sg13g2_[a-z0-9_]+' "$PDK_ROOT/ihp-sg13g2/libs.ref/sg13g2_stdcell/lib/sg13g2_stdcell_typ_1p20V_25C.lib" | sed 's/.*sg13g2_//' | sort) <(sort names.txt) > /dev/null && echo same)" "same"
+check "latch-up rule LU.a, KLayout deck" \
+  "$(grep -oE '"LU\.a", "[^"]*= 20\.00"' "$PDK_ROOT/ihp-sg13cmos5l/libs.tech/klayout/tech/drc/rule_decks/sg13cmos5l_maximal.drc" | head -1)" \
+  '"LU.a", "Max. space from any portion of P+Activ inside NWell to an nSD-NWell tie = 20.00"'
+check "latch-up rule LU.b, Magic deck" \
+  "$(grep -oE '"N-diff distance to P-tap must be < 20\.0um \(LU\.b\)"' "$PDK_ROOT/ihp-sg13cmos5l/libs.tech/magic/ihp-sg13cmos5l-drc.tech" | head -1)" \
+  '"N-diff distance to P-tap must be < 20.0um (LU.b)"'
 
 echo "== Liberty file"
 for a in "delay_model : table_lookup;" 'time_unit : "1ns";' "capacitive_load_unit (1,pf);" \

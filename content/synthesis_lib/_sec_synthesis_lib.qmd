@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 Since @sec-sv-crashcourse, we have synthesized every design with a few Yosys commands, and since @sec-modeling, we have looked at cell areas. This chapter opens that black box. Four questions guide it. What does a synthesis tool do between the RTL and the netlist? What is a standard cell, and where do its function, its area, and its delay come from? How does a timing tool know the delay of a cell without simulating its transistors? And how do we know that the netlist still implements the RTL, without simulating it? The answers are the four steps of logic synthesis, the standard-cell library of SG13CMOS5L with its Liberty files, table-based delay calculation, PVT corners, and the logic equivalence check with EQY.
 
 ::: {.callout-note}
-All code of this chapter is available in the folder [`content/synthesis_lib/code`]({{< meta var.url-repo >}}/tree/main/content/synthesis_lib/code) of the course repository: the delay calculation in `dcalc/`, the scripts of the synthesis experiments in `synth/`, and the equivalence checks in `lec/`. The designs come from earlier chapters, i.e., the multiplexer of @sec-sv-assign and the barrel shifter and the FIFO of @sec-verification. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (Yosys 0.70, EQY 0.70, OpenSTA 3.1.0) and the standard-cell library of SG13CMOS5L in the PDK of that image. Run times depend on the computer, and the ones quoted here come from a laptop. The script [`scripts/check_synthesis_lib.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_synthesis_lib.sh) reproduces all other numbers: run `bash scripts/check_synthesis_lib.sh` in the container from the root of the repository.
+All code of this chapter is available in the folder [`content/synthesis_lib/code`]({{< meta var.url-repo >}}/tree/main/content/synthesis_lib/code) of the course repository: the delay calculation in `dcalc/`, the scripts of the synthesis experiments in `synth/`, the equivalence checks in `lec/`, and the script that renders the cell layouts in `layout/`. The designs come from earlier chapters, i.e., the multiplexer of @sec-sv-assign and the barrel shifter and the FIFO of @sec-verification. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (Yosys 0.70, EQY 0.70, OpenSTA 3.1.0, KLayout 0.30.12) and the standard-cell libraries in the PDK of that image. Run times depend on the computer, and the ones quoted here come from a laptop. The script [`scripts/check_synthesis_lib.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_synthesis_lib.sh) reproduces all other numbers: run `bash scripts/check_synthesis_lib.sh` in the container from the root of the repository.
 :::
 
 For the exercises, clone the course repository into your designs folder once, if you have not done so yet:
@@ -31,6 +31,7 @@ After this chapter, you will be able to:
 
 - describe the steps of logic synthesis from the RTL to a netlist of standard cells, and name the Yosys commands behind them
 - explain what a standard cell is, how cells form rows, and which views of a library each tool of the flow reads
+- read the layout of a standard cell, and compare a library of 9 tracks with one of 8 tracks
 - read a Liberty file: units, cell area, pin function, timing arcs with their timing sense, and the delay and power tables
 - compute the delay and the output slew of a cell by interpolation in its table, and check the result with OpenSTA
 - explain process, voltage, and temperature corners, and pick the corner for a timing check
@@ -66,7 +67,7 @@ A **standard cell** is a small, pre-designed layout of one logic function, e.g.,
 
 {{< include /content/synthesis_lib/_fig_cells.qmd >}}
 
-The cell names follow the pattern `sg13cmos5l_<function>_<drive>`. The function is a short name, e.g., `inv`, `nand2`, `a21oi` for an AND-OR-invert gate with a 2-input AND, `mux4`, or `dfrbpq` for a D flip-flop with an active-low reset and only a `Q` output. The **drive strength** scales the width of the transistors: a stronger cell such as `inv_4` drives a larger load at the same delay, and needs more area and input capacitance for it. The library has 84 cells (@tbl-synthesis-lib-cells).
+The cell names follow the pattern `sg13cmos5l_<function>_<drive>`. The function is a short name, e.g., `inv`, `nand2`, `a21oi` for an AND-OR-invert gate with a 2-input AND, `mux4`, or `dfrbpq` for a D flip-flop with an active-low reset and only a `Q` output. The **drive strength** scales the width of the transistors: a stronger cell such as `inv_4` drives a larger load at the same delay, and needs more area and input capacitance for it. The library has 84 cells (@tbl-synthesis-lib-cells). It comes from IHP, and @sec-synthesis-lib-8t compares it with a second library for SG13CMOS5L.
 
 | Category | Cells | Examples |
 |:-------------------|-----:|:----------------------------------------------------|
@@ -80,7 +81,7 @@ The cell names follow the pattern `sg13cmos5l_<function>_<drive>`. The function 
 | physical cells | 7 | `fill_1` to `fill_8`, `decap_4`, `decap_8`, `antennanp` |
 | bus holder | 1 | `sighold` |
 
-: The 84 cells of the SG13CMOS5L standard-cell library {#tbl-synthesis-lib-cells}
+: The 84 cells of the SG13CMOS5L standard-cell library of IHP (IHP LV) {#tbl-synthesis-lib-cells}
 
 The physical cells have no logic function. Fill cells close the gaps in a row, so that the wells and rails continue. Decap cells add capacitance between VDD and VSS to stabilize the supply, and the antenna diode protects transistor gates against charge collected during fabrication (@sec-digital-flow).
 
@@ -101,9 +102,64 @@ Each tool of the flow needs a different description of the same cells, called a 
 
 LEF (Library Exchange Format) is an abstract of the layout: placement and routing only need to know where a cell's pins are and where the router must not place wires, not the transistors inside. The PDK also contains Xschem symbols and schematics of the cells (`sym/`, `sch/`), which let you use them in a schematic. All these views describe one fixed layout per cell, a static cell. @sec-digital-flow-pcells contrasts it with a PCell, which draws a layout from parameters.
 
+### The Layout of a Cell {#sec-synthesis-lib-layout}
+
+The GDS view holds the layout of each cell, i.e., the shapes on the layers from which the masks of the chip are made. @fig-synthesis-lib-layouts shows four cells of SG13CMOS5L at the same scale. Let us read the inverter `inv_1` first:
+
+- The Metal1 stripes along the bottom and the top edge are the rails VSS and VDD. They lie on the cell boundary, so that the neighboring row shares them (@fig-synthesis-lib-cells).
+- A transistor sits where a stripe of polysilicon (GatPoly) crosses an active area (Activ). The poly is the gate, and the active area on its two sides forms source and drain. The width of the poly stripe, 0.13 µm, is the channel length $L$, and the height of the active area under it is the channel width $W$.
+- The NMOS transistor sits in the lower half, above VSS, with $W$ = 0.74 µm. The PMOS transistor sits in the upper half, below VDD, inside the n-well (NWell) and under the p+ implant (pSD), with $W$ = 1.12 µm. It is wider, because holes are less mobile than electrons. One vertical poly stripe forms both gates, and it is the input `A`.
+- Contacts (Cont) connect the active areas and the poly to Metal1. Metal1 connects the sources to the rails and the two drains to each other, and it forms the pins `A` and `Y`. The cell uses no layer above Metal1, and the flow routes the wires between the cells on Metal2 and above (@sec-digital-flow-route).
+- Under the rails run two active strips without a gate, the **ties**: an n+ strip in the n-well under VDD and a p+ strip under VSS. They connect the n-well to VDD and the p-substrate to VSS, i.e., the bulk of the PMOS and of the NMOS transistor. The n-well, the substrate, and the source and drain areas also form a parasitic thyristor. Far from a tie, a current spike can switch it on, and it then shorts the supply, which is called **latch-up**. A nearby tie holds the well and the substrate at their supply and keeps the thyristor off.
+
+![Four cells of SG13CMOS5L at the same scale, rendered with KLayout in the layer colors of the PDK: the inverters `inv_1` and `inv_16`, the 2:1 multiplexer `mux2_1`, and the flip-flop `dfrbpq_1`, each with the size of its cell boundary (names without the prefix `sg13cmos5l_`). The NWell is drawn as an outline and pSD with dots, unlike in KLayout's default, so that the transistors below them stay visible. The labels inside the cells are the pins on Metal1.](/figures/synthesis_lib/layouts_ihp.png){#fig-synthesis-lib-layouts fig-alt="Four standard-cell layouts on a white background in a two-by-two grid, all of the same height and at the same scale: a narrow inverter with one vertical red poly stripe that crosses two green active areas, a wide inverter with sixteen such stripes joined by a horizontal poly bar, a multiplexer with six stripes, and a wide flip-flop with many stripes and dense blue Metal1 wiring. Blue Metal1 rails labeled VDD and VSS run along the top and the bottom edge of every cell, a dark green outline marks the n-well in the upper half, and a legend explains the layers."}
+
+`inv_16` has 16 times the transistor width of `inv_1`, as 16 parallel **fingers** of the same pair of transistors: 16 poly stripes, joined by a horizontal poly bar in the middle of the cell, with source and drain areas that neighboring fingers share. Its drive strength is 16 times that of `inv_1`, but its area only 6.3 times (9.12 µm against 1.44 µm wide), because the fingers share the rails, the ties, and their source and drain areas. The multiplexer `mux2_1` has 12 transistors, and the flip-flop `dfrbpq_1` has 32 on 27 sites, the widest of the four cells.
+
+To look at a cell yourself, open the GDS view in KLayout with the technology of the PDK, which sets the layer colors:
+
+```bash
+GDS=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/gds
+klayout -n sg13cmos5l $GDS/sg13cmos5l_stdcell.gds
+```
+
+Then right-click a cell in the cell list on the left and select `Show As New Top`. The script `layout/render_layouts.py` renders the figures of this section with KLayout, all at 150 pixels per µm.
+
 ### Gate Equivalents {#sec-synthesis-lib-ge}
 
 Areas in µm² depend on the technology, so designers often count in **gate equivalents** (GE), the area divided by the area of a 2-input NAND gate. In SG13CMOS5L, `nand2_1` is 1.92 µm wide and has an area of 7.2576 µm², which is 1 GE. An `inv_1` is 0.75 GE, a `mux4_1` 5.25 GE, and the flip-flop `dfrbpq_1` 6.75 GE. The FIFO of @sec-verification, with 103 cells and 3008 µm², has 414.5 GE. A gate count in GE lets you compare designs across technologies, as long as you keep in mind that the ratios between the cells differ from library to library.
+
+### A Second Library with 8 Tracks {#sec-synthesis-lib-8t}
+
+The height of a cell is usually counted in **tracks**, the number of horizontal routing wires that fit over it. The horizontal layers of SG13CMOS5L, Metal1 and Metal3, have a pitch of 0.42 µm, the distance from the center of one wire to the center of the next, and 3.78 µm are 9 × 0.42 µm. The cells of SG13CMOS5L are therefore **9-track** cells. The vertical layers Metal2 and Metal4 have a pitch of 0.48 µm, the width of a site. Fewer tracks give smaller cells, but leave less room for the transistors and for the wires inside a cell.
+
+The PDK in the image holds a second library for the same thin-oxide transistors, version 1.1 of EZ130 8T from ETH Zurich [@EZ130]. Students designed its cells in a course on standard-cell design at ETH Zurich, and it was released as open source in 2026. Its cells are 3.36 µm high, 8 tracks of 0.42 µm, on a site of 0.42 µm (@tbl-synthesis-lib-ez130). Their names carry no prefix: `INVX1` is an inverter of drive strength X1, and `P5` stands for one half, e.g., `X1P5` for 1.5. A third library, `sg13cmos5l_stdcell_hv`, uses thick-oxide transistors for 3.3 V, and its cells are 7.14 µm high, 17 tracks. In short, the three are IHP LV, ETH LV, and IHP HV, for low and high voltage. The rest of this book uses IHP LV.
+
+| Category | Cells | Examples |
+|:-------------------|-----:|:----------------------------------------------------|
+| combinational logic | 152 | `INVX1` to `INVX64`, `BUFX1` to `BUFX64`, `NAND2X1`, `AOI21X1`, `XOR2X1`, `MUX2X1`, `MUX4X1`, the full adder `FAX1` |
+| flip-flops | 27 | `DFFQX1` without reset, `DFFRQX1`, the banks `DFFRQ2X1` and `DFFRQ4X1`, the scan flip-flop `DFFMRQX2` |
+| latches | 14 | `LATQX1`, `LATNRX1` |
+| clock gates | 7 | `CGX1`, `CGTSX1` |
+| tri-state drivers | 4 | `TBUFX1`, `TINVX1` |
+| delay cells | 1 | `DLY1X2` |
+| tie cells | 2 | `TIEHI`, `TIELO` |
+| physical cells | 13 | `FILLER1` to `FILLER16`, `DECAP4` to `DECAP32`, `ANTENNA2` to `ANTENNA8`, `WELLTAP` |
+| bus holder | 0 | none |
+
+: The 220 cells of the EZ130 8T library of ETH Zurich (ETH LV) {#tbl-synthesis-lib-ez130}
+
+The Liberty files describe 214 of the cells, all except the five fill cells and `WELLTAP`, which have neither a function nor a timing. Compared with IHP LV, five differences matter for the flow:
+
+- **Area.** For the same function and drive strength, a cell of ETH LV is smaller: the inverter `INVX3` needs 4.23 µm² against 5.44 µm² for `inv_1`, and the flip-flop with reset `DFFRQX3` 28.22 µm² against 48.99 µm² for `dfrbpq_1`. In the gate equivalents of its own library, with `NAND2X1` at 5.6448 µm², `DFFRQX1` has 5 GE against the 6.75 GE of `dfrbpq_1`, an example of the different ratios of @sec-synthesis-lib-ge. On eight synthesis benchmarks, its authors report a significantly smaller area than with IHP's library of SG13G2, which has the same cells as IHP LV, at a competitive timing [@EZ130].
+- **Choice.** ETH LV has 220 cells against 84: 13 buffers from `BUFX1` to `BUFX64` against 5, the full adder `FAX1` and the half adder `HAX2`, complex gates with inverted inputs such as `AOI21BX1`, flip-flops without reset such as `DFFQX1`, which IHP LV lacks (@sec-modeling-reset), and flip-flop banks that store 2 or 4 bits with one clock and one reset, `DFFRQ2X1` and `DFFRQ4X1`. The 4-bit banks are the only cells of double height, 6.72 µm over two rows. Yosys maps each register bit to a flip-flop of its own, so the banks stay unused in the open-source flow.
+- **Drive strength.** The digit counts the drive in units of the library's own X1, and X1 is three times weaker than `_1` in IHP LV: `INVX3` has the `max_capacitance` of `inv_1`, 0.3 pF, and `INVX1` only 0.1 pF. `INVX1`, `INVX2`, and `INVX3` even share one footprint (@fig-synthesis-lib-8t). ETH LV makes a cell weaker by narrowing its transistors, with an NMOS and a PMOS width of 0.30 µm and 0.48 µm in `INVX1` against 0.86 µm and 1.32 µm in `INVX3`, while IHP LV keeps the transistors of `inv_1` and adds fingers (@fig-synthesis-lib-layouts). When a design moves from one library to the other, a cell that a script or a constraint names must be replaced by the cell with the same `max_capacitance`, not by the one with the same digit.
+- **Ties.** The cells of ETH LV have no ties: each inverter in @fig-synthesis-lib-8t has two active areas, its two transistors, where `inv_1` has four. The ties sit in a separate cell, `WELLTAP`, with an n+ strip in the n-well and a p+ strip above VSS. The layout rules of SG13CMOS5L demand a tie within 20 µm of every transistor (rules `LU.a` and `LU.b`), so the flow must place a `WELLTAP` in every row at regular distances, which IHP LV does not need (@sec-digital-flow-floorplan).
+- **Corners and views.** ETH LV is characterized for 1.2 V only, at the three corners `tt_1p20v_25c`, `ss_1p08v_125c`, and `ff_1p32v_m40c`, against the six corners of IHP LV at 1.2 V and 1.5 V (@sec-synthesis-lib-corners). It comes with Liberty, LEF, GDS, Verilog, and CDL views, but without SPICE netlists and Xschem symbols. The image installs it in the tree of SG13G2, `$PDK_ROOT/ihp-sg13g2/libs.ref/ez130_8t`, with a technology LEF for each of the two PDKs, since both have the same transistors and the same layers up to Metal1. The PDK has no LibreLane configuration for it, so a macro on ETH LV must name all views in its own configuration.
+
+![The inverter `inv_1` of IHP LV against the inverters `INVX1` and `INVX3` and the tap cell `WELLTAP` of ETH LV, at the same scale and in the colors of @fig-synthesis-lib-layouts. The arrows give the heights of the cell boundaries. `INVX3` has the drive strength of `inv_1`, and `INVX1` a third of it in the same footprint. The ETH cells have no ties under their rails. `WELLTAP` holds them: an n+ strip in a gap of the pSD inside the n-well, and a p+ strip above VSS.](/figures/synthesis_lib/layouts_9t_8t.png){#fig-synthesis-lib-8t width="75%" fig-alt="Four narrow cell layouts side by side at the same scale, aligned at their bottom edge. On the left, under the title IHP LV, 9 tracks, the inverter sg13cmos5l_inv_1 with an arrow of 3.78 µm and green active strips under both rails. On the right, under the title ETH LV, 8 tracks, the lower cells INVX1 with narrow transistors, INVX3 with wide transistors in the same outline, and WELLTAP with two vertical active strips and no poly, next to an arrow of 3.36 µm. A legend explains the layers, and a scale bar shows 1 µm."}
+
+Rows of different height cannot abut, so a macro uses one library. ETH LV offers smaller cells and more of them, IHP LV the simpler flow, which is why the exercises of this book use it.
 
 ## Inside a Liberty File {#sec-synthesis-lib-liberty}
 
@@ -269,7 +325,7 @@ yosys -p "read_verilog -sv rtl/fifo.sv; synth -top fifo; \
 ```
 
 - `read_verilog -sv` reads the SystemVerilog source, and `synth -top fifo` runs elaboration, optimization, and lowering with `fifo` as the top module.
-- `dfflibmap -liberty $LIB` maps the generic flip-flops onto the flip-flops of the library. SG13CMOS5L has no flip-flop without a reset, so a register without reset becomes a `dfrbpq_1` with its reset input tied to 1 (@sec-modeling-reset).
+- `dfflibmap -liberty $LIB` maps the generic flip-flops onto the flip-flops of the library. IHP LV has no flip-flop without a reset, so a register without reset becomes a `dfrbpq_1` with its reset input tied to 1 (@sec-modeling-reset).
 - `abc -liberty $LIB` maps the logic onto the cells of the library, with their functions, areas, and delays.
 - `opt_clean` removes unused wires and cells, `stat -liberty $LIB` prints the cell counts and the total cell area, and `write_verilog -noattr` writes the netlist without Yosys attributes.
 
@@ -414,7 +470,8 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 ## Summary {#sec-synthesis-lib-summary}
 
 - Logic synthesis elaborates the RTL into word-level cells, optimizes them, lowers them to generic gates, and maps those onto the cells of the library. Yosys runs the first three steps with `synth`, and `dfflibmap` and `abc` the mapping.
-- A standard cell has a fixed height and a width of whole sites, and the cells abut in rows between shared supply rails. SG13CMOS5L has 84 cells, 3.78 µm high on a 0.48 µm site. Each tool reads its own view of them: Liberty, LEF, GDS, Verilog, CDL.
+- A standard cell has a fixed height and a width of whole sites, and the cells abut in rows between shared supply rails. Each tool reads its own view of them: Liberty, LEF, GDS, Verilog, CDL.
+- In the layout of a cell, a transistor sits where poly crosses an active area, the PMOS transistors sit in the n-well under VDD, and Metal1 forms the rails, the wiring, and the pins. IHP LV has 84 cells, 9 tracks or 3.78 µm high on a 0.48 µm site, each with its own ties to the well and the substrate. ETH LV, the EZ130 library of ETH Zurich, has 220 smaller cells, 8 tracks high on a 0.42 µm site, a drive digit three times weaker, and separate tap cells.
 - A Liberty file gives each cell its area, its function, the capacitance of its inputs, and its timing arcs with their timing sense, with the delay and the output slew as 7×7 tables over the input slew and the output load.
 - A timing tool interpolates the delay between the four neighboring table entries and computes a path stage by stage, because the output slew of a cell is the input slew of the next one. Wires add load, which the libraries can only estimate before the layout.
 - Corners cover process, voltage, and temperature. The inverter of SG13CMOS5L is about 1.8 times slower in the slow corner than in the fast one at 1.2 V. Setup is usually limited by the slow corner and hold by the fast corner, but the signoff checks both in all corners.
