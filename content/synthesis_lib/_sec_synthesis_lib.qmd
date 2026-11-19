@@ -238,7 +238,7 @@ The internal state `IQ` takes the value of `D` at the rising edge of `CLK` and i
 
 ## Delay Calculation with Tables {#sec-synthesis-lib-delay}
 
-Old libraries modeled a delay as a constant plus a resistance times the load, which is fine for long-channel transistors. In modern technologies, the delay depends on both the load and the input slew, and the slew also changes how the delay grows with the load (@fig-synthesis-lib-nldm). For a fast input edge, the delay of `inv_1` grows almost linearly with the load, but a slow edge bends the curve at small loads. No simple formula fits this, so the library stores the delay as a table over both, the **nonlinear delay model** (NLDM). Advanced nodes add current-source models, the composite current source (CCS) and the effective current source model (ECSM), for even more accuracy, but the SG13CMOS5L libraries contain NLDM tables only.
+Old libraries modeled a delay as a constant plus a resistance times the capacitive load, which is fine for long-channel transistors. In modern technologies, the delay depends on both the load and the input slew, and the slew also changes how the delay grows with the load (@fig-synthesis-lib-nldm). For a fast input edge, the delay of `inv_1` grows almost linearly with the load, but a slow edge bends the curve at small loads. No simple formula fits this, so the library stores the delay as a table over both, the **nonlinear delay model** (NLDM). Advanced nodes add current-source models, the composite current source (CCS) and the effective current source model (ECSM), for even more accuracy, but the SG13CMOS5L libraries contain NLDM tables only.
 
 {{< include /content/synthesis_lib/_fig_nldm.qmd >}}
 
