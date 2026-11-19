@@ -317,6 +317,7 @@ cd testbenches/cocotb
 GL=1 COCOTB_RANDOM_SEED=1 python3 fifo_tb.py > gl.log 2>&1
 must "netlist, zero delay" "$(summary gl.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
 check "netlist, Icarus sorry messages of the cell models" "$(grep -c 'sorry: ifnone' gl.log)" "68"
+gl_fst=$(md5sum < sim_build/fifo.fst)
 cd "$W/fifo"
 
 echo "== FIFO: static timing analysis and timing simulation"
@@ -343,6 +344,8 @@ GL=1 SDF=1 COCOTB_RANDOM_SEED=1 python3 fifo_tb.py > sdf20.log 2>&1
 must "timing simulation at 20 ns" "$(summary sdf20.log)" "TESTS=2 PASS=2 FAIL=0 SKIP=0"
 must "SDF errors" "$(grep -c 'SDF ERROR' sdf20.log)" "0"
 check "SDF warnings TIMINGCHECK not supported" "$(grep -c 'TIMINGCHECK not supported' sdf20.log)" "38"
+check "SDF run writes fifo_sdf.fst and keeps fifo.fst of the netlist" \
+  "$(test -s sim_build/fifo_sdf.fst && echo written) $([ "$(md5sum < sim_build/fifo.fst)" = "$gl_fst" ] && echo kept)" "written kept"
 cd "$W/fifo"
 
 # Delay probe: when do empty_o and data_o change after the clock edge?

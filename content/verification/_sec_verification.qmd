@@ -477,6 +477,13 @@ GL=1 SDF=1 python3 fifo_tb.py
 cd ../..
 ```
 
+The runner names the waveform after the top level, so this run writes `fifo_sdf.fst` and keeps the `fifo.fst` of the GL netlist without delays. Open either one in Surfer, and zoom in to about 1 ns around a clock edge, because the delays are only a few percent of the clock period:
+
+```bash
+surfer testbenches/cocotb/sim_build/fifo.fst
+surfer testbenches/cocotb/sim_build/fifo_sdf.fst
+```
+
 Both tests pass. Icarus Verilog prints 38 warnings `SDF WARNING: ... TIMINGCHECK not supported`, one per flip-flop. It reads the delays, but it never checks a setup, hold, recovery, or removal time. A timing violation therefore shows up in Icarus Verilog only if it makes a flip-flop capture a wrong value. Simulators that support timing checks evaluate the `$setuphold` and `$recrem` checks of the cell models, and on a violation the model of the flip-flop drives its output to `x`, the same mechanism that VITAL, the IEEE standard for ASIC cell models in VHDL, defines.
 
 Four traps of the open-source flow, measured with OpenSTA 3.1.0 and Icarus Verilog 14.0. `sta.tcl` handles the first three:
