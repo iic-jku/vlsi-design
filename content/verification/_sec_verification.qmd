@@ -332,7 +332,7 @@ The open-source tools support assertions very differently (@tbl-verification-sva
 
 : Support of SystemVerilog assertions in the open-source tools {#tbl-verification-sva}
 
-Hence the rules of this course: keep concurrent assertions out of `rtl/`, in a checker file that only Verilator reads, and keep the checks at the ports in the cocotb testbench, which runs with every simulator and on the netlist. The runner adds the checker with `SVA=1`:
+Hence the rules of this course: keep concurrent assertions out of `rtl/`, in a checker file that only Verilator reads, and keep the checks at the ports in the cocotb testbench, which runs with every simulator at RTL and with Icarus Verilog also on the gate-level (GL) netlist. The runner adds the checker with `SVA=1`:
 
 ```bash
 SIM=verilator SVA=1 COCOTB_RANDOM_SEED=1 python3 fifo_tb.py
@@ -520,7 +520,7 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 
 ## Choosing a Simulator {#sec-verification-simulators}
 
-This chapter has used two simulators, and they work in very different ways. **Icarus Verilog** [@Icarus_Verilog] is an event-driven simulator. `iverilog` translates the design into the `vvp` format, and the run-time engine `vvp` interprets it. Every change of a signal is an event, and the engine evaluates what depends on that signal. It knows the four values of @sec-modeling-x, and with `-gspecify`, it reads the path delays in the `specify` blocks of the cell models. **Verilator** [@Verilator] "is not a traditional simulator but a compiler", in the words of its guide. It translates the design into C++ and fixes the order in which the logic is evaluated already when it builds the model, and a C++ compiler turns the result into a program. With `--timing`, it also handles the delays and event controls of a testbench. It knows only two values, as @sec-modeling-x showed.
+This chapter has used two simulators, and they work in very different ways. **Icarus Verilog** [@Icarus_Verilog] is an event-driven simulator. `iverilog` translates the design into the `vvp` format, and the run-time engine `vvp` interprets it. Every change of a signal is an event, and the engine evaluates what depends on that signal. It knows the four values of @sec-modeling-x, and with `-gspecify`, it reads the path delays in the `specify` blocks of the cell models. **Verilator** [@Verilator] "is not a traditional simulator but a compiler", in the words of its guide. It translates the design into C++ and fixes the order in which the logic is evaluated already when it builds the model, and a C++ compiler turns the result into a program. With `--timing`, it also executes the delays (`#`) and event controls (`@`) written in a testbench, but not the delays of the cell models in a GL netlist, as shown below. It knows only two values, as @sec-modeling-x showed.
 
 @tbl-verification-speed shows what this means for the run time. It uses a plain SystemVerilog testbench, so that no Python limits the rate. `fifo_speed_tb.sv` generates its stimulus itself, because `$urandom` differs between the simulators, and it checks the FIFO against a reference model. All four simulations pass the checks and print the same checksum, so all of them saw the same stimulus. With the netlist and the SDF file of @sec-verification-gl, the commands are:
 
