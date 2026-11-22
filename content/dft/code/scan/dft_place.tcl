@@ -16,7 +16,7 @@ set top $::env(TOP)
 set lib $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
 read_lef $lib/lef/sg13cmos5l_tech.lef
 read_lef $lib/lef/sg13cmos5l_stdcell.lef
-read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 read_verilog $::env(NETLIST)
 link_design $top
 create_clock -name clk_i -period 100 [get_ports clk_i]

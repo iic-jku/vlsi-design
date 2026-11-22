@@ -12,12 +12,15 @@
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 W=${CHECK_DIR:-/tmp/vlsi_check_modeling}
-LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 CELLS=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/verilog
 SRAM=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_sram/lef
 
 rm -rf "$W" && mkdir -p "$W" && cp -r "$REPO/content/modeling/code/." "$W/"
 cd "$W" || exit 1
+# A plain-text copy of the gzipped Liberty file for awk, grep and sed
+LIBT=$W/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+zcat "$LIB" > "$LIBT"
 
 source "$REPO/scripts/lib_check.sh"
 
@@ -203,9 +206,9 @@ for top in excl_cnt_bin excl_cnt_ring excl_cnt_ring_for excl_cnt_johnson; do
   check "$top clock to output (ns)" "$(grep '(output)' $top.sta.log | awk '{print $(NF-2)}')" "${exp_out[$top]}"
   check "$top register to register (ns)" "$(grep 'dfrbpq_1)' $top.sta.log | awk '{print $(NF-2)}')" "${exp_reg[$top]}"
 done
-check "dfrbpq_1 cell area (um2)" "$(awk '/cell \(sg13cmos5l_dfrbpq_1\)/ {f=1} f && /area/ {print $3; exit}' "$LIB" | tr -d ';')" "48.9888"
-check "nor3_1 cell area (um2)" "$(awk '/cell \(sg13cmos5l_nor3_1\)/ {f=1} f && /area/ {print $3; exit}' "$LIB" | tr -d ';')" "9.072"
-check "flip-flop types of the library" "$(awk '/^[[:space:]]*cell \(/ {c=$2} /^[[:space:]]*ff \(/ {print c}' "$LIB" | tr -d '()"' | sed 's/_[12]$//' | sort -u | tr '\n' ' ')" \
+check "dfrbpq_1 cell area (um2)" "$(awk '/cell \(sg13cmos5l_dfrbpq_1\)/ {f=1} f && /area/ {print $3; exit}' "$LIBT" | tr -d ';')" "48.9888"
+check "nor3_1 cell area (um2)" "$(awk '/cell \(sg13cmos5l_nor3_1\)/ {f=1} f && /area/ {print $3; exit}' "$LIBT" | tr -d ';')" "9.072"
+check "flip-flop types of the library" "$(awk '/^[[:space:]]*cell \(/ {c=$2} /^[[:space:]]*ff \(/ {print c}' "$LIBT" | tr -d '()"' | sed 's/_[12]$//' | sort -u | tr '\n' ' ')" \
   "sg13cmos5l_dfrbp sg13cmos5l_dfrbpq sg13cmos5l_sdfbbp sg13cmos5l_sdfrbp sg13cmos5l_sdfrbpq "
 # The Johnson counter: its unused states form a second cycle of eight, with several outputs high
 check "Johnson counter: second cycle" "$(python3 -c '

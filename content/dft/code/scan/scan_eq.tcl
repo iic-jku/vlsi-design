@@ -11,7 +11,7 @@ set top $::env(TOP)
 set tie 0
 if {[info exists ::env(TIE)]} { set tie $::env(TIE) }
 set lib $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-set lib $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+set lib $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 
 # Both netlists with the cell functions from the Liberty file
 read_liberty -ignore_miss_func $lib

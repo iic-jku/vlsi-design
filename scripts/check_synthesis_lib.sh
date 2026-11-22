@@ -13,7 +13,7 @@ set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 W=${CHECK_DIR:-/tmp/vlsi_check_synthesis_lib}
 D=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 LEF=$D/lef/sg13cmos5l_stdcell.lef
 
 rm -rf "$W" && mkdir -p "$W/content"
@@ -22,6 +22,9 @@ for ch in synthesis_lib verification sv_crashcourse; do
 done
 C=$W/content/synthesis_lib/code
 cd "$W" || exit 1
+# A plain-text copy of the gzipped Liberty file for awk, grep and sed
+LIBT=$W/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+zcat "$LIB" > "$LIBT"
 
 source "$REPO/scripts/lib_check.sh"
 
@@ -78,17 +81,17 @@ must "kepler-formal in the image" "$(command -v kepler-formal > /dev/null && ech
 check "kepler-formal modes" "$(kepler-formal --help 2>&1 | grep -c -- '-v <lec|sec>')" "1"
 
 echo "== Library views"
-for f in lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib lef/sg13cmos5l_stdcell.lef \
+for f in lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz lef/sg13cmos5l_stdcell.lef \
   gds/sg13cmos5l_stdcell.gds verilog/sg13cmos5l_stdcell.v \
   cdl/sg13cmos5l_stdcell.cdl spice/sg13cmos5l_stdcell.spice \
   doc/sg13cmos5l_stdcell_typ_1p20V_25C.pdf sch/xschem sym/xschem; do
   must "view $f" "$([ -e "$D/$f" ] && echo yes)" "yes"
 done
-check "corners" "$(ls "$D"/lib/*.lib | sed 's/.*stdcell_//; s/\.lib//' | tr '\n' ' ')" \
+check "corners" "$(ls "$D"/lib/*.lib.gz | sed 's/.*stdcell_//; s/\.lib\.gz//' | tr '\n' ' ')" \
   "fast_1p32V_m40C fast_1p65V_m40C slow_1p08V_125C slow_1p35V_125C typ_1p20V_25C typ_1p50V_25C "
 
 echo "== Cells"
-grep -oE '^  cell \(sg13cmos5l_[a-z0-9_]+' "$LIB" | sed 's/.*sg13cmos5l_//' > names.txt
+grep -oE '^  cell \(sg13cmos5l_[a-z0-9_]+' "$LIBT" | sed 's/.*sg13cmos5l_//' > names.txt
 check "cells in the library" "$(wc -l < names.txt)" "84"
 n() { grep -cE "$1" names.txt; }
 check "flip-flops" "$(n '^s?df')" "9"
@@ -102,7 +105,7 @@ check "bus holder" "$(n '^sighold$')" "1"
 check "combinational logic" \
   "$(grep -cvE '^(s?df|dl[hl]|s?lgcp|e(buf|inv)n|dlygate|tie|fill|decap|antenna|sighold)' names.txt)" "49"
 check "flip-flop groups without clear" \
-  "$(grep -A1 -E '^ +ff \(' "$LIB" | grep -cE '^ +(next_state|clocked_on)')" "0"
+  "$(grep -A1 -E '^ +ff \(' "$LIBT" | grep -cE '^ +(next_state|clocked_on)')" "0"
 check "site" "$(awk '/^SITE +CoreSite/ {on = 1} on && $1 == "SIZE" {print $2, $4; exit}' "$LEF")" "0.48 3.78"
 for c in inv_1:1.44 nand2_1:1.92 a21oi_1:2.4 xor2_1:3.84 mux2_1:4.8 \
   dfrbpq_1:12.96 fill_1:0.48 fill_2:0.96 decap_4:1.92; do
@@ -110,20 +113,22 @@ for c in inv_1:1.44 nand2_1:1.92 a21oi_1:2.4 xor2_1:3.84 mux2_1:4.8 \
 done
 check "height of every cell" "$(grep -E '^ +SIZE .* BY ' "$LEF" | awk '{print $4}' | sort -u | tr '\n' ' ')" "3.78 "
 for c in inv_1:5.4432 nand2_1:7.2576 mux4_1:38.1024 dfrbpq_1:48.9888; do
-  check "area of ${c%%:*}" "$(attr "$LIB" "${c%%:*}" area)" "${c##*:}"
+  check "area of ${c%%:*}" "$(attr "$LIBT" "${c%%:*}" area)" "${c##*:}"
 done
-ge() { awk -v a="$(attr "$LIB" "$1" area)" -v n="$(attr "$LIB" nand2_1 area)" 'BEGIN {print a / n}'; }
+ge() { awk -v a="$(attr "$LIBT" "$1" area)" -v n="$(attr "$LIBT" nand2_1 area)" 'BEGIN {print a / n}'; }
 check "GE of inv_1, mux4_1, dfrbpq_1" "$(ge inv_1) $(ge mux4_1) $(ge dfrbpq_1)" "0.75 5.25 6.75"
 check "inv_4: area, GE, capacitance of A, max_capacitance" \
-  "$(attr "$LIB" inv_4 area) $(ge inv_4) $(attr "$LIB" inv_4 capacitance) $(attr "$LIB" inv_4 max_capacitance)" \
+  "$(attr "$LIBT" inv_4 area) $(ge inv_4) $(attr "$LIBT" inv_4 capacitance) $(attr "$LIBT" inv_4 max_capacitance)" \
   "10.8864 1.5 0.0112211 1.2"
 check "inv_4/inv_1: capacitance ratio" \
-  "$(awk -v a="$(attr "$LIB" inv_4 capacitance)" -v b="$(attr "$LIB" inv_1 capacitance)" 'BEGIN {printf "%.1f", a / b}')" "3.9"
+  "$(awk -v a="$(attr "$LIBT" inv_4 capacitance)" -v b="$(attr "$LIBT" inv_1 capacitance)" 'BEGIN {printf "%.1f", a / b}')" "3.9"
 
 echo "== Cell layouts"
 GDS=$D/gds/sg13cmos5l_stdcell.gds
 E=$PDK_ROOT/ihp-sg13g2/libs.ref/ez130_8t
-ELIB=$E/lib/ez130_8t_tt_1p20v_25c.lib
+ELIB=$E/lib/ez130_8t_tt_1p20v_25c.lib.gz
+ELIBT=$W/ez130_8t_tt_1p20v_25c.lib
+zcat "$ELIB" > "$ELIBT"
 ELEF=$E/lef/ez130_8t.lef
 cat > cells.py << 'EOF'
 """cells.py <gds> <cell...>: Activ polygons, NMOS and PMOS gates with their
@@ -180,9 +185,9 @@ check "inv_16: one transistor pair with 16 fingers" \
   "$(awk '$2 == "sg13cmos5l_inv_16" {on = 1} on && /^M/ {print $1, $NF} on && toupper($1) == ".ENDS" {exit}' "$D/cdl/sg13cmos5l_stdcell.cdl" | tr '\n' ' ')" \
   "MN0 ng=16 MP0 ng=16 "
 check "inv_16: width, area, max_capacitance" \
-  "$(width inv_16) $(attr "$LIB" inv_16 area) $(attr "$LIB" inv_16 max_capacitance)" "9.12 34.4736 4.8"
+  "$(width inv_16) $(attr "$LIBT" inv_16 area) $(attr "$LIBT" inv_16 max_capacitance)" "9.12 34.4736 4.8"
 check "inv_16/inv_1: area, drive" \
-  "$(awk -v a="$(attr "$LIB" inv_16 area)" -v b="$(attr "$LIB" inv_1 area)" 'BEGIN {printf "%.1f", a / b}') $(awk -v a="$(attr "$LIB" inv_16 max_capacitance)" -v b="$(attr "$LIB" inv_1 max_capacitance)" 'BEGIN {print a / b}')" "6.3 16"
+  "$(awk -v a="$(attr "$LIBT" inv_16 area)" -v b="$(attr "$LIBT" inv_1 area)" 'BEGIN {printf "%.1f", a / b}') $(awk -v a="$(attr "$LIBT" inv_16 max_capacitance)" -v b="$(attr "$LIBT" inv_1 max_capacitance)" 'BEGIN {print a / b}')" "6.3 16"
 check "dfrbpq_1: sites" "$(awk -v w="$(width dfrbpq_1)" 'BEGIN {print w / 0.48}')" "27"
 check "lowest routing layer of the flow" \
   "$(grep -oE 'RT_MIN_LAYER\) "[A-Za-z0-9]+"' "$PDK_ROOT/ihp-sg13cmos5l/libs.tech/librelane/config.tcl")" 'RT_MIN_LAYER) "Metal2"'
@@ -215,9 +220,9 @@ check "height of IHP HV" "$(grep -E '^ +SIZE .* BY ' "$HVLEF" | awk '{print $4}'
 check "tracks of IHP LV, ETH LV, IHP HV" "$(awk 'BEGIN {print 3.78 / 0.42, 3.36 / 0.42, 7.14 / 0.42}')" "9 8 17"
 check "ETH LV: version" "$(awk '$1 == "Revision" {print $3}' "$E/doc/ReleaseNotes.txt")" "v1.1"
 awk '/^MACRO / {print $2}' "$ELEF" > enames.txt
-check "ETH LV: cells in the LEF, in the Liberty file" "$(wc -l < enames.txt) $(grep -c '^  cell (' "$ELIB")" "220 214"
+check "ETH LV: cells in the LEF, in the Liberty file" "$(wc -l < enames.txt) $(grep -c '^  cell (' "$ELIBT")" "220 214"
 check "ETH LV: cells only in the LEF" \
-  "$(comm -23 <(sort enames.txt) <(grep -oE '^  cell \([A-Z0-9]+' "$ELIB" | sed 's/.*(//' | sort) | tr '\n' ' ')" \
+  "$(comm -23 <(sort enames.txt) <(grep -oE '^  cell \([A-Z0-9]+' "$ELIBT" | sed 's/.*(//' | sort) | tr '\n' ' ')" \
   "FILLER1 FILLER16 FILLER2 FILLER4 FILLER8 WELLTAP "
 en() { grep -cE "$1" enames.txt; }
 check "ETH LV: flip-flops" "$(en '^DFF')" "27"
@@ -237,7 +242,7 @@ check "ETH LV: double-height cells" \
   "$(awk '$1 == "MACRO" {m = $2} $1 == "SIZE" && $4 > 4 {print m, $4}' "$ELEF" | tr '\n' ' ')" \
   "DFFRQ4X1 6.72 DFFRQ4X1P5 6.72 DFFRQ4X2 6.72 DFFRQ4X3 6.72 "
 eblock() {  # eblock <cell>: the lines of one cell of ETH LV
-  awk -v c="  cell ($1) {" '$0 == c {on = 1; next} on && /^  cell \(/ {exit} on' "$ELIB"
+  awk -v c="  cell ($1) {" '$0 == c {on = 1; next} on && /^  cell \(/ {exit} on' "$ELIBT"
 }
 check "ETH LV: flip-flop banks of 2 and 4 bits" \
   "$(eblock DFFRQ2X1 | grep -oE 'ff_bank \([A-Z0-9,]+\)') $(eblock DFFRQ4X1 | grep -oE 'ff_bank \([A-Z0-9,]+\)')" \
@@ -254,15 +259,15 @@ eattr() {
 check "ETH LV: width of INVX1, INVX2, INVX3, WELLTAP" \
   "$(ewidth INVX1) $(ewidth INVX2) $(ewidth INVX3) $(ewidth WELLTAP)" "1.26 1.26 1.26 1.26"
 check "max_capacitance of INVX1, INVX3, inv_1" \
-  "$(eattr "$ELIB" INVX1 max_capacitance) $(eattr "$ELIB" INVX3 max_capacitance) $(attr "$LIB" inv_1 max_capacitance)" "0.1 0.3 0.3"
+  "$(eattr "$ELIBT" INVX1 max_capacitance) $(eattr "$ELIBT" INVX3 max_capacitance) $(attr "$LIBT" inv_1 max_capacitance)" "0.1 0.3 0.3"
 check "max_capacitance of DFFRQX3, dfrbpq_1" \
-  "$(eattr "$ELIB" DFFRQX3 max_capacitance) $(attr "$LIB" dfrbpq_1 max_capacitance)" "0.3 0.3"
+  "$(eattr "$ELIBT" DFFRQX3 max_capacitance) $(attr "$LIBT" dfrbpq_1 max_capacitance)" "0.3 0.3"
 check "area of INVX3, inv_1, DFFRQX3, dfrbpq_1" \
-  "$(eattr "$ELIB" INVX3 area | awk '{printf "%.2f", $1}') $(attr "$LIB" inv_1 area | awk '{printf "%.2f", $1}') $(eattr "$ELIB" DFFRQX3 area | awk '{printf "%.2f", $1}') $(attr "$LIB" dfrbpq_1 area | awk '{printf "%.2f", $1}')" \
+  "$(eattr "$ELIBT" INVX3 area | awk '{printf "%.2f", $1}') $(attr "$LIBT" inv_1 area | awk '{printf "%.2f", $1}') $(eattr "$ELIBT" DFFRQX3 area | awk '{printf "%.2f", $1}') $(attr "$LIBT" dfrbpq_1 area | awk '{printf "%.2f", $1}')" \
   "4.23 5.44 28.22 48.99"
 check "ETH LV: area of NAND2X1, GE of DFFRQX1" \
-  "$(eattr "$ELIB" NAND2X1 area) $(awk -v a="$(eattr "$ELIB" DFFRQX1 area)" -v n="$(eattr "$ELIB" NAND2X1 area)" 'BEGIN {print a / n}')" "5.6448 5"
-check "ETH LV: corners" "$(ls "$E"/lib/*.lib | sed 's/.*8t_//; s/\.lib//' | tr '\n' ' ')" \
+  "$(eattr "$ELIBT" NAND2X1 area) $(awk -v a="$(eattr "$ELIBT" DFFRQX1 area)" -v n="$(eattr "$ELIBT" NAND2X1 area)" 'BEGIN {print a / n}')" "5.6448 5"
+check "ETH LV: corners" "$(ls "$E"/lib/*.lib.gz | sed 's/.*8t_//; s/\.lib\.gz//' | tr '\n' ' ')" \
   "ff_1p32v_m40c ss_1p08v_125c tt_1p20v_25c "
 check "ETH LV: views" "$(LC_ALL=C ls "$E" | tr '\n' ' ')" "LICENSE NOTICE README cdl doc gds lef lib verilog "
 check "ETH LV: technology LEFs" "$(ls "$E"/lef/*tech.lef | xargs -n1 basename | tr '\n' ' ')" \
@@ -270,7 +275,7 @@ check "ETH LV: technology LEFs" "$(ls "$E"/lef/*tech.lef | xargs -n1 basename | 
 check "ETH LV: no LibreLane configuration in the PDK" \
   "$(ls -d "$PDK_ROOT"/ihp-sg13*/libs.tech/librelane/ez130* 2>/dev/null | wc -l)" "0"
 check "IHP library of SG13G2: the cells of IHP LV" \
-  "$(diff <(grep -oE '^  cell \(sg13g2_[a-z0-9_]+' "$PDK_ROOT/ihp-sg13g2/libs.ref/sg13g2_stdcell/lib/sg13g2_stdcell_typ_1p20V_25C.lib" | sed 's/.*sg13g2_//' | sort) <(sort names.txt) > /dev/null && echo same)" "same"
+  "$(diff <(zgrep -oE '^  cell \(sg13g2_[a-z0-9_]+' "$PDK_ROOT/ihp-sg13g2/libs.ref/sg13g2_stdcell/lib/sg13g2_stdcell_typ_1p20V_25C.lib.gz" | sed 's/.*sg13g2_//' | sort) <(sort names.txt) > /dev/null && echo same)" "same"
 check "latch-up rule LU.a, KLayout deck" \
   "$(grep -oE '"LU\.a", "[^"]*= 20\.00"' "$PDK_ROOT/ihp-sg13cmos5l/libs.tech/klayout/tech/drc/rule_decks/sg13cmos5l_maximal.drc" | head -1)" \
   '"LU.a", "Max. space from any portion of P+Activ inside NWell to an nSD-NWell tie = 20.00"'
@@ -283,26 +288,26 @@ for a in "delay_model : table_lookup;" 'time_unit : "1ns";' "capacitive_load_uni
   'leakage_power_unit : "1pW";' "nom_process : 1;" "nom_temperature : 25;" "nom_voltage : 1.2;" \
   "input_threshold_pct_rise : 50;" "output_threshold_pct_rise : 50;" \
   "slew_lower_threshold_pct_rise : 20;" "slew_upper_threshold_pct_rise : 80;"; do
-  check "header: $a" "$(grep -cxF "  $a" "$LIB")" "1"
+  check "header: $a" "$(grep -cxF "  $a" "$LIBT")" "1"
 done
-check "no CCS tables" "$(grep -c 'output_current_' "$LIB")" "0"
-check "inv_1 leakage" "$(attr "$LIB" inv_1 cell_leakage_power)" "63.0032"
-check "inv_1 function" "$(attr "$LIB" inv_1 function)" "!(A)"
-check "inv_1 max_capacitance" "$(attr "$LIB" inv_1 max_capacitance)" "0.3"
-check "inv_1 capacitance of A" "$(attr "$LIB" inv_1 capacitance)" "0.00286745"
-check "inv_1 timing_sense" "$(attr "$LIB" inv_1 timing_sense)" "negative_unate"
+check "no CCS tables" "$(grep -c 'output_current_' "$LIBT")" "0"
+check "inv_1 leakage" "$(attr "$LIBT" inv_1 cell_leakage_power)" "63.0032"
+check "inv_1 function" "$(attr "$LIBT" inv_1 function)" "!(A)"
+check "inv_1 max_capacitance" "$(attr "$LIBT" inv_1 max_capacitance)" "0.3"
+check "inv_1 capacitance of A" "$(attr "$LIBT" inv_1 capacitance)" "0.00286745"
+check "inv_1 timing_sense" "$(attr "$LIBT" inv_1 timing_sense)" "negative_unate"
 check "inv_1 cell_rise row 1" \
-  "$(grep -m1 -A4 'cell_rise (TIMING_DELAY_7x7ds1)' <(sed -n '/cell (sg13cmos5l_inv_1)/,$p' "$LIB") | sed -n 5p | tr -d ' "\\' | cut -d, -f1-3)" \
+  "$(grep -m1 -A4 'cell_rise (TIMING_DELAY_7x7ds1)' <(sed -n '/cell (sg13cmos5l_inv_1)/,$p' "$LIBT") | sed -n 5p | tr -d ' "\\' | cut -d, -f1-3)" \
   "0.0205647,0.0848969,0.128137"
 check "dfrbpq_1 ff group" \
-  "$(sed -n '/cell (sg13cmos5l_dfrbpq_1)/,/cell (sg13cmos5l_dfrbpq_2)/p' "$LIB" | grep -A3 ' ff (' | tr '\n' ' ' | tr -s ' ')" \
+  "$(sed -n '/cell (sg13cmos5l_dfrbpq_1)/,/cell (sg13cmos5l_dfrbpq_2)/p' "$LIBT" | grep -A3 ' ff (' | tr '\n' ' ' | tr -s ' ')" \
   " ff (IQ,IQN) { clear : \"!RESET_B\"; clocked_on : \"CLK\"; next_state : \"D\"; "
-check "dfrbpq_1 function of Q" "$(attr "$LIB" dfrbpq_1 function)" "IQ"
+check "dfrbpq_1 function of Q" "$(attr "$LIBT" dfrbpq_1 function)" "IQ"
 check "dfrbpq_1 timing types" \
-  "$(sed -n '/cell (sg13cmos5l_dfrbpq_1)/,/cell (sg13cmos5l_dfrbpq_2)/p' "$LIB" | grep -o 'timing_type : [a-z_]*' | awk '{print $3}' | sort -u | tr '\n' ' ')" \
+  "$(sed -n '/cell (sg13cmos5l_dfrbpq_1)/,/cell (sg13cmos5l_dfrbpq_2)/p' "$LIBT" | grep -o 'timing_type : [a-z_]*' | awk '{print $3}' | sort -u | tr '\n' ' ')" \
   "clear hold_rising min_pulse_width recovery_rising removal_rising rising_edge setup_rising "
 check "constraint table variables" \
-  "$(grep -A2 'lu_table_template (CONSTRAINT_4x4)' "$LIB" | grep -o 'variable_[12] : [a-z_]*' | awk '{print $3}' | tr '\n' ' ')" \
+  "$(grep -A2 'lu_table_template (CONSTRAINT_4x4)' "$LIBT" | grep -o 'variable_[12] : [a-z_]*' | awk '{print $3}' | tr '\n' ' ')" \
   "constrained_pin_transition related_pin_transition "
 
 echo "== Delay calculation"
@@ -324,7 +329,7 @@ check "interpolation by hand" "$(awk 'BEGIN {
   printf "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f", u, t, r1, r2, r1 + t * (r2 - r1), f1, f2, f1 + t * (f2 - f1) }')" \
   "0.4264 0.4891 0.2431 0.3135 0.2775 0.2233 0.2929 0.2574"
 check "inv_1 cell_fall entries" \
-  "$(sed -n '/cell (sg13cmos5l_inv_1)/,$p' "$LIB" | grep -m1 -A11 'cell_fall (' | sed -n '7,8p' | tr -d ' "\\' | cut -d, -f3,4 | tr '\n' ' ')" \
+  "$(sed -n '/cell (sg13cmos5l_inv_1)/,$p' "$LIBT" | grep -m1 -A11 'cell_fall (' | sed -n '7,8p' | tr -d ' "\\' | cut -d, -f3,4 | tr '\n' ' ')" \
   "0.196172,0.259858 0.259958,0.33725 "
 LOAD=0.4 sta -no_init -exit dcalc.tcl > big.log 2>&1
 check "rise delay at 0.4 pF" "$(dcalc big.log 'A v -> Y ^' Delay)" "1.2563"
@@ -364,8 +369,8 @@ set_wire_load_model -name 1k
 report_net -digits 4 n
 EOF
 sta -no_init -exit wl.tcl > wl.log 2>&1
-check "wire-load models" "$(grep -c '^  wire_load (' "$LIB")" "12"
-check "default wire-load model" "$(grep -o 'default_wire_load : "[^"]*"' "$LIB")" 'default_wire_load : "1k"'
+check "wire-load models" "$(grep -c '^  wire_load (' "$LIBT")" "12"
+check "default wire-load model" "$(grep -o 'default_wire_load : "[^"]*"' "$LIBT")" 'default_wire_load : "1k"'
 check "wire capacitance, no model and 1k, 8 loads" \
   "$(grep 'Wire capacitance' wl.log | awk '{print $3}' | tr '\n' ' ')" "0.0000 0.0182-0.0182 "
 
@@ -434,13 +439,13 @@ check "margin at 250 MHz, slow corner: -D 1000, default" \
 
 echo "== Equivalence checking"
 cd "$C/lec"
-ln -sf "$LIB" stdcell.lib
+ln -sf "$LIB" stdcell.lib.gz
 check "read_liberty without -ignore_miss_func" \
-  "$(yosys -p 'read_liberty stdcell.lib' 2>&1 | grep -o 'Missing function on output [A-Za-z_]* of cell [a-z0-9_]*' | head -1)" \
+  "$(yosys -p 'read_liberty stdcell.lib.gz' 2>&1 | grep -o 'Missing function on output [A-Za-z_]* of cell [a-z0-9_]*' | head -1)" \
   "Missing function on output int_GATE of cell sg13cmos5l_lgcp_1"
 printf 'module t (input a, b, output y);\n  sg13cmos5l_lgcp_1 u (.CLK(a), .GATE(b), .GCLK(y));\nendmodule\n' > lgcp.v
 check "hierarchy -check rejects a skipped cell" \
-  "$(yosys -p 'read_liberty -ignore_miss_func stdcell.lib; read_verilog lgcp.v; hierarchy -check -top t' 2>&1 | grep -c 'is not part of the design')" "1"
+  "$(yosys -p 'read_liberty -ignore_miss_func stdcell.lib.gz; read_verilog lgcp.v; hierarchy -check -top t' 2>&1 | grep -c 'is not part of the design')" "1"
 start=$(date +%s)
 eqy -d fifo_eqy fifo.eqy > fifo.log 2>&1; rc=$?
 secs=$(( $(date +%s) - start ))

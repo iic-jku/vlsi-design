@@ -7,7 +7,7 @@
 set corner typ_1p20V_25C
 if {[info exists ::env(CORNER)]} { set corner $::env(CORNER) }
 set lib $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-read_liberty $lib/lib/sg13cmos5l_stdcell_$corner.lib
+read_liberty $lib/lib/sg13cmos5l_stdcell_$corner.lib.gz
 read_verilog one_ff.v
 link_design one_ff
 

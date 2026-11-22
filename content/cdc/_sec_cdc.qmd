@@ -22,7 +22,7 @@ In every new terminal, define the path of the typical-corner library and of the 
 
 ```bash
 LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib
-LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 CONSTR=/foss/designs/vlsi-design/content/synthesis_lib/code
 CONSTR=$CONSTR/synth/abc.constr
 ```

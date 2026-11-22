@@ -22,7 +22,7 @@ Define the path of the typical-corner library in every new terminal:
 
 ```bash
 LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib
-LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 ```
 
 ## Learning Objectives {#sec-synthesis-lib-objectives}
@@ -163,7 +163,7 @@ Rows of different height cannot abut, so a macro uses one library. ETH LV offers
 
 ## Inside a Liberty File {#sec-synthesis-lib-liberty}
 
-The **Liberty** format (`.lib`), introduced by Synopsys and freely available, is the de-facto standard that describes the logic, timing, and power of every cell in plain text. The header of a library defines the units and the conditions of the characterization:
+The **Liberty** format (`.lib`, in the PDK gzipped as `.lib.gz`), introduced by Synopsys and freely available, is the de-facto standard that describes the logic, timing, and power of every cell in plain text. The header of a library defines the units and the conditions of the characterization:
 
 ```
 library (sg13cmos5l_stdcell_typ_1p20V_25C) {
@@ -280,7 +280,7 @@ The load includes the capacitance of the wires, which is unknown before the layo
 ::: {.callout-tip title="Exercise: Interpolate a Delay Table"}
 All commands start in the folder `content/synthesis_lib/code/dcalc`. The netlist `one_inv.v` holds one `inv_1`, and `dcalc.tcl` runs `report_dcalc` on it. The environment variables `SLEW` (in ns) and `LOAD` (in pF) set the input slew and the output load.
 
-1. Find the inverter `sg13cmos5l_inv_4` in the typical library (`less $LIB`, then search with `/inv_4`). What is its area in gate equivalents? What is the input capacitance of `A`, and what is the largest load that `Y` may drive? Compare the three values with those of `inv_1`.
+1. Find the inverter `sg13cmos5l_inv_4` in the typical library (`zless $LIB`, then search with `/inv_4`). What is its area in gate equivalents? What is the input capacitance of `A`, and what is the largest load that `Y` may drive? Compare the three values with those of `inv_1`.
 2. Compute by hand the delay of `inv_1` from a rising input to a falling output (`cell_fall`) at an input slew of 0.25 ns and a load of 0.05 pF.
 3. Check your result with OpenSTA: `sta -no_init -exit dcalc.tcl`. What is the output slew of the falling edge?
 4. Run the analysis with a load of 0.4 pF: `LOAD=0.4 sta -no_init -exit dcalc.tcl`. Which table entries does OpenSTA use now, and what does it report at the end?
@@ -299,7 +299,7 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 
 ## Corners {#sec-synthesis-lib-corners}
 
-The speed of a transistor depends on the fabrication process, the supply voltage, and the temperature (**PVT**). A chip must work for every combination it will see, so the library is characterized at several **corners**. A fast corner combines fast transistors, a high supply voltage, and a low temperature. A slow corner combines slow transistors, a low supply voltage, and a high temperature. A typical corner lies in between. SG13CMOS5L has six Liberty files `sg13cmos5l_stdcell_<corner>.lib`, three for a nominal supply of 1.2 V and three for 1.5 V (@tbl-synthesis-lib-corners).
+The speed of a transistor depends on the fabrication process, the supply voltage, and the temperature (**PVT**). A chip must work for every combination it will see, so the library is characterized at several **corners**. A fast corner combines fast transistors, a high supply voltage, and a low temperature. A slow corner combines slow transistors, a low supply voltage, and a high temperature. A typical corner lies in between. SG13CMOS5L has six Liberty files `sg13cmos5l_stdcell_<corner>.lib.gz`, three for a nominal supply of 1.2 V and three for 1.5 V (@tbl-synthesis-lib-corners).
 
 | Corner | Process | Voltage | Temperature | Fall delay | Rise delay |
 |:----------------|:--------|-----:|-----:|-----:|-----:|
@@ -394,7 +394,7 @@ EQY [@EQY] is the equivalence checker of the Yosys suite. A configuration file d
 ```
 
 - `[gold]` reads the RTL with slang [@slang], a different SystemVerilog frontend from the one that synthesis used. If both sides went through the same frontend, a misreading of the RTL would end up in both, and the check would pass. slang keeps the storage array `mem_q` as a memory, while synthesis turned it into registers, so `memory_map` turns it into registers on the gold side as well.
-- `[gate]` reads the netlist and takes the function of every cell from the Liberty file, linked as `stdcell.lib`. `-ignore_miss_func` skips cells with an output that has no function, such as the clock gate `lgcp_1`, which `read_liberty` would otherwise refuse. The two checks make sure that no cell escapes the comparison: `hierarchy -check` fails if the netlist uses a cell that was skipped, and `select -assert-none` fails if any cell is still a black box after `flatten`. They turn a missing or skipped cell model into a clear error at once, instead of an obscure error later in the run.
+- `[gate]` reads the netlist and takes the function of every cell from the Liberty file, linked as `stdcell.lib.gz`. `-ignore_miss_func` skips cells with an output that has no function, such as the clock gate `lgcp_1`, which `read_liberty` would otherwise refuse. The two checks make sure that no cell escapes the comparison: `hierarchy -check` fails if the netlist uses a cell that was skipped, and `select -assert-none` fails if any cell is still a black box after `flatten`. They turn a missing or skipped cell model into a clear error at once, instead of an obscure error later in the run.
 - `[collect *]` with `bind` is explained below.
 - `[strategy sby]` proves each partition (see below) with the formal tool SymbiYosys and the PDR engine of ABC (property-directed reachability).
 
@@ -402,7 +402,7 @@ Synthesize the FIFO into the folder `lec`, link the library, and run EQY:
 
 ```bash
 cd /foss/designs/vlsi-design/content/synthesis_lib/code/lec
-ln -sf $LIB stdcell.lib
+ln -sf $LIB stdcell.lib.gz
 yosys -p "read_verilog -sv \
   ../../../verification/code/fifo/rtl/fifo.sv; synth -top fifo; \
   dfflibmap -liberty $LIB; abc -liberty $LIB; opt_clean; \
@@ -425,7 +425,7 @@ The reason is a cut point. In the RTL, the push logic reads the flag `full_o`, a
 Other equivalence checkers exist. kepler-formal, also in the image, compares two designs either combinationally (LEC) or sequentially from reset (SEC). The commercial tools Cadence Conformal and Synopsys Formality are the standard in industry. LibreLane has an equivalence step with EQY as well, but it prepares the cell models only for the sky130 PDK, so we run EQY ourselves.
 
 ::: {.callout-tip title="Exercise: Prove It, Break It"}
-All commands start in the folder `content/synthesis_lib/code/lec`. Link the library with `ln -sf $LIB stdcell.lib`, if you have not done so for the FIFO. The folder holds the reference solution `barrel_shift.eqy`, so move it out of the way first: `mv barrel_shift.eqy barrel_shift_solution.eqy`.
+All commands start in the folder `content/synthesis_lib/code/lec`. Link the library with `ln -sf $LIB stdcell.lib.gz`, if you have not done so for the FIFO. The folder holds the reference solution `barrel_shift.eqy`, so move it out of the way first: `mv barrel_shift.eqy barrel_shift_solution.eqy`.
 
 1. Sketch gold and gate of the barrel shifter in the style of @fig-synthesis-lib-lec. Where are the cut points, and how many cones do you expect?
 

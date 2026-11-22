@@ -6,7 +6,7 @@
 # explained in the chapter on static timing analysis.
 
 set top $::env(TOP)
-read_liberty $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+read_liberty $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 read_verilog $top.nl.v
 link_design $top
 

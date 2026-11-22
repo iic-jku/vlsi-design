@@ -13,7 +13,7 @@ set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 W=${CHECK_DIR:-/tmp/vlsi_check_synth_opt}
 D=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 CELLS=$D/verilog
 LL=$(python3 -c "import librelane, os; print(os.path.dirname(librelane.__file__))")
 PDKLL=$PDK_ROOT/ihp-sg13cmos5l/libs.tech/librelane
@@ -25,6 +25,9 @@ done
 S=$W/content/synth_opt/code
 CONSTR=$W/content/synthesis_lib/code/synth/abc.constr
 cd "$W" || exit 1
+# A plain-text copy of the gzipped Liberty file for awk, grep and sed
+LIBT=$W/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+zcat "$LIB" > "$LIBT"
 
 source "$REPO/scripts/lib_check.sh"
 
@@ -32,7 +35,7 @@ attr() {  # attr <cell> <attribute>: first value inside the cell
   awk -v c="cell (sg13cmos5l_$1)" -v a="$2" '
     index($0, c) == 3 { on = 1; next }
     on && /^  cell \(/ { exit }
-    on && $1 == a { gsub(/[";]/, "", $3); print $3; exit }' "$LIB"
+    on && $1 == a { gsub(/[";]/, "", $3); print $3; exit }' "$LIBT"
 }
 
 cells() {  # cells <log>: the total cell count of the last stat
@@ -101,7 +104,7 @@ check "area of mux2_1, lgcp_1, slgcp_1" "$(attr mux2_1 area) $(attr lgcp_1 area)
 check "lgcp_1 is a clock gate" "$(attr lgcp_1 clock_gating_integrated_cell)" "latch_posedge"
 check "slgcp_1 is a clock gate with scan enable" "$(attr slgcp_1 clock_gating_integrated_cell)" "latch_posedge_precontrol"
 check "pins of slgcp_1" \
-  "$(sed -n '/cell (sg13cmos5l_slgcp_1)/,/^  }/p' "$LIB" | grep -oE 'pin \([A-Z]+\)' | tr -d '()' | awk '{print $2}' | sort | tr '\n' ' ')" \
+  "$(sed -n '/cell (sg13cmos5l_slgcp_1)/,/^  }/p' "$LIBT" | grep -oE 'pin \([A-Z]+\)' | tr -d '()' | awk '{print $2}' | sort | tr '\n' ' ')" \
   "CLK GATE GCLK SCE "
 
 echo "== Exercise: Ripple or Prefix?"
@@ -218,7 +221,7 @@ check "add_pipe: period, with port paths" "$(period pipe.sta 1) $(period pipe.st
 check "add_reg (Brent-Kung): period with port paths" "$(period bk.sta 2)" "3.83 261.31"
 cat > pipe_rst.tcl <<'EOF'
 set lib $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 read_verilog add_pipe.nl.v
 link_design add_pipe
 read_sdc ../syn/block.sdc
@@ -237,7 +240,7 @@ check "add_reg: arrival on the worst path" "$(awk '/data arrival time/ {print $1
 check "period predicted for two stages" "$(awk 'BEGIN {printf "%.2f", (3.83 - 0.434) / 2 + 0.434}')" "2.13"
 cat > pipe_s2.tcl <<'EOF'
 set lib $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 read_verilog add_pipe.nl.v
 link_design add_pipe
 read_sdc ../syn/block.sdc
@@ -373,11 +376,11 @@ check "gating, held data, 1 of 16: sequential" "$(pw hold.pwr Sequential 5)" "3.
 check "power saved, 1 of 16" "$(awk 'BEGIN {printf "%.0f", (1 - 89.57 / 490.4) * 100}')" "82"
 check "fair total without gating, every cycle" "$(awk 'BEGIN {printf "%.0f", 672.8 + 36.43}')" "709"
 check "fair totals: saving every cycle, total 1 of 16"   "$(awk 'BEGIN {printf "%.0f %.0f", (1 - 665.3 / 709.23) * 100, 490.4 + 36.43}')" "6 527"
-check "capacitance of CLK of lgcp_1, its clock power"   "$(awk '/cell \(sg13cmos5l_lgcp_1\)/ {f = 1} f && /pin \(CLK\)/ {g = 1} g && /capacitance :/ {gsub(/;/, ""); print $3; exit}' "$LIB") $(awk 'BEGIN {printf "%.1f", 0.5 * 2 * 4.93856e-15 * 1.44 * 250e6 * 1e6}')" "0.00493856 1.8"
+check "capacitance of CLK of lgcp_1, its clock power"   "$(awk '/cell \(sg13cmos5l_lgcp_1\)/ {f = 1} f && /pin \(CLK\)/ {g = 1} g && /capacitance :/ {gsub(/;/, ""); print $3; exit}' "$LIBT") $(awk 'BEGIN {printf "%.1f", 0.5 * 2 * 4.93856e-15 * 1.44 * 250e6 * 1e6}')" "0.00493856 1.8"
 check "fair gated totals: every cycle, 1 of 16, saving"   "$(awk 'BEGIN {printf "%.0f %.0f %.0f", 665.3 + 1.78, 89.57 + 1.78, (1 - 667.08 / 709.23) * 100}')" "667 91 6"
 cat > cg_sta.tcl <<'EOF'
 set lib $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 read_verilog cg_reg.nl.v
 link_design cg_reg
 read_sdc ../syn/block.sdc

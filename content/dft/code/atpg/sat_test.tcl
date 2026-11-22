@@ -14,7 +14,7 @@ set top $::env(TOP)
 set netlist $top.v
 if {[info exists ::env(NETLIST)]} { set netlist $::env(NETLIST) }
 set lib $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-set lib $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+set lib $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 
 # The cell functions from the Liberty file, then the netlist
 read_liberty -ignore_miss_func $lib

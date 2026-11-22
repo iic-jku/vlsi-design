@@ -22,7 +22,7 @@ In every new terminal, define the path of the typical-corner library:
 
 ```bash
 LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib
-LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 ```
 
 ## Learning Objectives {#sec-digital-flow-objectives}
@@ -262,7 +262,7 @@ All commands start in the folder `content/digital_flow/code/bs_reg` and use the 
 6. The resizer changed the netlist. Prove that the final netlist of `runs/base` still implements the RTL:
 
    ```bash
-   ln -sf $LIB stdcell.lib
+   ln -sf $LIB stdcell.lib.gz
    eqy -f -d lec_eqy lec.eqy
    ```
 

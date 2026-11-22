@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 In @sec-sv-crashcourse, you learned to write SystemVerilog that lints, simulates, and synthesizes. This chapter takes the next step: from RTL that is correct to RTL that is ready for an ASIC. Three questions guide it. Does the synthesized netlist behave exactly like the RTL you simulated? Does the RTL use only what a standard-cell ASIC offers, or does it rely on habits from FPGA design? And does its architecture fit the requirements on area and speed? The answers are a set of modeling guidelines, and each of them is backed by a small experiment that you can repeat in the IIC-OSIC-TOOLS container.
 
 ::: {.callout-note}
-All code of this chapter is available in the folder [`content/modeling/code`]({{< meta var.url-repo >}}/tree/main/content/modeling/code) of the course repository, with one folder per design. As in @sec-sv-crashcourse, the RTL is in `rtl/` and the testbenches are in `testbenches/verilog/` and `testbenches/cocotb/`. The starting point of an exercise is in `exercise/`, and the folder `pitfalls/` holds code with deliberate mistakes. Every file in `rtl/` lints without warnings and synthesizes. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, Yosys 0.70, OpenSTA 3.1.0) and the typical-corner library of SG13CMOS5L (`sg13cmos5l_stdcell_typ_1p20V_25C.lib`, 1.2 V, 25 °C). The script [`scripts/check_modeling.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_modeling.sh) reproduces all of them: run `bash scripts/check_modeling.sh` in the container from the root of the repository.
+All code of this chapter is available in the folder [`content/modeling/code`]({{< meta var.url-repo >}}/tree/main/content/modeling/code) of the course repository, with one folder per design. As in @sec-sv-crashcourse, the RTL is in `rtl/` and the testbenches are in `testbenches/verilog/` and `testbenches/cocotb/`. The starting point of an exercise is in `exercise/`, and the folder `pitfalls/` holds code with deliberate mistakes. Every file in `rtl/` lints without warnings and synthesizes. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, Yosys 0.70, OpenSTA 3.1.0) and the typical-corner library of SG13CMOS5L (`sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz`, 1.2 V, 25 °C). The script [`scripts/check_modeling.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_modeling.sh) reproduces all of them: run `bash scripts/check_modeling.sh` in the container from the root of the repository.
 :::
 
 For the exercises, clone the course repository into your designs folder once, if you have not done so yet:
@@ -22,7 +22,7 @@ The synthesis commands of this chapter map the design onto the standard cells of
 
 ```bash
 LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib
-LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 CELLS=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/verilog
 ```
 

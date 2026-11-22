@@ -6,7 +6,7 @@
 # limits the delay of the crossing paths instead.
 
 set lib $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 read_verilog async_fifo.nl.v
 link_design async_fifo
 read_sdc syn/async_fifo.sdc

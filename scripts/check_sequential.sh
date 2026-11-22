@@ -13,7 +13,7 @@ set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 W=${CHECK_DIR:-/tmp/vlsi_check_sequential}
 D=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 SLOW=slow_1p08V_125C
 FAST=fast_1p32V_m40C
 
@@ -23,6 +23,9 @@ for ch in sequential verification modeling synthesis_lib; do
 done
 S=$W/content/sequential/code
 cd "$W" || exit 1
+# A plain-text copy of the gzipped Liberty file for awk, grep and sed
+LIBT=$W/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+zcat "$LIB" > "$LIBT"
 
 source "$REPO/scripts/lib_check.sh"
 
@@ -30,7 +33,7 @@ attr() {  # attr <cell> <attribute>: first value inside the cell
   awk -v c="cell (sg13cmos5l_$1)" -v a="$2" '
     index($0, c) == 3 { on = 1; next }
     on && /^  cell \(/ { exit }
-    on && $1 == a { gsub(/[";]/, "", $3); print $3; exit }' "$LIB"
+    on && $1 == a { gsub(/[";]/, "", $3); print $3; exit }' "$LIBT"
 }
 
 dc() {  # dc <log> <arc type> <n>: the n-th Check or Delay value of an arc type
@@ -71,10 +74,10 @@ check "OpenSTA" "$(sta -version)" "3.1.0"
 echo "== Cells"
 check "area of dlhq_1, dfrbpq_1" "$(attr dlhq_1 area) $(attr dfrbpq_1 area)" "30.8448 48.9888"
 check "dlhq_1 is transparent while GATE is high" \
-  "$(sed -n '/cell (sg13cmos5l_dlhq_1)/,/cell (sg13cmos5l_dlhr_1)/p' "$LIB" | grep -o 'enable : "[A-Z]*"')" 'enable : "GATE"'
+  "$(sed -n '/cell (sg13cmos5l_dlhq_1)/,/cell (sg13cmos5l_dlhr_1)/p' "$LIBT" | grep -o 'enable : "[A-Z]*"')" 'enable : "GATE"'
 check "dllrq_1 is transparent while GATE_N is low" \
-  "$(sed -n '/cell (sg13cmos5l_dllrq_1)/,/cell (sg13cmos5l_dlygate4sd1_1)/p' "$LIB" | grep -o 'enable : "[!A-Z_]*"')" 'enable : "!GATE_N"'
-check "delay cells" "$(grep -oE 'cell \(sg13cmos5l_dlygate4sd[0-9]_1\)' "$LIB" | tr -d '()' | awk '{print $2}' | tr '\n' ' ')" \
+  "$(sed -n '/cell (sg13cmos5l_dllrq_1)/,/cell (sg13cmos5l_dlygate4sd1_1)/p' "$LIBT" | grep -o 'enable : "[!A-Z_]*"')" 'enable : "!GATE_N"'
+check "delay cells" "$(grep -oE 'cell \(sg13cmos5l_dlygate4sd[0-9]_1\)' "$LIBT" | tr -d '()' | awk '{print $2}' | tr '\n' ' ')" \
   "sg13cmos5l_dlygate4sd1_1 sg13cmos5l_dlygate4sd2_1 sg13cmos5l_dlygate4sd3_1 "
 
 echo "== Timing parameters of dfrbpq_1"
@@ -288,7 +291,7 @@ check "latch: stage 1, stage 2" "$(grep slack latch.log | awk '{print $1}' | tr 
 check "latch: borrowed time" "$(grep 'actual time borrow' latch.log | awk '{print $NF}')" "0.354"
 check "latch: given to the second stage" "$(grep 'time given to startpoint' latch.log | awk '{print $1}')" "0.354"
 check "dllrq_1: hold of D against the closing (rising) edge of GATE_N" \
-  "$(sed -n '/cell (sg13cmos5l_dllrq_1)/,/cell (sg13cmos5l_dlygate4sd1_1)/p' "$LIB" | grep -B2 'timing_type : hold' | grep -o 'related_pin : "[A-Z_]*"\|timing_type : [a-z_]*' | tr '\n' ' ')" \
+  "$(sed -n '/cell (sg13cmos5l_dllrq_1)/,/cell (sg13cmos5l_dlygate4sd1_1)/p' "$LIBT" | grep -B2 'timing_type : hold' | grep -o 'related_pin : "[A-Z_]*"\|timing_type : [a-z_]*' | tr '\n' ' ')" \
   'related_pin : "GATE_N" timing_type : hold_rising '
 
 finish

@@ -15,7 +15,7 @@ set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 W=${CHECK_DIR:-/tmp/vlsi_check_dft}
 D=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 CELLS=$D/verilog
 export SWIFT_DETERMINISTIC_HASHING=1 FAULT_THREADS=4  # as in the chapter
 
@@ -29,6 +29,9 @@ R=$W/content/dft/code/reset
 X=$W/content/dft/code/transistor
 CONSTR=$W/content/synthesis_lib/code/synth/abc.constr
 cd "$W" || exit 1
+# A plain-text copy of the gzipped Liberty file for awk, grep and sed
+LIBT=$W/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+zcat "$LIB" > "$LIBT"
 
 source "$REPO/scripts/lib_check.sh"
 
@@ -44,7 +47,7 @@ ctype() {  # ctype <log> <type>: count of one cell type in the last stat
 
 libarea() {  # libarea <cell>: area of a cell in the typical library
   awk -v c="cell (sg13cmos5l_$1)" 'index($0, c) { on = 1; next }
-       on && /area :/ { gsub(";", ""); print $3; exit }' "$LIB"
+       on && /area :/ { gsub(";", ""); print $3; exit }' "$LIBT"
 }
 
 satest() {  # satest <netlist> <top> <pins> <sa>: the test as (a, b, c) or none
@@ -121,7 +124,7 @@ check "16-bit comparator: detection by 1000 vectors, vectors for 99 %" \
 
 echo "== Cells of SG13CMOS5L"
 check "scan flip-flops (test_cell groups)" \
-  "$(awk '/^ *cell \(/ {c = $2} /test_cell \(\)/ {print c}' "$LIB" | tr -d '()' | tr '\n' ' ')" \
+  "$(awk '/^ *cell \(/ {c = $2} /test_cell \(\)/ {print c}' "$LIBT" | tr -d '()' | tr '\n' ' ')" \
   "sg13cmos5l_sdfbbp_1 sg13cmos5l_sdfrbp_1 sg13cmos5l_sdfrbp_2 sg13cmos5l_sdfrbpq_1 sg13cmos5l_sdfrbpq_2 "
 check "areas of sdfrbpq_1, dfrbpq_1, mux2_1" \
   "$(libarea sdfrbpq_1) $(libarea dfrbpq_1) $(libarea mux2_1)" "63.504 48.9888 18.144"
@@ -129,10 +132,10 @@ check "scan flip-flop: percent more, flip-flop plus mux" \
   "$(calc 'printf "%.0f %.1f", (63.504 / 48.9888 - 1) * 100, 48.9888 + 18.144')" "30 67.1"
 check "areas of slgcp_1, lgcp_1" "$(libarea slgcp_1) $(libarea lgcp_1)" "30.8448 27.216"
 check "pins of sdfrbpq_1: no separate scan output" \
-  "$(awk '/cell \(sg13cmos5l_sdfrbpq_1\)/ {on = 1} on && /^ *pin *\(/ {gsub(/[()"{ ]/, ""); sub(/pin/, ""); print} on && /cell \(sg13cmos5l_sdfrbpq_2\)/ {exit}' "$LIB" | sort -u | tr '\n' ' ')" \
+  "$(awk '/cell \(sg13cmos5l_sdfrbpq_1\)/ {on = 1} on && /^ *pin *\(/ {gsub(/[()"{ ]/, ""); sub(/pin/, ""); print} on && /cell \(sg13cmos5l_sdfrbpq_2\)/ {exit}' "$LIBT" | sort -u | tr '\n' ' ')" \
   "CLK D Q RESET_B SCD SCE "
 check "slgcp_1: integrated cell type, test pin" \
-  "$(awk '/cell \(sg13cmos5l_slgcp_1\)/ {on = 1} on && /clock_gating_integrated_cell/ {print $3} on && /clock_gate_test_pin/ {print p} {p = $0} on && /^  cell \(sg13cmos5l_[^s]/ {exit}' "$LIB" | tr -d '";' | sed 's/.*pin (\(.*\)) {/\1/' | tr '\n' ' ')" \
+  "$(awk '/cell \(sg13cmos5l_slgcp_1\)/ {on = 1} on && /clock_gating_integrated_cell/ {print $3} on && /clock_gate_test_pin/ {print p} {p = $0} on && /^  cell \(sg13cmos5l_[^s]/ {exit}' "$LIBT" | tr -d '";' | sed 's/.*pin (\(.*\)) {/\1/' | tr '\n' ' ')" \
   "latch_posedge_precontrol SCE "
 
 echo "== Exercise: Transistor Faults"
@@ -569,7 +572,7 @@ cat > scan_opt.tcl << 'EOF'
 set lib $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
 read_lef $lib/lef/sg13cmos5l_tech.lef
 read_lef $lib/lef/sg13cmos5l_stdcell.lef
-read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 read_verilog bs_reg32.nl.v
 link_design bs_reg
 create_clock -name clk_i -period 100 [get_ports clk_i]

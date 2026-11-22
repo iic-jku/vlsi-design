@@ -14,7 +14,7 @@ set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 W=${CHECK_DIR:-/tmp/vlsi_check_cdc}
 D=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 
 rm -rf "$W" && mkdir -p "$W/content"
 for ch in cdc sequential verification synthesis_lib; do
@@ -196,7 +196,7 @@ check "CDC=2: path delay to data_o, to the synchronizer" \
   "$(awk '/group path delay/ {on = 1; next} /group / {on = 0} on && /\(MET\)/ {printf "%s ", $(NF-1)}' cdc2.log)" "8.586 9.618 "
 cat > ep.tcl <<'EOF'
 set lib $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 read_verilog async_fifo.nl.v
 link_design async_fifo
 read_sdc syn/async_fifo.sdc
@@ -211,7 +211,7 @@ check "crossing endpoints at flip-flops are first synchronizer stages" \
   "$(for f in $(awk '/\/D \(sg13cmos5l/ {sub("/D", "", $1); print $1}' ep.log); do grep -A4 "sg13cmos5l_dfrbpq_1 $f " async_fifo.nl.v | grep -c 'meta_q'; done | sort | uniq -c | awk '{print $1, $2}')" "6 1"
 cat > md.tcl <<'EOF'
 set lib $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+read_liberty $lib/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 read_verilog async_fifo.nl.v
 link_design async_fifo
 read_sdc syn/async_fifo.sdc
