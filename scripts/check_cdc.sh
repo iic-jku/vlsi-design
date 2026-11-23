@@ -8,7 +8,10 @@
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter. The four ngspice
 # characterizations run in parallel and take about ten minutes.
-# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
+# CHECK_MODE=regression or regression-full counts only the must checks
+# (scripts/lib_check.sh). CHECK_MODE=regression runs the two
+# characterizations with the wiring capacitance and skips the two of the
+# bare schematic.
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -65,14 +68,18 @@ cd "$S/meta"
 export OMP_THREAD_LIMIT=1
 python3 dff_meta.py > typ.log 2>&1 &
 python3 dff_meta.py slow > slow.log 2>&1 &
-CPAR=0 python3 dff_meta.py > typ0.log 2>&1 &
-CPAR=0 python3 dff_meta.py slow > slow0.log 2>&1 &
+LOGS="typ.log slow.log"
+if full; then
+  LOGS="$LOGS typ0.log slow0.log"
+  CPAR=0 python3 dff_meta.py > typ0.log 2>&1 &
+  CPAR=0 python3 dff_meta.py slow > slow0.log 2>&1 &
+fi
 wait
 unset OMP_THREAD_LIMIT
 row() { awk -v d="$2" '$1 == d { print $2 }' "$1"; }
 fit() { grep -o 'tau = .*' "$1"; }
 cq0() { grep -o 't_cq0 = [0-9.]*' "$1" | awk '{print $3}'; }
-must "ngspice characterizations with a fit" "$(grep -l 'tau = ' typ.log slow.log typ0.log slow0.log | wc -l)" "4"
+must "ngspice characterizations with a fit" "$(grep -l 'tau = ' $LOGS | wc -l)" "$(echo $LOGS | wc -w)"
 check "internal nodes of dfrbpq_1" "$(python3 -c 'import dff_meta; print(dff_meta.cell(1.5).count("Cp"))')" "15"
 check "typical: t_cq0" "$(cq0 typ.log)" "220.4"
 check "typical: t_cq at 1e-11 to 1e-18 s" \
@@ -83,8 +90,12 @@ check "slow: t_cq0" "$(cq0 slow.log)" "330.7"
 check "slow: t_cq at 1e-14 to 1e-17 s" \
   "$(for e in 14 15 16 17; do row slow.log 1e-$e; done | tr '\n' ' ')" "1550.3 1913.8 2279.7 2646.1 "
 check "slow: tau, T0" "$(fit slow.log)" "tau = 158.7 ps, T0 = 43.4 ps"
-check "bare schematic, typical: t_cq0, tau, T0" "$(cq0 typ0.log) $(fit typ0.log)" "190.1 tau = 62.0 ps, T0 = 17.0 ps"
-check "bare schematic, slow: tau, T0" "$(fit slow0.log)" "tau = 113.6 ps, T0 = 31.9 ps"
+if ! full; then
+  skip "characterizations of the bare schematic"
+else
+  check "bare schematic, typical: t_cq0, tau, T0" "$(cq0 typ0.log) $(fit typ0.log)" "190.1 tau = 62.0 ps, T0 = 17.0 ps"
+  check "bare schematic, slow: tau, T0" "$(fit slow0.log)" "tau = 113.6 ps, T0 = 31.9 ps"
+fi
 check "delay per decade, typical and slow" "$(calc 'printf "%.0f %.0f", 85.9 * log(10), 158.7 * log(10)')" "198 365"
 check "window for 1 ns, light in it (nm)" \
   "$(calc 'w = 23.5e-12 * exp(-1000 / 85.9); printf "%.1e %.0f", w, w * 3e8 * 1e9')" "2.1e-16 62"

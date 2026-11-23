@@ -10,7 +10,8 @@
 #   bash scripts/check_intro.sh
 # A failure after an image update means that a row may be stale, not that
 # the gap is closed: OpenSTA's crosstalk analysis needs CCS library models.
-# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
+# CHECK_MODE=regression or regression-full counts only the must checks
+# (scripts/lib_check.sh).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)

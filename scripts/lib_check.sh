@@ -3,18 +3,23 @@
 # SPDX-License-Identifier: Apache-2.0
 # Description: Check helpers that every scripts/check_<chapter>.sh sources.
 # CHECK_MODE decides which checks can fail a script:
-#   book        (default) every check, i.e., every value that the chapter
-#               quotes for the image named in the script header
-#   regression  only the must checks, i.e., what the exercises need on
-#               any image: the tools run, the course code lints,
-#               synthesizes, and passes its testbenches, and every seeded
-#               bug is caught. A check that differs is printed as drift,
-#               a quoted value that a tool or PDK update changed.
+#   book             (default) every check, i.e., every value that the
+#                    chapter quotes for the image named in the script header
+#   regression-full  only the must checks, i.e., what the exercises need on
+#                    any image: the tools run, the course code lints,
+#                    synthesizes, and passes its testbenches, and every
+#                    seeded bug is caught. A check that differs is printed
+#                    as drift, a quoted value that a tool or PDK update
+#                    changed.
+#   regression       as regression-full, but without the long runs of
+#                    variants: four of the seven LibreLane runs of
+#                    digital_flow and two of the four ngspice runs of cdc.
+#                    The nightly test of IIC-OSIC-TOOLS runs this mode.
 
 CHECK_MODE=${CHECK_MODE:-book}
 case $CHECK_MODE in
-  book | regression) ;;
-  *) echo "CHECK_MODE must be book or regression, not '$CHECK_MODE'" >&2; exit 2 ;;
+  book | regression-full | regression) ;;
+  *) echo "CHECK_MODE must be book, regression-full or regression, not '$CHECK_MODE'" >&2; exit 2 ;;
 esac
 n_check=0
 n_must=0
@@ -25,7 +30,7 @@ check() {  # check <what> <got> <expected>: a value that the chapter quotes
   n_check=$((n_check + 1))
   if [ "$2" == "$3" ]; then
     echo "  ok    $1: $2"
-  elif [ "$CHECK_MODE" == regression ]; then
+  elif [ "$CHECK_MODE" != book ]; then
     echo "  drift $1: got '$2', expected '$3'"
     drifts=$((drifts + 1))
   else
@@ -42,6 +47,14 @@ must() {  # must <what> <got> <expected>: a result that the exercises need on an
     echo "  FAIL  $1: got '$2', expected '$3'"
     fails=$((fails + 1))
   fi
+}
+
+full() {  # full: false only under CHECK_MODE=regression, which skips the long runs of variants
+  [ "$CHECK_MODE" != regression ]
+}
+
+skip() {  # skip <what>: a part that CHECK_MODE=regression leaves out
+  echo "  skip  $1 (CHECK_MODE=regression)"
 }
 
 lint() {  # lint <files>: count of Verilator -Wall warnings and errors, "failed" if it stops without one

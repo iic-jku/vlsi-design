@@ -4,8 +4,9 @@
 # Description: Runs the check scripts of all chapters, or of the chapters
 # named, inside the IIC-OSIC-TOOLS container and prints one summary. Exits
 # with 1 if a chapter fails. Usage, from anywhere in the container:
-#   scripts/run_checks.sh [chapter ...]           every value the book quotes
-#   CHECK_MODE=regression scripts/run_checks.sh   what the exercises need
+#   scripts/run_checks.sh [chapter ...]                every value the book quotes
+#   CHECK_MODE=regression-full scripts/run_checks.sh   what the exercises need
+#   CHECK_MODE=regression scripts/run_checks.sh        the same, fewer long runs
 # CHECK_MODE is explained in scripts/lib_check.sh. Other settings:
 #   JOBS=n           chapters in parallel (default 2). check_digital_flow
 #                    runs two LibreLane runs itself, and the run-time
@@ -26,8 +27,8 @@ export CHECK_MODE=${CHECK_MODE:-book}
 SLOW="digital_flow cdc dft verification sv_crashcourse"
 
 case $CHECK_MODE in
-  book | regression) ;;
-  *) echo "CHECK_MODE must be book or regression, not '$CHECK_MODE'" >&2; exit 2 ;;
+  book | regression-full | regression) ;;
+  *) echo "CHECK_MODE must be book, regression-full or regression, not '$CHECK_MODE'" >&2; exit 2 ;;
 esac
 case $JOBS in '' | *[!0-9]* | 0) JOBS=2 ;; esac
 
@@ -96,15 +97,15 @@ wait
 
 failed=0
 echo
-printf '%-16s %-6s %6s %6s %6s %7s\n' chapter result ok fail drift seconds
+printf '%-16s %-6s %6s %6s %6s %6s %7s\n' chapter result ok fail drift skip seconds
 for c in "${chapters[@]}"; do
   L=$RUN_DIR/logs/$c.log
   read -r rc secs < "$RUN_DIR/logs/$c.status"
   res=PASS
   [ "$rc" -eq 0 ] || { res=FAIL; failed=$((failed + 1)); }
   [ "$rc" -eq 124 ] && res=TIME
-  printf '%-16s %-6s %6s %6s %6s %7s\n' "$c" "$res" "$(grep -c '^  ok ' "$L")" \
-    "$(grep -c '^  FAIL ' "$L")" "$(grep -c '^  drift ' "$L")" "$secs"
+  printf '%-16s %-6s %6s %6s %6s %6s %7s\n' "$c" "$res" "$(grep -c '^  ok ' "$L")" \
+    "$(grep -c '^  FAIL ' "$L")" "$(grep -c '^  drift ' "$L")" "$(grep -c '^  skip ' "$L")" "$secs"
 done
 for c in "${chapters[@]}"; do
   L=$RUN_DIR/logs/$c.log

@@ -11,7 +11,10 @@
 # its GUI flow without a screen, about 35 minutes in total. The AMS
 # chip template is checked only if a clone of the template lies next to
 # the repository (or in TEMPLATE_DIR).
-# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
+# CHECK_MODE=regression or regression-full counts only the must checks
+# (scripts/lib_check.sh). CHECK_MODE=regression runs LibreLane only for
+# base, cg_mix and div_mix and skips the parts that read the other four
+# runs.
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -70,16 +73,20 @@ echo "== LibreLane runs (two at a time, to stay within the memory)"
 cd "$B" || exit 1
 LL="librelane config.yaml --pdk ihp-sg13cmos5l --pdk-root $PDK_ROOT --manual-pdk"
 $LL --run-tag base > base.log 2>&1 &
-$LL --run-tag util75 -c FP_CORE_UTIL=75 -c PL_TARGET_DENSITY_PCT=85 > util75.log 2>&1 &
-wait
-$LL --run-tag hold05 -c PL_RESIZER_HOLD_SLACK_MARGIN=0.5 > hold05.log 2>&1 &
-$LL --run-tag delay4 -c SYNTH_STRATEGY="DELAY 4" > delay4.log 2>&1 &
-wait
-$LL --run-tag margin -c PL_RESIZER_SETUP_SLACK_MARGIN=0.6 > margin.log 2>&1 &
+RUNS=base
+if full; then
+  RUNS="base util75 hold05 delay4 margin"
+  $LL --run-tag util75 -c FP_CORE_UTIL=75 -c PL_TARGET_DENSITY_PCT=85 > util75.log 2>&1 &
+  wait
+  $LL --run-tag hold05 -c PL_RESIZER_HOLD_SLACK_MARGIN=0.5 > hold05.log 2>&1 &
+  $LL --run-tag delay4 -c SYNTH_STRATEGY="DELAY 4" > delay4.log 2>&1 &
+  wait
+  $LL --run-tag margin -c PL_RESIZER_SETUP_SLACK_MARGIN=0.6 > margin.log 2>&1 &
+fi
 (cd "$G" && $LL --run-tag base > run.log 2>&1
  cd "$V" && $LL --run-tag base > run.log 2>&1) &
 wait
-for t in base util75 hold05 delay4 margin; do
+for t in $RUNS; do
   must "run $t complete" "$(grep -c 'Flow complete' runs/$t/flow.log)" "1"
 done
 R=$B/runs/base
@@ -182,11 +189,15 @@ check "slack lost after the repair: slow, typical, global routes, extraction" \
 check "no hold repair in base" "$(grep -c 'No hold violations found' $L37) $(grep -c dlygate $R/53-odb-cellfrequencytables/cell.rpt)" "1 0"
 
 echo "== Exercise: Follow the Clock and the Reset (hold margin 0.5 ns)"
-H=$B/runs/hold05
-check "delay cells, their type" "$(grep -o 'sg13cmos5l_dlygate[a-z0-9_]* *│ *[0-9]*' $H/53-odb-cellfrequencytables/cell.rpt | tr -d '│' | awk '{print $1, $2}')" "sg13cmos5l_dlygate4sd3_1 131"
-check "area, growth, repair reached, hold slack fast, warning" \
-  "$(metric hold05 design__instance__area__stdcell .1f) $(calc 'printf "%.0f", (17162.4 / 15023.2 - 1) * 100') $(awk '/endpoints with hold/ {h = 1} h && $1 == "final" {print $11; exit}' $H/37-openroad-resizertimingpostcts/*.log) $(metric hold05 timing__hold__ws__corner:nom_fast_1p32V_m40C .3f) $(grep -c 'RSZ-0064' $H/37-openroad-resizertimingpostcts/*.log)" \
-  "17162.4 14 0.221 0.268 1"
+if ! full; then
+  skip "run hold05"
+else
+  H=$B/runs/hold05
+  check "delay cells, their type" "$(grep -o 'sg13cmos5l_dlygate[a-z0-9_]* *│ *[0-9]*' $H/53-odb-cellfrequencytables/cell.rpt | tr -d '│' | awk '{print $1, $2}')" "sg13cmos5l_dlygate4sd3_1 131"
+  check "area, growth, repair reached, hold slack fast, warning" \
+    "$(metric hold05 design__instance__area__stdcell .1f) $(calc 'printf "%.0f", (17162.4 / 15023.2 - 1) * 100') $(awk '/endpoints with hold/ {h = 1} h && $1 == "final" {print $11; exit}' $H/37-openroad-resizertimingpostcts/*.log) $(metric hold05 timing__hold__ws__corner:nom_fast_1p32V_m40C .3f) $(grep -c 'RSZ-0064' $H/37-openroad-resizertimingpostcts/*.log)" \
+    "17162.4 14 0.221 0.268 1"
+fi
 
 echo "== Routing"
 check "global routing: Metal2, Metal3, total usage, overflow" \
@@ -201,13 +212,17 @@ check "fill: decap_8, decap_4, fill_2, fill_1" \
   "634 151 255 280 "
 
 echo "== Exercise: Plan the Floorplan (utilization 75 %)"
-check "core, utilization" "$(metric util75 design__core__area .0f) $(metric util75 design__instance__utilization .3f)" "16903 0.892"
-check "router: first violations, iterations, wire length" \
-  "$(metric util75 route__drc_errors__iter:0) $(python3 -c "import json; m = json.load(open('$B/runs/util75/final/metrics.json')); print(len([k for k in m if k.startswith('route__drc_errors__iter:')]))") $(metric util75 route__wirelength)" \
-  "1139 6 45974"
-check "setup slack typ, slow; core smaller by (%)" \
-  "$(metric util75 timing__setup__ws__corner:nom_typ_1p20V_25C .3f) $(metric util75 timing__setup__ws__corner:nom_slow_1p08V_125C .3f) $(calc 'printf "%.0f", (1 - 16903.0 / 25604.8) * 100')" \
-  "0.997 -0.745 34"
+if ! full; then
+  skip "run util75"
+else
+  check "core, utilization" "$(metric util75 design__core__area .0f) $(metric util75 design__instance__utilization .3f)" "16903 0.892"
+  check "router: first violations, iterations, wire length" \
+    "$(metric util75 route__drc_errors__iter:0) $(python3 -c "import json; m = json.load(open('$B/runs/util75/final/metrics.json')); print(len([k for k in m if k.startswith('route__drc_errors__iter:')]))") $(metric util75 route__wirelength)" \
+    "1139 6 45974"
+  check "setup slack typ, slow; core smaller by (%)" \
+    "$(metric util75 timing__setup__ws__corner:nom_typ_1p20V_25C .3f) $(metric util75 timing__setup__ws__corner:nom_slow_1p08V_125C .3f) $(calc 'printf "%.0f", (1 - 16903.0 / 25604.8) * 100')" \
+    "0.997 -0.745 34"
+fi
 
 echo "== Signoff"
 check "setup slack after each stage (typical)" \
@@ -238,18 +253,22 @@ check "LVS on abstracts, DRC on GDS" \
   "$(python3 -c "import json; c = json.load(open('$R/resolved.json')); print(c['MAGIC_EXT_USE_GDS'], c['MAGIC_DRC_USE_GDS'])")" "False True"
 
 echo "== Exercise: Close the Timing"
-check "DELAY 4: slow slack, area, growth" \
-  "$(metric delay4 timing__setup__ws__corner:nom_slow_1p08V_125C .3f) $(metric delay4 design__instance__area__stdcell .1f) $(calc 'printf "%.0f", (16852.1 / 15023.2 - 1) * 100')" \
-  "-0.542 16852.1 12"
-check "DELAY 4: buffers after synthesis, repair reached, warning, loss" \
-  "$(grep -c 'sg13cmos5l_buf' $B/runs/delay4/06-yosys-synthesis/bs_reg.nl.v) $(awk '$1 == "final" {print $15}' $B/runs/delay4/37-openroad-resizertimingpostcts/*.log) $(grep -c 'RSZ-0062' $B/runs/delay4/37-openroad-resizertimingpostcts/*.log) $(calc 'printf "%.2f", 0.088 + 0.542')" \
-  "32 0.088 0 0.63"
-check "margin 0.6: slow, typ, fast slack, area, growth" \
-  "$(for c in slow_1p08V_125C typ_1p20V_25C fast_1p32V_m40C; do metric margin timing__setup__ws__corner:nom_$c .3f; done | tr '\n' ' ')$(metric margin design__instance__area__stdcell .1f) $(calc 'printf "%.0f", (15170.2 / 15023.2 - 1) * 100')" \
-  "0.048 1.512 2.271 15170.2 1"
-must "margin 0.6: DRC, LVS errors" "$(metric margin route__drc_errors) $(metric margin design__lvs_error__count)" "0 0"
-check "margin 0.6: hold, DRC, LVS" \
-  "$(metric margin timing__hold__ws .3f) $(metric margin route__drc_errors) $(metric margin design__lvs_error__count)" "0.195 0 0"
+if ! full; then
+  skip "runs delay4 and margin"
+else
+  check "DELAY 4: slow slack, area, growth" \
+    "$(metric delay4 timing__setup__ws__corner:nom_slow_1p08V_125C .3f) $(metric delay4 design__instance__area__stdcell .1f) $(calc 'printf "%.0f", (16852.1 / 15023.2 - 1) * 100')" \
+    "-0.542 16852.1 12"
+  check "DELAY 4: buffers after synthesis, repair reached, warning, loss" \
+    "$(grep -c 'sg13cmos5l_buf' $B/runs/delay4/06-yosys-synthesis/bs_reg.nl.v) $(awk '$1 == "final" {print $15}' $B/runs/delay4/37-openroad-resizertimingpostcts/*.log) $(grep -c 'RSZ-0062' $B/runs/delay4/37-openroad-resizertimingpostcts/*.log) $(calc 'printf "%.2f", 0.088 + 0.542')" \
+    "32 0.088 0 0.63"
+  check "margin 0.6: slow, typ, fast slack, area, growth" \
+    "$(for c in slow_1p08V_125C typ_1p20V_25C fast_1p32V_m40C; do metric margin timing__setup__ws__corner:nom_$c .3f; done | tr '\n' ' ')$(metric margin design__instance__area__stdcell .1f) $(calc 'printf "%.0f", (15170.2 / 15023.2 - 1) * 100')" \
+    "0.048 1.512 2.271 15170.2 1"
+  must "margin 0.6: DRC, LVS errors" "$(metric margin route__drc_errors) $(metric margin design__lvs_error__count)" "0 0"
+  check "margin 0.6: hold, DRC, LVS" \
+    "$(metric margin timing__hold__ws .3f) $(metric margin route__drc_errors) $(metric margin design__lvs_error__count)" "0.195 0 0"
+fi
 ln -sf "$LIB" stdcell.lib
 eqy -f -d lec_eqy lec.eqy > eqy.log 2>&1
 must "EQY: exit status, verdict" "$? $(grep -o 'DONE (PASS, rc=0)' eqy.log)" "0 DONE (PASS, rc=0)"
@@ -709,9 +728,6 @@ EOF
 }
 heat base_grt $R/39-openroad-globalrouting/bs_reg.odb
 heat base_final $R/final/odb/bs_reg.odb
-heat u75_grt $U/39-openroad-globalrouting/bs_reg.odb
-heat u75_final $U/final/odb/bs_reg.odb
-heat u75_diodes $U/42-openroad-repairantennas/1-openroad-diodeinsertion/bs_reg.odb
 cat > heat.py << 'EOF'
 import csv
 import sys
@@ -739,17 +755,24 @@ EOF
 check "base after global routing: tiles, width, max, mean, middle half in x and y, margins, full, >= 90 %, full in the middle" \
   "$(python3 heat.py base_grt | head -1)" "624 7.2 100.0 60.8 82.1 38.1 10 60 8"
 check "base: the final database holds the same map" "$(cmp -s heat_base_grt.csv heat_base_final.csv && echo same)" "same"
-check "util75 after global routing" "$(python3 heat.py u75_grt | head -1)" "418 7.2 100.0 75.5 89.3 57.3 33 152 12"
-check "util75 after global routing, Metal4: columns of the straps, the others" "$(python3 heat.py u75_grt | tail -1)" "m4 straps 57-68 others 31-48"
-check "util75, final database: max, mean" "$(python3 heat.py u75_final | head -1 | awk '{print $3, $4}')" "56.7 38.3"
-check "util75: the antenna repair changed the map, detailed routing kept it" \
-  "$(cmp -s heat_u75_grt.csv heat_u75_diodes.csv || echo changed) $(cmp -s heat_u75_diodes.csv heat_u75_final.csv && echo kept)" "changed kept"
-check "util75: antenna violations, diodes; base: diodes" \
-  "$(grep -ho 'Found [0-9]* antenna violations' $U/42-openroad-repairantennas/1-openroad-diodeinsertion/*.log | head -1 | awk '{print $2}') $(metric util75 antenna_diodes_count) $(metric base antenna_diodes_count)" \
-  "6 6 0"
-check "util75, global routing: usage of all layers, Metal2, Metal3, Metal4" \
-  "$(awk '/GRT-0096/ {on = 1} on && ($1 == "Total" || $1 == "Metal2" || $1 == "Metal3" || $1 == "Metal4") {printf "%s ", $4} on && $1 == "Total" {exit}' $U/39-openroad-globalrouting/*.log)" \
-  "58.89% 64.18% 13.12% 45.65% "
+if ! full; then
+  skip "routing congestion of run util75"
+else
+  heat u75_grt $U/39-openroad-globalrouting/bs_reg.odb
+  heat u75_final $U/final/odb/bs_reg.odb
+  heat u75_diodes $U/42-openroad-repairantennas/1-openroad-diodeinsertion/bs_reg.odb
+  check "util75 after global routing" "$(python3 heat.py u75_grt | head -1)" "418 7.2 100.0 75.5 89.3 57.3 33 152 12"
+  check "util75 after global routing, Metal4: columns of the straps, the others" "$(python3 heat.py u75_grt | tail -1)" "m4 straps 57-68 others 31-48"
+  check "util75, final database: max, mean" "$(python3 heat.py u75_final | head -1 | awk '{print $3, $4}')" "56.7 38.3"
+  check "util75: the antenna repair changed the map, detailed routing kept it" \
+    "$(cmp -s heat_u75_grt.csv heat_u75_diodes.csv || echo changed) $(cmp -s heat_u75_diodes.csv heat_u75_final.csv && echo kept)" "changed kept"
+  check "util75: antenna violations, diodes; base: diodes" \
+    "$(grep -ho 'Found [0-9]* antenna violations' $U/42-openroad-repairantennas/1-openroad-diodeinsertion/*.log | head -1 | awk '{print $2}') $(metric util75 antenna_diodes_count) $(metric base antenna_diodes_count)" \
+    "6 6 0"
+  check "util75, global routing: usage of all layers, Metal2, Metal3, Metal4" \
+    "$(awk '/GRT-0096/ {on = 1} on && ($1 == "Total" || $1 == "Metal2" || $1 == "Metal3" || $1 == "Metal4") {printf "%s ", $4} on && $1 == "Total" {exit}' $U/39-openroad-globalrouting/*.log)" \
+    "58.89% 64.18% 13.12% 45.65% "
+fi
 check "the state after global routing names its database" \
   "$(python3 -c "import json; print(json.load(open('$R/39-openroad-globalrouting/state_out.json'))['odb'])" | grep -c '39-openroad-globalrouting/bs_reg.odb')" "1"
 
