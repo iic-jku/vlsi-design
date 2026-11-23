@@ -7,7 +7,8 @@
 #   bash scripts/check_sequential.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter.
-# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
+# CHECK_MODE=regression or regression-full counts only the must checks
+# (scripts/lib_check.sh).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)

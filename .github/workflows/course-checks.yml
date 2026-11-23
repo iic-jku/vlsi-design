@@ -7,8 +7,8 @@ on:
         description: 'IIC-OSIC-TOOLS image, e.g. ghcr.io/iic-jku/iic-osic-tools:nightly'
         default: 'hpretl/iic-osic-tools:latest'
       mode:
-        description: 'CHECK_MODE: regression (what the exercises need) or book (every quoted value)'
-        default: 'regression'
+        description: 'CHECK_MODE: regression-full (what the exercises need), regression (the same, fewer long runs) or book (every quoted value)'
+        default: 'regression-full'
   # Every file that a check script reads, see the paths in scripts/check_*.sh
   push:
     branches: [main]
@@ -68,7 +68,7 @@ jobs:
       image: ${{ inputs.image || 'hpretl/iic-osic-tools:latest' }}
       options: --user root
     env:
-      CHECK_MODE: ${{ inputs.mode || 'regression' }}
+      CHECK_MODE: ${{ inputs.mode || 'regression-full' }}
       CHAPTER: ${{ matrix.chapter }}
       RUN_DIR: /tmp/vlsi_checks
     steps:

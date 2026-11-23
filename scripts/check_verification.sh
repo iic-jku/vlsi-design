@@ -9,7 +9,8 @@
 # if any result differs from the value in the chapter. FULL=1 also runs
 # the exhaustive test of the 16-bit barrel shifter (about two minutes)
 # and prints the run times of the simulator comparison (about two).
-# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
+# CHECK_MODE=regression or regression-full counts only the must checks
+# (scripts/lib_check.sh).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)

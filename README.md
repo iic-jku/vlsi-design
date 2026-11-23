@@ -18,9 +18,10 @@ Tools and PDK are integrated in the [**IIC-OSIC-TOOLS**](https://github.com/iic-
 Every tool result that a chapter quotes is reproduced in that image by `scripts/check_<chapter>.sh`, and `scripts/run_checks.sh` runs all chapters:
 
 - `CHECK_MODE=book` (the default) fails on any value that differs from the book, on the image the book names.
-- `CHECK_MODE=regression` fails only where an exercise would break: a tool or PDK file is missing, the course code no longer lints, synthesizes, or passes its testbenches, a seeded bug is not caught, or a LibreLane run does not finish clean. Values that a newer image changes are listed as drift.
+- `CHECK_MODE=regression-full` fails only where an exercise would break: a tool or PDK file is missing, the course code no longer lints, synthesizes, or passes its testbenches, a seeded bug is not caught, or a LibreLane run does not finish clean. Values that a newer image changes are listed as drift.
+- `CHECK_MODE=regression` does the same without the long runs of variants: four of the seven LibreLane runs of chapter `digital_flow` and two of the four ngspice runs of chapter `cdc`. Its log lists the skipped parts.
 
-The workflow `course-checks` runs the regression mode on `hpretl/iic-osic-tools:latest` for every push and pull request to `main` that changes the code or the scripts, and on any image by hand.
+The workflow `course-checks` runs `regression-full` on `hpretl/iic-osic-tools:latest` for every push and pull request to `main` that changes the code or the scripts, and any mode on any image by hand. The nightly test 49 of IIC-OSIC-TOOLS runs `regression` on the branch `next_release`.
 
 All course material is made publicly available and shared under the Apache-2.0 license.
 

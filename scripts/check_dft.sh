@@ -9,7 +9,8 @@
 # if any result differs from the value in the chapter. The fault
 # simulation of all cell pins through the scan chain takes about two
 # minutes, the placement of the 32-bit bs_reg about one.
-# CHECK_MODE=regression counts only the must checks (scripts/lib_check.sh).
+# CHECK_MODE=regression or regression-full counts only the must checks
+# (scripts/lib_check.sh).
 
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
