@@ -66,7 +66,7 @@ EOF
 check "report_power exists, no crosstalk delay analysis" \
   "$(sta -no_init -no_splash s.tcl 2>&1 | grep -E '^(report_power|noise):' | tr '\n' ' ')" "report_power: 1 noise: 0 "
 check "SG13CMOS5L libraries with CCS tables, of 6" \
-  "$(ls "$LIB"/*.lib | wc -l) $(cat "$LIB"/*.lib | grep -c 'output_current_')" "6 0"
+  "$(ls "$LIB"/*.lib.gz | wc -l) $(zcat "$LIB"/*.lib.gz | grep -c 'output_current_')" "6 0"
 
 echo "== OpenROAD"
 cat > o.tcl <<'EOF'

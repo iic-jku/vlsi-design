@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Description: Equivalence check of bs_reg: its RTL (gold) against the
 # final netlist of the LibreLane run in runs/base (gate). Run in this
-# folder with stdcell.lib linked to the typical library of SG13CMOS5L:
+# folder with stdcell.lib.gz linked to the typical library of SG13CMOS5L:
 # eqy -d lec_eqy lec.eqy
 
 [gold]
@@ -18,7 +18,7 @@ rename -hide w:*.*
 
 [gate]
 # The cell functions come from the Liberty file
-read_liberty -ignore_miss_func stdcell.lib
+read_liberty -ignore_miss_func stdcell.lib.gz
 read_verilog runs/base/final/nl/bs_reg.nl.v
 hierarchy -check -top bs_reg
 flatten -noscopeinfo

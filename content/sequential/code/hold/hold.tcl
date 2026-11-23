@@ -10,7 +10,7 @@ if {[info exists ::env(CORNER)]} { set corner $::env(CORNER) }
 set period 4
 if {[info exists ::env(PERIOD)]} { set period $::env(PERIOD) }
 set lib $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-read_liberty $lib/lib/sg13cmos5l_stdcell_$corner.lib
+read_liberty $lib/lib/sg13cmos5l_stdcell_$corner.lib.gz
 read_verilog shift.v
 link_design shift
 

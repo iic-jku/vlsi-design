@@ -16,10 +16,13 @@ REPO=$(cd "$(dirname "$0")/.." && pwd)
 W=${CHECK_DIR:-/tmp/vlsi_check_sv}
 TPL=${TEMPLATE_DIR:-$REPO/../ihp-sg13cmos5l-ams-chip-template}
 D=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 
 rm -rf "$W" && mkdir -p "$W" && cp -r "$REPO/content/sv_crashcourse/code/." "$W/"
 cd "$W" || exit 1
+# A plain-text copy of the gzipped Liberty file for awk, grep and sed
+LIBT=$W/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+zcat "$LIB" > "$LIBT"
 
 source "$REPO/scripts/lib_check.sh"
 
@@ -335,9 +338,9 @@ check "run-time warnings" "$(vvp -n uq.vvp | grep -o 'uq_tb.sv:[0-9]*: value is 
 cd "$W"
 
 echo "== Latches and the library"
-check "latch cell sg13cmos5l_dlhq_1" "$(grep -c 'cell (sg13cmos5l_dlhq_1)' "$LIB")" "1"
+check "latch cell sg13cmos5l_dlhq_1" "$(grep -c 'cell (sg13cmos5l_dlhq_1)' "$LIBT")" "1"
 for c in dfrbp_1 dfrbpq_1; do
-  check "$c: clear" "$(sed -n "/cell (sg13cmos5l_$c)/,/^  cell (/p" "$LIB" | grep -m1 -o 'clear : "[^"]*"')" 'clear : "!RESET_B"'
+  check "$c: clear" "$(sed -n "/cell (sg13cmos5l_$c)/,/^  cell (/p" "$LIBT" | grep -m1 -o 'clear : "[^"]*"')" 'clear : "!RESET_B"'
 done
 check "cell models with primitives and specify blocks" \
   "$(grep -c '^primitive' "$D/verilog/sg13cmos5l_udp.v" | awk '{print ($1 > 0)}') $(grep -c 'specify' "$D/verilog/sg13cmos5l_stdcell.v" | awk '{print ($1 > 0)}')" "1 1"

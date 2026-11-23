@@ -18,7 +18,7 @@ REPO=$(cd "$(dirname "$0")/.." && pwd)
 TPL=${TEMPLATE_DIR:-$REPO/../ihp-sg13cmos5l-ams-chip-template}
 W=${CHECK_DIR:-/tmp/vlsi_check_flow}
 D=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell
-LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+LIB=$D/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 PDKLL=$PDK_ROOT/ihp-sg13cmos5l/libs.tech/librelane
 
 rm -rf "$W" && mkdir -p "$W/content"
@@ -60,7 +60,7 @@ check "straps: Metal4 width, pitch, TopMetal1 width, pitch" \
 check "pin layers left/right, top/bottom" "$(pdk FP_IO_HLAYER) $(pdk FP_IO_VLAYER)" "Metal3 Metal2"
 check "maximum fanout" "$(pdk MAX_FANOUT_CONSTRAINT)" "10"
 check "fanout limit of the library, set_max_fanout in the SDC of bs_reg" \
-  "$(grep -o 'default_max_fanout : [0-9]*' $LIB | awk '{print $3}') $(grep -c set_max_fanout $W/content/sequential/code/bs_reg/syn/bs_reg.sdc)" "8 0"
+  "$(zgrep -o 'default_max_fanout : [0-9]*' $LIB | awk '{print $3}') $(grep -c set_max_fanout $W/content/sequential/code/bs_reg/syn/bs_reg.sdc)" "8 0"
 check "CTS root and clock buffers" "$(pdk CTS_ROOT_BUFFER) / $(pdk CTS_CLK_BUFFERS)" \
   "sg13cmos5l_buf_8 / sg13cmos5l_buf_8 sg13cmos5l_buf_4 sg13cmos5l_buf_2 sg13cmos5l_buf_1"
 check "diode, decap, and fill cells" "$(pdk DIODE_CELL) / $(pdk DECAP_CELLS) / $(pdk FILL_CELLS)" \
@@ -250,7 +250,7 @@ check "margin 0.6: slow, typ, fast slack, area, growth" \
 must "margin 0.6: DRC, LVS errors" "$(metric margin route__drc_errors) $(metric margin design__lvs_error__count)" "0 0"
 check "margin 0.6: hold, DRC, LVS" \
   "$(metric margin timing__hold__ws .3f) $(metric margin route__drc_errors) $(metric margin design__lvs_error__count)" "0.195 0 0"
-ln -sf "$LIB" stdcell.lib
+ln -sf "$LIB" stdcell.lib.gz
 eqy -f -d lec_eqy lec.eqy > eqy.log 2>&1
 must "EQY: exit status, verdict" "$? $(grep -o 'DONE (PASS, rc=0)' eqy.log)" "0 DONE (PASS, rc=0)"
 check "EQY: verdict, partitions, of them output bits" \
@@ -346,7 +346,7 @@ check "flip-flops of the input register, the one that sets the limit" "$(grep '^
   "inputs 39 _1542_ mode_i[1] 0.242 0.056 0.186"
 for c in typ_1p20V_25C slow_1p08V_125C; do
   cat > hold_$c.tcl << EOF
-read_liberty $D/lib/sg13cmos5l_stdcell_$c.lib
+read_liberty $D/lib/sg13cmos5l_stdcell_$c.lib.gz
 read_verilog $R/final/nl/bs_reg.nl.v
 link_design bs_reg
 read_spef $R/final/spef/nom/bs_reg.nom.spef
@@ -887,7 +887,7 @@ for kind in ('min', 'max'):
     r.append((len(v), min(v.values()), max(v.values())))
 (n, a, b), (m, c, d) = r
 print(n, '%.3f %.3f %.3f' % (a, b, b - a), m, '%.3f %.3f' % (c, d))")" "71 0.237 0.250 0.013 71 0.225 0.238"
-check "pin capacitance ranges in the library" "$(grep -c rise_capacitance_range $LIB)" "206"
+check "pin capacitance ranges in the library" "$(zgrep -c rise_capacitance_range $LIB)" "206"
 cat > div_arr.tcl << EOF
 read_liberty $LIB
 read_verilog $V/runs/base/final/nl/div_mix.nl.v

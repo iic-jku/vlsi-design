@@ -22,7 +22,7 @@ Define the path of the typical-corner library in every new terminal:
 
 ```bash
 LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib
-LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 ```
 
 ## Learning Objectives {#sec-sequential-objectives}

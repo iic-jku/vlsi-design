@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 The last two chapters used testbenches: a few lines of SystemVerilog or Python that drive a design and check its outputs. This chapter turns them into a methodology. Three questions guide it. How does a testbench decide that a design is correct, without anybody looking at waveforms? Which stimuli does it apply, if it cannot apply all of them? And when is the verification complete? The answers are a testbench architecture with a reference model, a mix of directed, exhaustive, and random stimuli, and the measurement of coverage. Along the way, we check the checks themselves with deliberate bugs, and we run the same testbench on the synthesized netlist, without and with the delays of the cells.
 
 ::: {.callout-note}
-All code of this chapter is available in the folder [`content/verification/code`]({{< meta var.url-repo >}}/tree/main/content/verification/code) of the course repository, with one folder per design. As in @sec-modeling, the RTL is in `rtl/`, the cocotb testbenches are in `testbenches/cocotb/`, and the files of an exercise are in `exercise/`. The assertions of the FIFO are in `testbenches/sva/`, its testbench for the comparison of the simulators is in `testbenches/verilog/`, and its timing analysis script is in `syn/`. Every file in `rtl/` lints without warnings and synthesizes. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, Yosys 0.70, OpenSTA 3.1.0) and the typical-corner library of SG13CMOS5L (`sg13cmos5l_stdcell_typ_1p20V_25C.lib`, 1.2 V, 25 °C). Run times depend on the computer, and the ones quoted here come from a laptop. The script [`scripts/check_verification.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_verification.sh) reproduces all other numbers: run `bash scripts/check_verification.sh` in the container from the root of the repository.
+All code of this chapter is available in the folder [`content/verification/code`]({{< meta var.url-repo >}}/tree/main/content/verification/code) of the course repository, with one folder per design. As in @sec-modeling, the RTL is in `rtl/`, the cocotb testbenches are in `testbenches/cocotb/`, and the files of an exercise are in `exercise/`. The assertions of the FIFO are in `testbenches/sva/`, its testbench for the comparison of the simulators is in `testbenches/verilog/`, and its timing analysis script is in `syn/`. Every file in `rtl/` lints without warnings and synthesizes. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, Yosys 0.70, OpenSTA 3.1.0) and the typical-corner library of SG13CMOS5L (`sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz`, 1.2 V, 25 °C). Run times depend on the computer, and the ones quoted here come from a laptop. The script [`scripts/check_verification.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_verification.sh) reproduces all other numbers: run `bash scripts/check_verification.sh` in the container from the root of the repository.
 :::
 
 For the exercises, clone the course repository into your designs folder once, if you have not done so yet:
@@ -22,7 +22,7 @@ The gate-level part of this chapter synthesizes a design onto the standard cells
 
 ```bash
 LIB=$PDK_ROOT/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib
-LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+LIB=$LIB/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz
 ```
 
 ## Learning Objectives {#sec-verification-objectives}
