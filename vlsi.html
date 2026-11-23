@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Simon Dorrer">
-<meta name="dcterms.date" content="2026-11-19">
+<meta name="dcterms.date" content="2026-11-23">
 
 <title>VLSI Design</title>
 <style>
@@ -105,9 +105,9 @@ div.csl-indent {
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-0281710632bcda888b6824946fefd134.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-dark-4f4f1aa171ce19c655c9190227369fd4.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
-<link href="site_libs/bootstrap/bootstrap-0281710632bcda888b6824946fefd134.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-617cf3caa8875cc10634fc9bb1a184ba.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-8af7fdd94d4b5e2a6faf425b6f4c61d6.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="site_libs/bootstrap/bootstrap-617cf3caa8875cc10634fc9bb1a184ba.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
 <script src="site_libs/quarto-contrib/glightbox/glightbox.min.js"></script>
 <link href="site_libs/quarto-contrib/glightbox/glightbox.min.css" rel="stylesheet">
 <link href="site_libs/quarto-contrib/glightbox/lightbox.css" rel="stylesheet">
@@ -684,7 +684,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">November 19, 2026</p>
+      <p class="date">November 23, 2026</p>
     </div>
   </div>
   
@@ -5347,7 +5347,7 @@ Note
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>All code of this chapter is available in the folder <a href="https://github.com/iic-jku/vlsi-design/tree/main/content/modeling/code"><code>content/modeling/code</code></a> of the course repository, with one folder per design. As in <a href="#sec-sv-crashcourse" class="quarto-xref">Section&nbsp;2</a>, the RTL is in <code>rtl/</code> and the testbenches are in <code>testbenches/verilog/</code> and <code>testbenches/cocotb/</code>. The starting point of an exercise is in <code>exercise/</code>, and the folder <code>pitfalls/</code> holds code with deliberate mistakes. Every file in <code>rtl/</code> lints without warnings and synthesizes. All numbers in this chapter come from the IIC-OSIC-TOOLS image <code>2026.10</code> (Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, Yosys 0.70, OpenSTA 3.1.0) and the typical-corner library of SG13CMOS5L (<code>sg13cmos5l_stdcell_typ_1p20V_25C.lib</code>, 1.2 V, 25 °C). The script <a href="https://github.com/iic-jku/vlsi-design/blob/main/scripts/check_modeling.sh"><code>scripts/check_modeling.sh</code></a> reproduces all of them: run <code>bash scripts/check_modeling.sh</code> in the container from the root of the repository.</p>
+<p>All code of this chapter is available in the folder <a href="https://github.com/iic-jku/vlsi-design/tree/main/content/modeling/code"><code>content/modeling/code</code></a> of the course repository, with one folder per design. As in <a href="#sec-sv-crashcourse" class="quarto-xref">Section&nbsp;2</a>, the RTL is in <code>rtl/</code> and the testbenches are in <code>testbenches/verilog/</code> and <code>testbenches/cocotb/</code>. The starting point of an exercise is in <code>exercise/</code>, and the folder <code>pitfalls/</code> holds code with deliberate mistakes. Every file in <code>rtl/</code> lints without warnings and synthesizes. All numbers in this chapter come from the IIC-OSIC-TOOLS image <code>2026.10</code> (Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, Yosys 0.70, OpenSTA 3.1.0) and the typical-corner library of SG13CMOS5L (<code>sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz</code>, 1.2 V, 25 °C). The script <a href="https://github.com/iic-jku/vlsi-design/blob/main/scripts/check_modeling.sh"><code>scripts/check_modeling.sh</code></a> reproduces all of them: run <code>bash scripts/check_modeling.sh</code> in the container from the root of the repository.</p>
 </div>
 </div>
 <p>For the exercises, clone the course repository into your designs folder once, if you have not done so yet:</p>
@@ -5355,7 +5355,7 @@ Note
 <span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/iic-jku/vlsi-design.git</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>The synthesis commands of this chapter map the design onto the standard cells of SG13CMOS5L, and the gate-level simulations use the Verilog models of these cells. Define the paths of the cell library and the cell models in every new terminal:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb55"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$PDK_ROOT</span>/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib</span>
-<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib</span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz</span>
 <span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a><span class="va">CELLS</span><span class="op">=</span><span class="va">$PDK_ROOT</span>/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/verilog</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <section id="sec-modeling-objectives" class="level2" data-number="3.1">
 <h2 data-number="3.1" class="anchored" data-anchor-id="sec-modeling-objectives"><span class="header-section-number">3.1</span> Learning Objectives</h2>
@@ -6436,7 +6436,7 @@ Note
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>All code of this chapter is available in the folder <a href="https://github.com/iic-jku/vlsi-design/tree/main/content/verification/code"><code>content/verification/code</code></a> of the course repository, with one folder per design. As in <a href="#sec-modeling" class="quarto-xref">Section&nbsp;3</a>, the RTL is in <code>rtl/</code>, the cocotb testbenches are in <code>testbenches/cocotb/</code>, and the files of an exercise are in <code>exercise/</code>. The assertions of the FIFO are in <code>testbenches/sva/</code>, its testbench for the comparison of the simulators is in <code>testbenches/verilog/</code>, and its timing analysis script is in <code>syn/</code>. Every file in <code>rtl/</code> lints without warnings and synthesizes. All numbers in this chapter come from the IIC-OSIC-TOOLS image <code>2026.10</code> (Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, Yosys 0.70, OpenSTA 3.1.0) and the typical-corner library of SG13CMOS5L (<code>sg13cmos5l_stdcell_typ_1p20V_25C.lib</code>, 1.2 V, 25 °C). Run times depend on the computer, and the ones quoted here come from a laptop. The script <a href="https://github.com/iic-jku/vlsi-design/blob/main/scripts/check_verification.sh"><code>scripts/check_verification.sh</code></a> reproduces all other numbers: run <code>bash scripts/check_verification.sh</code> in the container from the root of the repository.</p>
+<p>All code of this chapter is available in the folder <a href="https://github.com/iic-jku/vlsi-design/tree/main/content/verification/code"><code>content/verification/code</code></a> of the course repository, with one folder per design. As in <a href="#sec-modeling" class="quarto-xref">Section&nbsp;3</a>, the RTL is in <code>rtl/</code>, the cocotb testbenches are in <code>testbenches/cocotb/</code>, and the files of an exercise are in <code>exercise/</code>. The assertions of the FIFO are in <code>testbenches/sva/</code>, its testbench for the comparison of the simulators is in <code>testbenches/verilog/</code>, and its timing analysis script is in <code>syn/</code>. Every file in <code>rtl/</code> lints without warnings and synthesizes. All numbers in this chapter come from the IIC-OSIC-TOOLS image <code>2026.10</code> (Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, Yosys 0.70, OpenSTA 3.1.0) and the typical-corner library of SG13CMOS5L (<code>sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz</code>, 1.2 V, 25 °C). Run times depend on the computer, and the ones quoted here come from a laptop. The script <a href="https://github.com/iic-jku/vlsi-design/blob/main/scripts/check_verification.sh"><code>scripts/check_verification.sh</code></a> reproduces all other numbers: run <code>bash scripts/check_verification.sh</code> in the container from the root of the repository.</p>
 </div>
 </div>
 <p>For the exercises, clone the course repository into your designs folder once, if you have not done so yet:</p>
@@ -6444,7 +6444,7 @@ Note
 <span id="cb72-2"><a href="#cb72-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/iic-jku/vlsi-design.git</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>The gate-level part of this chapter synthesizes a design onto the standard cells of SG13CMOS5L. Define the path of the cell library in every new terminal:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb73"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb73-1"><a href="#cb73-1" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$PDK_ROOT</span>/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib</span>
-<span id="cb73-2"><a href="#cb73-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb73-2"><a href="#cb73-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <section id="sec-verification-objectives" class="level2" data-number="4.1">
 <h2 data-number="4.1" class="anchored" data-anchor-id="sec-verification-objectives"><span class="header-section-number">4.1</span> Learning Objectives</h2>
 <p>After this chapter, you will be able to:</p>
@@ -7859,7 +7859,7 @@ Note
 <span id="cb96-2"><a href="#cb96-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/iic-jku/vlsi-design.git</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Define the path of the typical-corner library in every new terminal:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb97"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb97-1"><a href="#cb97-1" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$PDK_ROOT</span>/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib</span>
-<span id="cb97-2"><a href="#cb97-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb97-2"><a href="#cb97-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <section id="sec-synthesis-lib-objectives" class="level2" data-number="5.1">
 <h2 data-number="5.1" class="anchored" data-anchor-id="sec-synthesis-lib-objectives"><span class="header-section-number">5.1</span> Learning Objectives</h2>
 <p>After this chapter, you will be able to:</p>
@@ -8189,7 +8189,7 @@ Figure&nbsp;29: The inverter <code>inv_1</code> of IHP LV against the inverters 
 </section>
 <section id="sec-synthesis-lib-liberty" class="level2" data-number="5.4">
 <h2 data-number="5.4" class="anchored" data-anchor-id="sec-synthesis-lib-liberty"><span class="header-section-number">5.4</span> Inside a Liberty File</h2>
-<p>The <strong>Liberty</strong> format (<code>.lib</code>), introduced by Synopsys and freely available, is the de-facto standard that describes the logic, timing, and power of every cell in plain text. The header of a library defines the units and the conditions of the characterization:</p>
+<p>The <strong>Liberty</strong> format (<code>.lib</code>, in the PDK gzipped as <code>.lib.gz</code>), introduced by Synopsys and freely available, is the de-facto standard that describes the logic, timing, and power of every cell in plain text. The header of a library defines the units and the conditions of the characterization:</p>
 <pre><code>library (sg13cmos5l_stdcell_typ_1p20V_25C) {
   delay_model : table_lookup;
   capacitive_load_unit (1,pf);
@@ -8253,7 +8253,7 @@ Figure&nbsp;29: The inverter <code>inv_1</code> of IHP LV against the inverters 
 </section>
 <section id="sec-synthesis-lib-delay" class="level2" data-number="5.5">
 <h2 data-number="5.5" class="anchored" data-anchor-id="sec-synthesis-lib-delay"><span class="header-section-number">5.5</span> Delay Calculation with Tables</h2>
-<p>Old libraries modeled a delay as a constant plus a resistance times the load, which is fine for long-channel transistors. In modern technologies, the delay depends on both the load and the input slew, and the slew also changes how the delay grows with the load (<a href="#fig-synthesis-lib-nldm" class="quarto-xref">Figure&nbsp;30</a>). For a fast input edge, the delay of <code>inv_1</code> grows almost linearly with the load, but a slow edge bends the curve at small loads. No simple formula fits this, so the library stores the delay as a table over both, the <strong>nonlinear delay model</strong> (NLDM). Advanced nodes add current-source models, the composite current source (CCS) and the effective current source model (ECSM), for even more accuracy, but the SG13CMOS5L libraries contain NLDM tables only.</p>
+<p>Old libraries modeled a delay as a constant plus a resistance times the capacitive load, which is fine for long-channel transistors. In modern technologies, the delay depends on both the load and the input slew, and the slew also changes how the delay grows with the load (<a href="#fig-synthesis-lib-nldm" class="quarto-xref">Figure&nbsp;30</a>). For a fast input edge, the delay of <code>inv_1</code> grows almost linearly with the load, but a slow edge bends the curve at small loads. No simple formula fits this, so the library stores the delay as a table over both, the <strong>nonlinear delay model</strong> (NLDM). Advanced nodes add current-source models, the composite current source (CCS) and the effective current source model (ECSM), for even more accuracy, but the SG13CMOS5L libraries contain NLDM tables only.</p>
 <div id="cell-fig-synthesis-lib-nldm" class="cell" data-execution_count="26">
 <div class="cell-output cell-output-display">
 <div id="fig-synthesis-lib-nldm" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Line chart. The horizontal axis is the output load from 0 to 0.3 pF, the vertical axis the delay from 0 to about 1.6 ns. Four lines in blue shades of increasing darkness are the input slews 0.0186, 0.174, 0.3294, and 1.263 ns. Each rises with the load. The line for 0.0186 ns is almost straight, the lines for slower slews are steeper at small loads and bend, and a larger slew shifts the line up. A black point at 0.05 pF and 0.2775 ns lies between the lines for 0.174 and 0.3294 ns.">
@@ -8328,7 +8328,7 @@ Delay = 0.2775</code></pre>
 <div class="callout-body-container callout-body">
 <p>All commands start in the folder <code>content/synthesis_lib/code/dcalc</code>. The netlist <code>one_inv.v</code> holds one <code>inv_1</code>, and <code>dcalc.tcl</code> runs <code>report_dcalc</code> on it. The environment variables <code>SLEW</code> (in ns) and <code>LOAD</code> (in pF) set the input slew and the output load.</p>
 <ol type="1">
-<li>Find the inverter <code>sg13cmos5l_inv_4</code> in the typical library (<code>less $LIB</code>, then search with <code>/inv_4</code>). What is its area in gate equivalents? What is the input capacitance of <code>A</code>, and what is the largest load that <code>Y</code> may drive? Compare the three values with those of <code>inv_1</code>.</li>
+<li>Find the inverter <code>sg13cmos5l_inv_4</code> in the typical library (<code>zless $LIB</code>, then search with <code>/inv_4</code>). What is its area in gate equivalents? What is the input capacitance of <code>A</code>, and what is the largest load that <code>Y</code> may drive? Compare the three values with those of <code>inv_1</code>.</li>
 <li>Compute by hand the delay of <code>inv_1</code> from a rising input to a falling output (<code>cell_fall</code>) at an input slew of 0.25 ns and a load of 0.05 pF.</li>
 <li>Check your result with OpenSTA: <code>sta -no_init -exit dcalc.tcl</code>. What is the output slew of the falling edge?</li>
 <li>Run the analysis with a load of 0.4 pF: <code>LOAD=0.4 sta -no_init -exit dcalc.tcl</code>. Which table entries does OpenSTA use now, and what does it report at the end?</li>
@@ -8362,7 +8362,7 @@ Delay = 0.2775</code></pre>
 </section>
 <section id="sec-synthesis-lib-corners" class="level2" data-number="5.6">
 <h2 data-number="5.6" class="anchored" data-anchor-id="sec-synthesis-lib-corners"><span class="header-section-number">5.6</span> Corners</h2>
-<p>The speed of a transistor depends on the fabrication process, the supply voltage, and the temperature (<strong>PVT</strong>). A chip must work for every combination it will see, so the library is characterized at several <strong>corners</strong>. A fast corner combines fast transistors, a high supply voltage, and a low temperature. A slow corner combines slow transistors, a low supply voltage, and a high temperature. A typical corner lies in between. SG13CMOS5L has six Liberty files <code>sg13cmos5l_stdcell_&lt;corner&gt;.lib</code>, three for a nominal supply of 1.2 V and three for 1.5 V (<a href="#tbl-synthesis-lib-corners" class="quarto-xref">Table&nbsp;35</a>).</p>
+<p>The speed of a transistor depends on the fabrication process, the supply voltage, and the temperature (<strong>PVT</strong>). A chip must work for every combination it will see, so the library is characterized at several <strong>corners</strong>. A fast corner combines fast transistors, a high supply voltage, and a low temperature. A slow corner combines slow transistors, a low supply voltage, and a high temperature. A typical corner lies in between. SG13CMOS5L has six Liberty files <code>sg13cmos5l_stdcell_&lt;corner&gt;.lib.gz</code>, three for a nominal supply of 1.2 V and three for 1.5 V (<a href="#tbl-synthesis-lib-corners" class="quarto-xref">Table&nbsp;35</a>).</p>
 <div id="tbl-synthesis-lib-corners" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-synthesis-lib-corners-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -8563,7 +8563,7 @@ Figure&nbsp;31: What a classic logic equivalence checker compares. The RTL (gold
 <span id="cb106-2"><a href="#cb106-2" aria-hidden="true" tabindex="-1"></a># SPDX-License-Identifier: Apache-2.0</span>
 <span id="cb106-3"><a href="#cb106-3" aria-hidden="true" tabindex="-1"></a># Description: Equivalence check of the FIFO of chapter 4: its RTL</span>
 <span id="cb106-4"><a href="#cb106-4" aria-hidden="true" tabindex="-1"></a># (gold) against the synthesized netlist fifo.nl.v (gate). Run in this</span>
-<span id="cb106-5"><a href="#cb106-5" aria-hidden="true" tabindex="-1"></a># folder with stdcell.lib linked to the typical library of SG13CMOS5L:</span>
+<span id="cb106-5"><a href="#cb106-5" aria-hidden="true" tabindex="-1"></a># folder with stdcell.lib.gz linked to the typical library of SG13CMOS5L:</span>
 <span id="cb106-6"><a href="#cb106-6" aria-hidden="true" tabindex="-1"></a># eqy -f -d fifo_eqy fifo.eqy</span>
 <span id="cb106-7"><a href="#cb106-7" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb106-8"><a href="#cb106-8" aria-hidden="true" tabindex="-1"></a>[gold]</span>
@@ -8578,7 +8578,7 @@ Figure&nbsp;31: What a classic logic equivalence checker compares. The RTL (gold
 <span id="cb106-17"><a href="#cb106-17" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb106-18"><a href="#cb106-18" aria-hidden="true" tabindex="-1"></a>[gate]</span>
 <span id="cb106-19"><a href="#cb106-19" aria-hidden="true" tabindex="-1"></a># The cell functions come from the Liberty file</span>
-<span id="cb106-20"><a href="#cb106-20" aria-hidden="true" tabindex="-1"></a>read_liberty -ignore_miss_func stdcell.lib</span>
+<span id="cb106-20"><a href="#cb106-20" aria-hidden="true" tabindex="-1"></a>read_liberty -ignore_miss_func stdcell.lib.gz</span>
 <span id="cb106-21"><a href="#cb106-21" aria-hidden="true" tabindex="-1"></a>read_verilog fifo.nl.v</span>
 <span id="cb106-22"><a href="#cb106-22" aria-hidden="true" tabindex="-1"></a>hierarchy -check -top fifo</span>
 <span id="cb106-23"><a href="#cb106-23" aria-hidden="true" tabindex="-1"></a>flatten -noscopeinfo</span>
@@ -8598,13 +8598,13 @@ Figure&nbsp;31: What a classic logic equivalence checker compares. The RTL (gold
 </div>
 <ul>
 <li><code>[gold]</code> reads the RTL with slang <span class="citation" data-cites="slang">(<a href="#ref-slang" role="doc-biblioref">Popoloski 2026</a>)</span>, a different SystemVerilog frontend from the one that synthesis used. If both sides went through the same frontend, a misreading of the RTL would end up in both, and the check would pass. slang keeps the storage array <code>mem_q</code> as a memory, while synthesis turned it into registers, so <code>memory_map</code> turns it into registers on the gold side as well.</li>
-<li><code>[gate]</code> reads the netlist and takes the function of every cell from the Liberty file, linked as <code>stdcell.lib</code>. <code>-ignore_miss_func</code> skips cells with an output that has no function, such as the clock gate <code>lgcp_1</code>, which <code>read_liberty</code> would otherwise refuse. The two checks make sure that no cell escapes the comparison: <code>hierarchy -check</code> fails if the netlist uses a cell that was skipped, and <code>select -assert-none</code> fails if any cell is still a black box after <code>flatten</code>. They turn a missing or skipped cell model into a clear error at once, instead of an obscure error later in the run.</li>
+<li><code>[gate]</code> reads the netlist and takes the function of every cell from the Liberty file, linked as <code>stdcell.lib.gz</code>. <code>-ignore_miss_func</code> skips cells with an output that has no function, such as the clock gate <code>lgcp_1</code>, which <code>read_liberty</code> would otherwise refuse. The two checks make sure that no cell escapes the comparison: <code>hierarchy -check</code> fails if the netlist uses a cell that was skipped, and <code>select -assert-none</code> fails if any cell is still a black box after <code>flatten</code>. They turn a missing or skipped cell model into a clear error at once, instead of an obscure error later in the run.</li>
 <li><code>[collect *]</code> with <code>bind</code> is explained below.</li>
 <li><code>[strategy sby]</code> proves each partition (see below) with the formal tool SymbiYosys and the PDR engine of ABC (property-directed reachability).</li>
 </ul>
 <p>Synthesize the FIFO into the folder <code>lec</code>, link the library, and run EQY:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb107"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb107-1"><a href="#cb107-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /foss/designs/vlsi-design/content/synthesis_lib/code/lec</span>
-<span id="cb107-2"><a href="#cb107-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ln</span> <span class="at">-sf</span> <span class="va">$LIB</span> stdcell.lib</span>
+<span id="cb107-2"><a href="#cb107-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ln</span> <span class="at">-sf</span> <span class="va">$LIB</span> stdcell.lib.gz</span>
 <span id="cb107-3"><a href="#cb107-3" aria-hidden="true" tabindex="-1"></a><span class="ex">yosys</span> <span class="at">-p</span> <span class="st">"read_verilog -sv </span><span class="dt">\</span></span>
 <span id="cb107-4"><a href="#cb107-4" aria-hidden="true" tabindex="-1"></a><span class="st">  ../../../verification/code/fifo/rtl/fifo.sv; synth -top fifo; </span><span class="dt">\</span></span>
 <span id="cb107-5"><a href="#cb107-5" aria-hidden="true" tabindex="-1"></a><span class="st">  dfflibmap -liberty </span><span class="va">$LIB</span><span class="st">; abc -liberty </span><span class="va">$LIB</span><span class="st">; opt_clean; </span><span class="dt">\</span></span>
@@ -8629,7 +8629,7 @@ Figure&nbsp;31: What a classic logic equivalence checker compares. The RTL (gold
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>All commands start in the folder <code>content/synthesis_lib/code/lec</code>. Link the library with <code>ln -sf $LIB stdcell.lib</code>, if you have not done so for the FIFO. The folder holds the reference solution <code>barrel_shift.eqy</code>, so move it out of the way first: <code>mv barrel_shift.eqy barrel_shift_solution.eqy</code>.</p>
+<p>All commands start in the folder <code>content/synthesis_lib/code/lec</code>. Link the library with <code>ln -sf $LIB stdcell.lib.gz</code>, if you have not done so for the FIFO. The folder holds the reference solution <code>barrel_shift.eqy</code>, so move it out of the way first: <code>mv barrel_shift.eqy barrel_shift_solution.eqy</code>.</p>
 <ol type="1">
 <li><p>Sketch gold and gate of the barrel shifter in the style of <a href="#fig-synthesis-lib-lec" class="quarto-xref">Figure&nbsp;31</a>. Where are the cut points, and how many cones do you expect?</p></li>
 <li><p>Synthesize the barrel shifter with <code>WIDTH = 32</code> and the default mapping into <code>barrel_shift.nl.v</code> in this folder, with the same command as in the previous exercise. How many cells does the netlist have?</p></li>
@@ -8670,7 +8670,7 @@ Figure&nbsp;31: What a classic logic equivalence checker compares. The RTL (gold
 <span id="cb109-2"><a href="#cb109-2" aria-hidden="true" tabindex="-1"></a># SPDX-License-Identifier: Apache-2.0</span>
 <span id="cb109-3"><a href="#cb109-3" aria-hidden="true" tabindex="-1"></a># Description: Equivalence check of the 32-bit barrel shifter of</span>
 <span id="cb109-4"><a href="#cb109-4" aria-hidden="true" tabindex="-1"></a># chapter 4: its RTL (gold) against the synthesized netlist</span>
-<span id="cb109-5"><a href="#cb109-5" aria-hidden="true" tabindex="-1"></a># barrel_shift.nl.v (gate). Run in this folder with stdcell.lib linked</span>
+<span id="cb109-5"><a href="#cb109-5" aria-hidden="true" tabindex="-1"></a># barrel_shift.nl.v (gate). Run in this folder with stdcell.lib.gz linked</span>
 <span id="cb109-6"><a href="#cb109-6" aria-hidden="true" tabindex="-1"></a># to the typical library of SG13CMOS5L:</span>
 <span id="cb109-7"><a href="#cb109-7" aria-hidden="true" tabindex="-1"></a>#   eqy -f -d bs_eqy barrel_shift.eqy</span>
 <span id="cb109-8"><a href="#cb109-8" aria-hidden="true" tabindex="-1"></a></span>
@@ -8683,7 +8683,7 @@ Figure&nbsp;31: What a classic logic equivalence checker compares. The RTL (gold
 <span id="cb109-15"><a href="#cb109-15" aria-hidden="true" tabindex="-1"></a>flatten -noscopeinfo</span>
 <span id="cb109-16"><a href="#cb109-16" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb109-17"><a href="#cb109-17" aria-hidden="true" tabindex="-1"></a>[gate]</span>
-<span id="cb109-18"><a href="#cb109-18" aria-hidden="true" tabindex="-1"></a>read_liberty -ignore_miss_func stdcell.lib</span>
+<span id="cb109-18"><a href="#cb109-18" aria-hidden="true" tabindex="-1"></a>read_liberty -ignore_miss_func stdcell.lib.gz</span>
 <span id="cb109-19"><a href="#cb109-19" aria-hidden="true" tabindex="-1"></a>read_verilog barrel_shift.nl.v</span>
 <span id="cb109-20"><a href="#cb109-20" aria-hidden="true" tabindex="-1"></a>hierarchy -check -top barrel_shift</span>
 <span id="cb109-21"><a href="#cb109-21" aria-hidden="true" tabindex="-1"></a>flatten -noscopeinfo</span>
@@ -8740,7 +8740,7 @@ Note
 <span id="cb110-2"><a href="#cb110-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/iic-jku/vlsi-design.git</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Define the path of the typical-corner library in every new terminal:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb111"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb111-1"><a href="#cb111-1" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$PDK_ROOT</span>/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib</span>
-<span id="cb111-2"><a href="#cb111-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb111-2"><a href="#cb111-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <section id="sec-sequential-objectives" class="level2" data-number="6.1">
 <h2 data-number="6.1" class="anchored" data-anchor-id="sec-sequential-objectives"><span class="header-section-number">6.1</span> Learning Objectives</h2>
 <p>After this chapter, you will be able to:</p>
@@ -8977,7 +8977,7 @@ Figure&nbsp;35: The four kinds of timing paths of a block (dashed outline), all 
 <span id="cb115-8"><a href="#cb115-8" aria-hidden="true" tabindex="-1"></a>set corner typ_1p20V_25C</span>
 <span id="cb115-9"><a href="#cb115-9" aria-hidden="true" tabindex="-1"></a>if {[info exists ::env(CORNER)]} { set corner $::env(CORNER) }</span>
 <span id="cb115-10"><a href="#cb115-10" aria-hidden="true" tabindex="-1"></a>set lib $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell</span>
-<span id="cb115-11"><a href="#cb115-11" aria-hidden="true" tabindex="-1"></a>read_liberty $lib/lib/sg13cmos5l_stdcell_$corner.lib</span>
+<span id="cb115-11"><a href="#cb115-11" aria-hidden="true" tabindex="-1"></a>read_liberty $lib/lib/sg13cmos5l_stdcell_$corner.lib.gz</span>
 <span id="cb115-12"><a href="#cb115-12" aria-hidden="true" tabindex="-1"></a>read_verilog bs_reg.nl.v</span>
 <span id="cb115-13"><a href="#cb115-13" aria-hidden="true" tabindex="-1"></a>link_design bs_reg</span>
 <span id="cb115-14"><a href="#cb115-14" aria-hidden="true" tabindex="-1"></a>read_sdc syn/bs_reg.sdc</span>
@@ -9266,7 +9266,7 @@ Note
 <span id="cb123-2"><a href="#cb123-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/iic-jku/vlsi-design.git</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>In every new terminal, define the path of the typical-corner library and of the ABC constraint file of <a href="#sec-synthesis-lib-yosys" class="quarto-xref">Section&nbsp;5.7</a>:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb124"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb124-1"><a href="#cb124-1" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$PDK_ROOT</span>/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib</span>
-<span id="cb124-2"><a href="#cb124-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib</span>
+<span id="cb124-2"><a href="#cb124-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz</span>
 <span id="cb124-3"><a href="#cb124-3" aria-hidden="true" tabindex="-1"></a><span class="va">CONSTR</span><span class="op">=</span>/foss/designs/vlsi-design/content/synthesis_lib/code</span>
 <span id="cb124-4"><a href="#cb124-4" aria-hidden="true" tabindex="-1"></a><span class="va">CONSTR</span><span class="op">=</span><span class="va">$CONSTR</span>/synth/abc.constr</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <section id="sec-synth-opt-objectives" class="level2" data-number="7.1">
@@ -9705,7 +9705,7 @@ Figure&nbsp;37: (a) Pipelining: a register in the middle of the logic halves the
 <span id="cb132-12"><a href="#cb132-12" aria-hidden="true" tabindex="-1"></a>set corner typ_1p20V_25C</span>
 <span id="cb132-13"><a href="#cb132-13" aria-hidden="true" tabindex="-1"></a>if {[info exists ::env(CORNER)]} { set corner $::env(CORNER) }</span>
 <span id="cb132-14"><a href="#cb132-14" aria-hidden="true" tabindex="-1"></a>set lib $::env(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell</span>
-<span id="cb132-15"><a href="#cb132-15" aria-hidden="true" tabindex="-1"></a>read_liberty $lib/lib/sg13cmos5l_stdcell_$corner.lib</span>
+<span id="cb132-15"><a href="#cb132-15" aria-hidden="true" tabindex="-1"></a>read_liberty $lib/lib/sg13cmos5l_stdcell_$corner.lib.gz</span>
 <span id="cb132-16"><a href="#cb132-16" aria-hidden="true" tabindex="-1"></a>read_verilog $top.nl.v</span>
 <span id="cb132-17"><a href="#cb132-17" aria-hidden="true" tabindex="-1"></a>link_design $top</span>
 <span id="cb132-18"><a href="#cb132-18" aria-hidden="true" tabindex="-1"></a>read_sdc [file dirname [info script]]/block.sdc</span>
@@ -9904,7 +9904,7 @@ Note
 <span id="cb137-2"><a href="#cb137-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/iic-jku/vlsi-design.git</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>In every new terminal, define the path of the typical-corner library and of the ABC constraint file of <a href="#sec-synthesis-lib-yosys" class="quarto-xref">Section&nbsp;5.7</a>:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb138"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb138-1"><a href="#cb138-1" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$PDK_ROOT</span>/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib</span>
-<span id="cb138-2"><a href="#cb138-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib</span>
+<span id="cb138-2"><a href="#cb138-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz</span>
 <span id="cb138-3"><a href="#cb138-3" aria-hidden="true" tabindex="-1"></a><span class="va">CONSTR</span><span class="op">=</span>/foss/designs/vlsi-design/content/synthesis_lib/code</span>
 <span id="cb138-4"><a href="#cb138-4" aria-hidden="true" tabindex="-1"></a><span class="va">CONSTR</span><span class="op">=</span><span class="va">$CONSTR</span>/synth/abc.constr</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <section id="sec-cdc-objectives" class="level2" data-number="8.1">
@@ -10588,7 +10588,7 @@ Note
 <span id="cb156-2"><a href="#cb156-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/iic-jku/vlsi-design.git</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>In every new terminal, define the paths of the typical-corner library, of the ABC constraint file of <a href="#sec-synthesis-lib-yosys" class="quarto-xref">Section&nbsp;5.7</a>, and of the Verilog models of the cells, and set two variables for the tool Fault of <a href="#sec-dft-atpg" class="quarto-xref">Section&nbsp;9.4</a>:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb157"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb157-1"><a href="#cb157-1" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$PDK_ROOT</span>/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib</span>
-<span id="cb157-2"><a href="#cb157-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib</span>
+<span id="cb157-2"><a href="#cb157-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz</span>
 <span id="cb157-3"><a href="#cb157-3" aria-hidden="true" tabindex="-1"></a><span class="va">CONSTR</span><span class="op">=</span>/foss/designs/vlsi-design/content/synthesis_lib/code</span>
 <span id="cb157-4"><a href="#cb157-4" aria-hidden="true" tabindex="-1"></a><span class="va">CONSTR</span><span class="op">=</span><span class="va">$CONSTR</span>/synth/abc.constr</span>
 <span id="cb157-5"><a href="#cb157-5" aria-hidden="true" tabindex="-1"></a><span class="va">CELLS</span><span class="op">=</span><span class="va">$PDK_ROOT</span>/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/verilog</span>
@@ -10894,7 +10894,7 @@ Table&nbsp;39: Gates with the input <span class="math inline">\(a = D\)</span>. 
 <span id="cb158-14"><a href="#cb158-14" aria-hidden="true" tabindex="-1"></a><span class="kw">set</span> netlist <span class="dt">$top</span>.v</span>
 <span id="cb158-15"><a href="#cb158-15" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="kw">{[info</span> <span class="ot">exists</span> <span class="op">::</span><span class="kw">env</span>(NETLIST)<span class="kw">]}</span> <span class="kw">{</span> <span class="kw">set</span> netlist <span class="dt">$::env</span>(NETLIST) <span class="kw">}</span></span>
 <span id="cb158-16"><a href="#cb158-16" aria-hidden="true" tabindex="-1"></a><span class="kw">set</span> lib <span class="dt">$::env</span>(PDK_ROOT)<span class="op">/</span>ihp-sg13cmos5l<span class="op">/</span>libs.ref<span class="op">/</span>sg13cmos5l_stdcell</span>
-<span id="cb158-17"><a href="#cb158-17" aria-hidden="true" tabindex="-1"></a><span class="kw">set</span> lib <span class="dt">$lib</span><span class="op">/</span>lib<span class="op">/</span>sg13cmos5l_stdcell_typ_1p20V_25C.lib</span>
+<span id="cb158-17"><a href="#cb158-17" aria-hidden="true" tabindex="-1"></a><span class="kw">set</span> lib <span class="dt">$lib</span><span class="op">/</span>lib<span class="op">/</span>sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz</span>
 <span id="cb158-18"><a href="#cb158-18" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb158-19"><a href="#cb158-19" aria-hidden="true" tabindex="-1"></a><span class="co"># The cell functions from the Liberty file, then the netlist</span></span>
 <span id="cb158-20"><a href="#cb158-20" aria-hidden="true" tabindex="-1"></a>read_liberty -ignore_miss_func <span class="dt">$lib</span></span>
@@ -11064,7 +11064,7 @@ Figure&nbsp;51: A scan test with a chain of four flip-flops. While <code>scan_en
 <span id="cb161-18"><a href="#cb161-18" aria-hidden="true" tabindex="-1"></a><span class="kw">set</span> lib <span class="dt">$::env</span>(PDK_ROOT)<span class="op">/</span>ihp-sg13cmos5l<span class="op">/</span>libs.ref<span class="op">/</span>sg13cmos5l_stdcell</span>
 <span id="cb161-19"><a href="#cb161-19" aria-hidden="true" tabindex="-1"></a>read_lef <span class="dt">$lib</span><span class="op">/</span>lef<span class="op">/</span>sg13cmos5l_tech.lef</span>
 <span id="cb161-20"><a href="#cb161-20" aria-hidden="true" tabindex="-1"></a>read_lef <span class="dt">$lib</span><span class="op">/</span>lef<span class="op">/</span>sg13cmos5l_stdcell.lef</span>
-<span id="cb161-21"><a href="#cb161-21" aria-hidden="true" tabindex="-1"></a>read_liberty <span class="dt">$lib</span><span class="op">/</span>lib<span class="op">/</span>sg13cmos5l_stdcell_typ_1p20V_25C.lib</span>
+<span id="cb161-21"><a href="#cb161-21" aria-hidden="true" tabindex="-1"></a>read_liberty <span class="dt">$lib</span><span class="op">/</span>lib<span class="op">/</span>sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz</span>
 <span id="cb161-22"><a href="#cb161-22" aria-hidden="true" tabindex="-1"></a>read_verilog <span class="dt">$top</span>.nl.v</span>
 <span id="cb161-23"><a href="#cb161-23" aria-hidden="true" tabindex="-1"></a>link_design <span class="dt">$top</span></span>
 <span id="cb161-24"><a href="#cb161-24" aria-hidden="true" tabindex="-1"></a></span>
@@ -11416,7 +11416,7 @@ Note
 <span id="cb168-2"><a href="#cb168-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/iic-jku/vlsi-design.git</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>In every new terminal, define the path of the typical-corner library:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb169"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb169-1"><a href="#cb169-1" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$PDK_ROOT</span>/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/lib</span>
-<span id="cb169-2"><a href="#cb169-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb169-2"><a href="#cb169-2" aria-hidden="true" tabindex="-1"></a><span class="va">LIB</span><span class="op">=</span><span class="va">$LIB</span>/sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <section id="sec-digital-flow-objectives" class="level2" data-number="10.1">
 <h2 data-number="10.1" class="anchored" data-anchor-id="sec-digital-flow-objectives"><span class="header-section-number">10.1</span> Learning Objectives</h2>
 <p>After this chapter, you will be able to:</p>
@@ -11832,7 +11832,7 @@ Figure&nbsp;68: The IR drop of <code>VDD</code> in <code>bs_reg</code> in the Op
 <span id="cb177-2"><a href="#cb177-2" aria-hidden="true" tabindex="-1"></a># SPDX-License-Identifier: Apache-2.0</span>
 <span id="cb177-3"><a href="#cb177-3" aria-hidden="true" tabindex="-1"></a># Description: Equivalence check of bs_reg: its RTL (gold) against the</span>
 <span id="cb177-4"><a href="#cb177-4" aria-hidden="true" tabindex="-1"></a># final netlist of the LibreLane run in runs/base (gate). Run in this</span>
-<span id="cb177-5"><a href="#cb177-5" aria-hidden="true" tabindex="-1"></a># folder with stdcell.lib linked to the typical library of SG13CMOS5L:</span>
+<span id="cb177-5"><a href="#cb177-5" aria-hidden="true" tabindex="-1"></a># folder with stdcell.lib.gz linked to the typical library of SG13CMOS5L:</span>
 <span id="cb177-6"><a href="#cb177-6" aria-hidden="true" tabindex="-1"></a># eqy -d lec_eqy lec.eqy</span>
 <span id="cb177-7"><a href="#cb177-7" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb177-8"><a href="#cb177-8" aria-hidden="true" tabindex="-1"></a>[gold]</span>
@@ -11848,7 +11848,7 @@ Figure&nbsp;68: The IR drop of <code>VDD</code> in <code>bs_reg</code> in the Op
 <span id="cb177-18"><a href="#cb177-18" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb177-19"><a href="#cb177-19" aria-hidden="true" tabindex="-1"></a>[gate]</span>
 <span id="cb177-20"><a href="#cb177-20" aria-hidden="true" tabindex="-1"></a># The cell functions come from the Liberty file</span>
-<span id="cb177-21"><a href="#cb177-21" aria-hidden="true" tabindex="-1"></a>read_liberty -ignore_miss_func stdcell.lib</span>
+<span id="cb177-21"><a href="#cb177-21" aria-hidden="true" tabindex="-1"></a>read_liberty -ignore_miss_func stdcell.lib.gz</span>
 <span id="cb177-22"><a href="#cb177-22" aria-hidden="true" tabindex="-1"></a>read_verilog runs/base/final/nl/bs_reg.nl.v</span>
 <span id="cb177-23"><a href="#cb177-23" aria-hidden="true" tabindex="-1"></a>hierarchy -check -top bs_reg</span>
 <span id="cb177-24"><a href="#cb177-24" aria-hidden="true" tabindex="-1"></a>flatten -noscopeinfo</span>
@@ -11879,7 +11879,7 @@ Figure&nbsp;68: The IR drop of <code>VDD</code> in <code>bs_reg</code> in the Op
 <li><p>Try a delay-oriented synthesis first, <code>-c SYNTH_STRATEGY="DELAY 4"</code> with <code>--run-tag delay4</code>. What happens to the slack in the slow corner and to the area of the cells (<code>design__instance__area__stdcell</code>)?</p></li>
 <li><p>Ask the repair for a setup margin of 0.6 ns, <code>-c PL_RESIZER_SETUP_SLACK_MARGIN=0.6</code> with <code>--run-tag margin</code>. Why this value? Do all corners pass now, and at which cost in area?</p></li>
 <li><p>The resizer changed the netlist. Prove that the final netlist of <code>runs/base</code> still implements the RTL:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb178"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb178-1"><a href="#cb178-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ln</span> <span class="at">-sf</span> <span class="va">$LIB</span> stdcell.lib</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb178"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb178-1"><a href="#cb178-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ln</span> <span class="at">-sf</span> <span class="va">$LIB</span> stdcell.lib.gz</span>
 <span id="cb178-2"><a href="#cb178-2" aria-hidden="true" tabindex="-1"></a><span class="ex">eqy</span> <span class="at">-f</span> <span class="at">-d</span> lec_eqy lec.eqy</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>What does EQY report? Then replace the first <code>sg13cmos5l_a21oi_1</code> in the file by <code>sg13cmos5l_o21ai_1</code> in a copy of the netlist, point <code>read_verilog</code> in a copy of <code>lec.eqy</code> to it, and check again.</p></li>
 </ol>
@@ -12689,12 +12689,12 @@ YosysHQ. 2026b. <em><span>MCY</span>: Mutation Cover with <span>Yosys</span></em
 </div></section><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div>Apache-2.0 license</div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><div class="code-copy-outer-scaffold"><pre class="sourceCode quarto-appendix-bibtex code-with-copy"><code class="sourceCode bibtex">@online{dorrer2026,
   author = {Dorrer, Simon},
   title = {VLSI {Design}},
-  date = {2026-11-19},
+  date = {2026-11-23},
   url = {https://iic-jku.github.io/vlsi-design},
   langid = {en-US}
 }
 </code></pre><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-dorrer2026" class="csl-entry quarto-appendix-citeas" role="listitem">
-Dorrer, Simon. 2026. <span>“VLSI Design.”</span> November 19. <a href="https://iic-jku.github.io/vlsi-design">https://iic-jku.github.io/vlsi-design</a>.
+Dorrer, Simon. 2026. <span>“VLSI Design.”</span> November 23. <a href="https://iic-jku.github.io/vlsi-design">https://iic-jku.github.io/vlsi-design</a>.
 </div></div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
