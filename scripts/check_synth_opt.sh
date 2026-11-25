@@ -345,6 +345,10 @@ simc 16 nocg16
 check "Icarus messages of the cell models" "$(grep -c 'sorry: ifnone' nocg16.comp)" "68"
 must "simulation without clock gating" "$(grep cycles nocg16)" "1600 cycles, en_i in 1 of 16, 0 errors"
 check "annotated pins without clock gating" "$(awk '/^vcd/ {print $2}' nocg16.pwr) $(awk '/^unannotated/ {print $2}' nocg16.pwr)" "329 0"
+sed 's/\$scope module dut \$end/$scope module dux $end/' cg_reg.vcd > scope.vcd
+TOP=cg_reg VCD=scope.vcd sta -no_init -exit ../syn/power.tcl > scope.pwr 2>&1
+must "power.tcl stops on a VCD whose scope misses the netlist: exit status, unannotated pins" \
+  "$? $(awk '/^unannotated/ {print $2}' scope.pwr)" "1 329"
 check "no gating, 1 of 16: sequential, combinational, clock, total" \
   "$(pw nocg16.pwr Sequential 5) $(pw nocg16.pwr Combinational 5) $(pw nocg16.pwr Clock 5) $(pw nocg16.pwr Total 5)" \
   "4.744e-04 1.604e-05 0.000e+00 4.904e-04"

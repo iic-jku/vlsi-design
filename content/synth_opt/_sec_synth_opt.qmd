@@ -243,7 +243,7 @@ OpenSTA computes the power of a netlist from the Liberty file, i.e., the pin cap
 {{< include /content/synth_opt/code/syn/power.tcl >}}
 ```
 
-Without a simulation, the script keeps the reset inactive, since a reset that toggles in every tenth cycle would not be realistic. Here is the barrel shifter between two registers of @sec-sequential-opensta, synthesized with the commands of that section:
+Without a simulation, the script keeps the reset inactive, since a reset that toggles in every tenth cycle would not be realistic. With a simulation, it stops with an error unless `report_activity_annotation` counts every pin as annotated: if the scope or the netlist does not match the simulation, `read_vcd` reports no error, and every pin it misses keeps the default activity. Here is the barrel shifter between two registers of @sec-sequential-opensta, synthesized with the commands of that section:
 
 ```bash
 cd /foss/designs/vlsi-design/content/sequential/code/bs_reg
