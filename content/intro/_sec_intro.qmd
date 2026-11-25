@@ -27,7 +27,7 @@ Please feel free to submit pull requests on GitHub to fix errors and omissions!
 :::
 
 ::: {.callout-important}
-Please use the IIC-OSIC-TOOLS image with tag `2026.10` or later. It contains all tools and the PDK used in this course. Inside the container, `echo $IIC_OSIC_TOOLS_VERSION` prints the tag. An existing container keeps its image when it is started again, so to update, remove the container (the `.sh` start scripts offer this, the `.bat` scripts print the command), pull the new image with `docker pull hpretl/iic-osic-tools:latest`, and run the start script again. Your designs in `/foss/designs` are kept (@sec-intro-install-local).
+Please use the IIC-OSIC-TOOLS image with tag `2026.11` or later. It contains all tools and the PDK used in this course. Inside the container, `echo $IIC_OSIC_TOOLS_VERSION` prints the tag. An existing container keeps its image when it is started again, so to update, remove the container (the `.sh` start scripts offer this, the `.bat` scripts print the command), pull the new image with `docker pull hpretl/iic-osic-tools:latest`, and run the start script again. Your designs in `/foss/designs` are kept (@sec-intro-install-local).
 :::
 
 ## Preamble on the Use of AI {#sec-intro-ai}

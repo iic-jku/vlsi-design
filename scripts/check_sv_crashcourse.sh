@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Description: Reproduces every tool result that the chapter "Hardware
 # Description with SystemVerilog" quotes, inside the IIC-OSIC-TOOLS
-# container (image 2026.10). Run from the repository root:
+# container (image 2026.11). Run from the repository root:
 #   bash scripts/check_sv_crashcourse.sh
 # Works on a copy in /tmp, so the repository stays clean. The counter of
 # the AMS chip template is checked only if a clone of the template lies
@@ -48,11 +48,11 @@ msg() { grep -m1 -oF "$2" "$1"; }  # msg <log> <text>: the text if the log conta
 tests() { grep -oE 'TESTS=[0-9]+ PASS=[0-9]+ FAIL=[0-9]+ SKIP=[0-9]+' "$1" | tail -1; }
 
 echo "== Versions"
-check "Verilator" "$(verilator --version | awk '{print $2}')" "5.052"
+check "Verilator" "$(verilator --version | awk '{print $2}')" "5.054"
 check "Icarus Verilog" "$(iverilog -V 2>&1 | head -1 | awk '{print $4}')" "14.0"
 check "cocotb" "$(python3 -c 'import cocotb; print(cocotb.__version__)')" "2.1.0"
 check "GHDL" "$(ghdl --version | head -1 | awk '{print $2}')" "7.0.0-dev"
-check "Yosys" "$(yosys -V | awk '{print $2}')" "0.70"
+check "Yosys" "$(yosys -V | awk '{print $2}')" "0.71"
 
 echo "== Every rtl/ file lints without warnings and synthesizes"
 for f in */rtl/*.sv; do

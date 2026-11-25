@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Description: Reproduces every number that the chapter "The RTL-to-GDSII
 # Flow with LibreLane" quotes, inside the IIC-OSIC-TOOLS container
-# (image 2026.10). Run from the repository root:
+# (image 2026.11). Run from the repository root:
 #   bash scripts/check_digital_flow.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter. It runs LibreLane
@@ -45,12 +45,12 @@ stage() {  # stage <run> <step folder> <key>: a metric after one step
 }
 
 echo "== Versions"
-check "LibreLane" "$(python3 -c 'import librelane; print(librelane.__version__)')" "3.1.0.dev3"
-check "OpenROAD of LibreLane" "$($TOOLS/openroad-librelane/bin/openroad -version 2>/dev/null | awk '{print $1}')" "26Q1-1024-gdcf36133a"
-check "Yosys" "$(yosys -V | awk '{print $2}')" "0.70"
-check "Magic" "$(magic --version)" "8.3.685"
-check "KLayout" "$(klayout -v | awk '{print $2}')" "0.30.12"
-check "Netgen" "$(netgen -batch quit 2>&1 | head -1 | awk '{print $2}')" "1.5.324"
+check "LibreLane" "$(python3 -c 'import librelane; print(librelane.__version__)')" "3.1.0.dev6"
+check "OpenROAD of LibreLane" "$($TOOLS/openroad-librelane/bin/openroad -version 2>/dev/null | awk '{print $1}')" "26Q4"
+check "Yosys" "$(yosys -V | awk '{print $2}')" "0.71"
+check "Magic" "$(magic --version)" "8.3.706"
+check "KLayout" "$(klayout -v | awk '{print $2}')" "0.30.14"
+check "Netgen" "$(netgen -batch quit 2>&1 | head -1 | awk '{print $2}')" "1.5.332"
 check "Icarus Verilog" "$(iverilog -V 2>&1 | head -1 | awk '{print $4}')" "14.0"
 
 echo "== PDK defaults for LibreLane"

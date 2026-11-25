@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Description: Reproduces every number that the chapter "Modeling
 # Guidelines for Synthesizable RTL" quotes, inside the IIC-OSIC-TOOLS
-# container (image 2026.10). Run from the repository root:
+# container (image 2026.11). Run from the repository root:
 #   bash scripts/check_modeling.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter.
@@ -38,9 +38,9 @@ ncells() { sed -n '/Chip area/q;p' "$1.syn.log" | awk '/ cells$/ {n=$1} END {pri
 ncell() { sed -n '/Chip area/q;p' "$1.syn.log" | awk -v c="$2" '$NF==c {n=$1} END {print n+0}'; }
 
 echo "== Versions"
-check "Verilator" "$(verilator --version | awk '{print $2}')" "5.052"
-check "Yosys" "$(yosys -V | awk '{print $2}')" "0.70"
-check "OpenSTA" "$(sta -version)" "3.1.0"
+check "Verilator" "$(verilator --version | awk '{print $2}')" "5.054"
+check "Yosys" "$(yosys -V | awk '{print $2}')" "0.71"
+check "OpenSTA" "$(sta -version)" "3.2.0"
 check "cocotb" "$(python3 -c 'import cocotb; print(cocotb.__version__)')" "2.1.0"
 
 echo "== Lint of every rtl/ file (no warning or error with -Wall)"

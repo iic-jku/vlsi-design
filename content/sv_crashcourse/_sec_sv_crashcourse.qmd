@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 Most of you already design digital circuits in VHDL. This chapter is a crash course that maps what you know from VHDL onto synthesizable **SystemVerilog**, the hardware description language (HDL) we use throughout this course. It is not an introduction to digital design: the synchronous, latch-free design style you learned with VHDL carries over unchanged, and only the syntax and a few semantic rules are new. Along the way, you write testbenches in SystemVerilog and in Python with **cocotb**, and you lint, simulate, and synthesize your designs in the IIC-OSIC-TOOLS container.
 
 ::: {.callout-note}
-All code of this chapter (RTL, VHDL references, testbenches, and the solutions of the exercises) is available in the folder [`content/sv_crashcourse/code`]({{< meta var.url-repo >}}/tree/main/content/sv_crashcourse/code) of the course repository, with one folder per design. The SystemVerilog code follows the layout of a macro in the AMS chip template: the RTL in `rtl/` and the testbenches in `testbenches/verilog/` and `testbenches/cocotb/`. The VHDL versions are in `vhdl/`, the plain Verilog original of the priority encoder exercise is in `verilog/`, and the lint exercise keeps its file with deliberate mistakes in `exercise/`. Every file in `rtl/` lints without warnings and synthesizes, and all testbenches pass with the tools of the IIC-OSIC-TOOLS image `2026.10`: Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, GHDL 7.0.0-dev (for the VHDL files), and Yosys 0.70. With another image, the cell counts in the solutions can differ slightly. The script [`scripts/check_sv_crashcourse.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_sv_crashcourse.sh) reproduces every tool result of this chapter: run `bash scripts/check_sv_crashcourse.sh` in the container from the root of the repository.
+All code of this chapter (RTL, VHDL references, testbenches, and the solutions of the exercises) is available in the folder [`content/sv_crashcourse/code`]({{< meta var.url-repo >}}/tree/main/content/sv_crashcourse/code) of the course repository, with one folder per design. The SystemVerilog code follows the layout of a macro in the AMS chip template: the RTL in `rtl/` and the testbenches in `testbenches/verilog/` and `testbenches/cocotb/`. The VHDL versions are in `vhdl/`, the plain Verilog original of the priority encoder exercise is in `verilog/`, and the lint exercise keeps its file with deliberate mistakes in `exercise/`. Every file in `rtl/` lints without warnings and synthesizes, and all testbenches pass with the tools of the IIC-OSIC-TOOLS image `2026.11`: Verilator 5.054, Icarus Verilog 14.0, cocotb 2.1.0, GHDL 7.0.0-dev (for the VHDL files), and Yosys 0.71. With another image, the cell counts in the solutions can differ slightly. The script [`scripts/check_sv_crashcourse.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_sv_crashcourse.sh) reproduces every tool result of this chapter: run `bash scripts/check_sv_crashcourse.sh` in the container from the root of the repository.
 :::
 
 For the exercises, clone the course repository into your designs folder once, if you have not done so yet:
@@ -89,7 +89,7 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 1. Per iteration, the MCU executes a shift, an AND, an addition, the increment of `i`, and a compare-and-branch, so about 40 instructions plus the function call. Depending on the core and the compiler, this takes several tens of clock cycles. The hardware needs no clock cycle at all: the module is purely combinational, and the result is valid after the propagation delay of the logic, usually well within one clock period of the surrounding registers.
 2. The loop is unrolled at elaboration: the synthesis tool creates a chain of eight adders (and may restructure them into a tree, as long as the function stays the same). The loop variable `i` exists only at compile time, so there is no counter in the hardware. This is why loop bounds in synthesizable code must be constants.
 3. The MCU needs eight times as many iterations, so the time grows. The hardware needs eight times as many adders, and wider ones, so the area grows by more than a factor of eight. The result still needs no clock cycle, but the propagation delay grows as well, although an adder tree grows more slowly than a chain. This is the basic trade-off between computing in time and computing in space. Processors often add dedicated hardware for such functions, e.g., the `cpop` instruction of the RISC-V bit-manipulation extension Zbb.
-4. Yosys 0.70 reports 26 generic logic cells (`$_XOR_`, `$_NAND_`, `$_ANDNOT_`, and others) and no flip-flops, confirming that the module is purely combinational.
+4. Yosys 0.71 reports 26 generic logic cells (`$_XOR_`, `$_NAND_`, `$_ANDNOT_`, and others) and no flip-flops, confirming that the module is purely combinational.
 :::
 
 ### Synchronous Sequential Design {#sec-sv-sync-design}
@@ -429,7 +429,7 @@ always_ff @(posedge clk_i) begin
 end
 ```
 
-With blocking assignments in this block, `b_q` would read the *new* value of `a_q`, and both registers would end up with the old value of `b_q`, in simulation and in synthesis. It gets worse when the two blocking assignments sit in two separate `always_ff` blocks. The simulation result then depends on the order in which the simulator runs the blocks, which the standard leaves open, while synthesis builds the swap anyway. Icarus Verilog 14 and Verilator 5.052 both show no swap for this case, while the netlist of Yosys swaps. This mismatch between simulation and synthesis is one of the most common SystemVerilog bugs, and the following rules avoid it.
+With blocking assignments in this block, `b_q` would read the *new* value of `a_q`, and both registers would end up with the old value of `b_q`, in simulation and in synthesis. It gets worse when the two blocking assignments sit in two separate `always_ff` blocks. The simulation result then depends on the order in which the simulator runs the blocks, which the standard leaves open, while synthesis builds the swap anyway. Icarus Verilog 14 and Verilator 5.054 both show no swap for this case, while the netlist of Yosys swaps. This mismatch between simulation and synthesis is one of the most common SystemVerilog bugs, and the following rules avoid it.
 
 ::: {.callout-important title="The Golden Rules of Processes"}
 1. In `always_ff`, use only non-blocking assignments `<=`.
@@ -506,7 +506,7 @@ The three rules of the VHDL style carry over. `always_comb` makes the second one
 - `always_comb` infers the complete sensitivity list by itself, so a forgotten signal is no longer possible.
 - The default assignment `state_d = state_q;` comes first, as in VHDL. If you forget it, the tools report the latch: Verilator warns, and Yosys stops with an error (@sec-sv-case).
 
-The register process uses non-blocking assignments `<=` and the combinational process blocking assignments `=`, as the Golden Rules of @sec-sv-processes demand. The order of the two blocks in the file does not matter, since both are concurrent. As in your VHDL designs, all listings of this chapter put the register process first and the combinational process second. Yosys 0.70 synthesizes the toggle flip-flop into exactly two cells, an inverter and a flip-flop with enable (`$_DFFE_PN0P_`) whose enable input is `toggle_i`. The default assignment that keeps the state has become the enable of the flip-flop, not a latch.
+The register process uses non-blocking assignments `<=` and the combinational process blocking assignments `=`, as the Golden Rules of @sec-sv-processes demand. The order of the two blocks in the file does not matter, since both are concurrent. As in your VHDL designs, all listings of this chapter put the register process first and the combinational process second. Yosys 0.71 synthesizes the toggle flip-flop into exactly two cells, an inverter and a flip-flop with enable (`$_DFFE_PN0P_`) whose enable input is `toggle_i`. The default assignment that keeps the state has become the enable of the flip-flop, not a latch.
 
 As a larger example, consider a tick generator: while `en_i` is high, `tick_o` is high for one clock cycle every `DIV` clock cycles. Such a one-cycle pulse is a *strobe*, which typically triggers other blocks, e.g., to restart a counter or to signal that a result is valid. Here is the VHDL version in the style you know:
 
@@ -562,7 +562,7 @@ always_comb begin
 end
 ```
 
-In a synchronous design, latches are almost always a bug: static timing analysis treats them differently from flip-flops (@sec-sequential), they pass glitches, and they complicate the scan test (@sec-dft). The SG13CMOS5L library contains latch cells (e.g., `sg13cmos5l_dlhq_1`), so an unintended latch synthesizes without complaint if nobody checks. Here `always_comb` pays off: for the plain Verilog block `always @(*)`, Yosys 0.70 only prints a warning and builds the latches, while it stops with an error for `always_comb`. If you really need a latch, write it with `always_latch`, so that your intention is documented.
+In a synchronous design, latches are almost always a bug: static timing analysis treats them differently from flip-flops (@sec-sequential), they pass glitches, and they complicate the scan test (@sec-dft). The SG13CMOS5L library contains latch cells (e.g., `sg13cmos5l_dlhq_1`), so an unintended latch synthesizes without complaint if nobody checks. Here `always_comb` pays off: for the plain Verilog block `always @(*)`, Yosys 0.71 only prints a warning and builds the latches, while it stops with an error for `always_comb`. If you really need a latch, write it with `always_latch`, so that your intention is documented.
 
 ::: {.callout-tip title="Exercise: Let the Linter Find the Bugs"}
 The following module is meant to be a small ALU with a registered result: `op_i` selects addition (`00`), subtraction (`01`), bitwise AND (`10`), or bitwise OR (`11`). `result_o` is the registered result, `zero_o` is high when `result_o` is zero, and the register has an asynchronous active-low reset. The file contains several mistakes.
@@ -579,7 +579,7 @@ The following module is meant to be a small ALU with a registered result: `op_i`
 Before continuing, please finish the previous exercise. Once you are done, compare with the solution below.
 
 ::: {.callout-tip title="Solution: Let the Linter Find the Bugs" collapse="true"}
-Verilator 5.052 reports seven warnings and exits with an error:
+Verilator 5.054 reports seven warnings and exits with an error:
 
 - `IMPLICIT`: the name `zero` is not declared, so Verilog creates an implicit 1-bit wire. It is a typo for `zero_o`.
 - `UNDRIVEN` for `zero_o` and `UNUSEDSIGNAL` for `zero`: two consequences of the same typo.
@@ -617,7 +617,7 @@ In SystemVerilog:
 - The state type is a `typedef enum` with an explicit base type (`logic [1:0]`). Following the lowRISC style guide, the type name ends in `_e` and the state names are UpperCamelCase with the prefix `St`.
 - In VHDL, a `case` over an enumeration type with three values is complete. The 2-bit state of the SystemVerilog version has a fourth encoding, `2'b11`, which the `default` item sends back to idle.
 - As in VHDL, the next state defaults to the current state, and every output defaults to its inactive value before the `case`.
-- The synthesis tool is free to choose the state encoding. Yosys 0.70 recognizes this FSM and re-encodes it one-hot, with three flip-flops instead of two.
+- The synthesis tool is free to choose the state encoding. Yosys 0.71 recognizes this FSM and re-encodes it one-hot, with three flip-flops instead of two.
 - Write the transitions with `if` and `else`. A conditional operator between enumeration values, such as `state_d = start_i ? StRun : StIdle;`, is rejected by Icarus Verilog 14, which requires an explicit cast for it.
 
 ::: {.callout-tip title="Exercise: The Controller as a Mealy FSM"}
@@ -647,7 +647,7 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 {{< include /content/sv_crashcourse/code/ctrl_fsm_mealy/rtl/ctrl_fsm_mealy.sv >}}
 ```
 
-The 1-bit state type of the SystemVerilog version has no unused encoding, and the `default` item stays only because the guidelines ask for `unique case` with a `default` (@sec-sv-guidelines). Verilator reports no warning. Yosys 0.70 builds the Mealy controller from 4 cells with one flip-flop, against 9 cells with three flip-flops for the one-hot Moore version.
+The 1-bit state type of the SystemVerilog version has no unused encoding, and the `default` item stays only because the guidelines ask for `unique case` with a `default` (@sec-sv-guidelines). Verilator reports no warning. Yosys 0.71 builds the Mealy controller from 4 cells with one flip-flop, against 9 cells with three flip-flops for the one-hot Moore version.
 
 4. @tbl-sv-moore-mealy lists both versions cycle by cycle. Icarus Verilog, Verilator, and GHDL show exactly these values for the VHDL and the SystemVerilog versions (the check script of this chapter runs the sequence).
 
@@ -786,7 +786,7 @@ endmodule
 - A `function automatic` describes combinational logic, and every call becomes a separate copy of that logic. Declare functions `automatic`, so that every call gets its own variables. Tasks, which may contain timing, belong in testbenches.
 
 ::: {.callout-important title="Tool Support for SystemVerilog Features"}
-The default SystemVerilog front end of Yosys, which LibreLane uses unless `USE_SLANG: True` is set in its configuration, supports only part of the language. In Yosys 0.70, it fails on three constructs that Verilator and Icarus Verilog accept: `import alu_pkg::*` (the counterpart of `use work.alu_pkg.all`), `return` statements in functions, and unpacked arrays as ports. An `import` inside the module or its header gives a syntax error, and one before the `module` keyword gives a syntax error or an internal error. The code of this chapter therefore uses the scope operator `pkg::NAME`, assigns a function result to the function name, and uses packed arrays at ports. The slang front end of Yosys (`read_slang`, enabled in LibreLane with `USE_SLANG: True`) accepts all of these constructs. For the same reason, the counter of the AMS chip template uses `` `define`` macros instead of a package. When you use struct fields inside `always_comb`, Icarus Verilog prints a "sorry" message that the block becomes sensitive to the whole struct, which does not change the result.
+The default SystemVerilog front end of Yosys, which LibreLane uses unless `USE_SLANG: True` is set in its configuration, supports only part of the language. In Yosys 0.71, it fails on three constructs that Verilator and Icarus Verilog accept: `import alu_pkg::*` (the counterpart of `use work.alu_pkg.all`), `return` statements in functions, and unpacked arrays as ports. An `import` inside the module or its header gives a syntax error, and one before the `module` keyword gives a syntax error or an internal error. The code of this chapter therefore uses the scope operator `pkg::NAME`, assigns a function result to the function name, and uses packed arrays at ports. The slang front end of Yosys (`read_slang`, enabled in LibreLane with `USE_SLANG: True`) accepts all of these constructs. For the same reason, the counter of the AMS chip template uses `` `define`` macros instead of a package. When you use struct fields inside `always_comb`, Icarus Verilog prints a "sorry" message that the block becomes sensitive to the whole struct, which does not change the result.
 :::
 
 ### What Is Synthesizable {#sec-sv-synthesizable}
@@ -837,7 +837,7 @@ SystemVerilog grew out of Verilog. Verilog became the IEEE standard 1364 in 1995
 Most of these differences are syntax, but three of them matter beyond syntax:
 
 - **`reg` and `wire` follow the assignment, not the hardware.** In Verilog, a signal assigned in an `always` block must be a `reg`, even if it is combinational, and a signal driven by an `assign` or by an instance must be a `wire`. If you turn an `assign` into an `always` block, you therefore have to change the declaration as well. In SystemVerilog, a variable (`logic` or `reg`) may be assigned in an `always` block or by a single `assign`, so the declaration stays the same, and no type name suggests a register that does not exist. Only a `wire` assigned in an `always` block remains an error (Icarus Verilog: not a valid l-value, Verilator: `PROCASSWIRE` for an internal `wire`).
-- **The process types state the intent.** For a missing assignment in `always @(*)`, Verilator and Yosys 0.70 only warn, and Yosys builds the latch. For `always_comb`, Yosys stops with an error (@sec-sv-case).
+- **The process types state the intent.** For a missing assignment in `always @(*)`, Verilator and Yosys 0.71 only warn, and Yosys builds the latch. For `always_comb`, Yosys stops with an error (@sec-sv-case).
 - **Checks belong in the language, not in comments.** In Verilog, the comment `// synopsys full_case parallel_case` after a `case` tells the synthesis tool that all missing values are don't care (`full_case`) and that the items never overlap (`parallel_case`). Yosys reads it and builds no latch, and Verilator reads it as well: it drops the `LATCH` and `CASEINCOMPLETE` warnings and stops the simulation when no item matches. Icarus Verilog ignores the comment and keeps the old value, so its simulation can differ from the netlist. Write a complete `case` with a `default` item instead, and add `unique` if the items are mutually exclusive. Keep the `default` with `unique` as well. Without it, Yosys handles `unique` like `full_case`: it silently takes the missing values as don't care, even in `always_comb`, and the netlist can differ from the simulation.
 
 Most testbench features of this chapter are SystemVerilog as well, e.g., `$fatal`, `$isunknown()`, and `int` variables, and the verification part of the language (classes, randomization, assertions, and coverage) has no Verilog counterpart.
@@ -868,7 +868,7 @@ Before continuing, please finish the previous exercise. Once you are done, compa
     - The replication `{W{1'b0}}` becomes `'0`.
     - The untyped parameters become `parameter int unsigned`, and `W`, which must be set to match `N` by hand, becomes `$clog2(N)`.
     - The file extension `.v` becomes `.sv`.
-2. Verilator 5.052 reports two warnings. `WIDTHTRUNC`: the 32-bit `integer i` is assigned to the 3-bit `idx_next`. `LATCH`: if no bit of `req` is set, the loop assigns nothing, and `idx_next` keeps its old value. Yosys 0.70 only prints the warning ``Latch inferred for signal `\prio_enc.\idx_next'`` and builds 23 cells, among them four flip-flops `$_DFF_PN0_` for `idx` and `valid` and three latches `$_DLATCH_N_` for `idx_next`. Leaving a value unassigned does not mean "don't care" but "keep the old value."
+2. Verilator 5.054 reports two warnings. `WIDTHTRUNC`: the 32-bit `integer i` is assigned to the 3-bit `idx_next`. `LATCH`: if no bit of `req` is set, the loop assigns nothing, and `idx_next` keeps its old value. Yosys 0.71 only prints the warning ``Latch inferred for signal `\prio_enc.\idx_next'`` and builds 23 cells, among them four flip-flops `$_DFF_PN0_` for `idx` and `valid` and three latches `$_DLATCH_N_` for `idx_next`. Leaving a value unassigned does not mean "don't care" but "keep the old value."
 3. With `always_comb`, Yosys stops with ``ERROR: Latch inferred for signal `\prio_enc.\idx_d' from always_comb process``. Verilator reports the same `LATCH` warning as before, and `WIDTHTRUNC` again unless your translation already casts `i`.
 4. The fix is a default assignment, as in every combinational process of this chapter:
 
@@ -878,7 +878,7 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 
 - The width `W` follows from `N` with `$clog2` (available since Verilog-2005), so it can no longer be set wrong.
 - The size cast `W'(i)` makes the truncation of the loop variable explicit.
-- The loop variable is declared in the loop. It must be a signed `int`: with `int unsigned`, the condition `i >= 0` is always true. Verilator 5.052 reports a constant comparison (`UNSIGNED`) and an infinite loop (`INFINITELOOP`) and then stops with an internal error.
+- The loop variable is declared in the loop. It must be a signed `int`: with `int unsigned`, the condition `i >= 0` is always true. Verilator 5.054 reports a constant comparison (`UNSIGNED`) and an infinite loop (`INFINITELOOP`) and then stops with an internal error.
 
 Verilator reports no warning, and Yosys builds 22 cells with the four flip-flops and no latch. While `valid_o` is low, `idx_o` is now 0, where the original kept the last index (or `x` before the first request). This does not matter, since `idx_o` is only meaningful while `valid_o` is high. The default `idx_d = idx_q;` would also be correct: it keeps the last index in the register, and Yosys turns the three `idx` flip-flops into flip-flops with enable (`$_DFFE_PN0P_`), again without a latch.
 
@@ -1055,7 +1055,7 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 2. Verilator reports no warning.
 3. The simulation prints `PASS: tick_gen_tb`. With `DIV = 5`, `tick` is high in the clock cycle after `count_q` has reached 4, i.e., once every five cycles while `en` is high.
 4. Both runs end with `TESTS=2 PASS=2 FAIL=0 SKIP=0`. Icarus Verilog writes `sim_build/tick_gen.fst`, Verilator `sim_build/dump.vcd`.
-5. With the default `DIV = 10`, Yosys 0.70 reports 17 cells, among them five flip-flops: four `$_DFFE_PN0P_` cells for `count_q` (with an active-high enable input, which comes from `en_i`) and one `$_DFF_PN0_` cell for `tick_q`.
+5. With the default `DIV = 10`, Yosys 0.71 reports 17 cells, among them five flip-flops: four `$_DFFE_PN0P_` cells for `count_q` (with an active-high enable input, which comes from `en_i`) and one `$_DFF_PN0_` cell for `tick_q`.
 6. With `DIV = 8`, both testbenches pass. With the bug, the counter wraps one cycle early, and both testbenches fail: the SystemVerilog testbench stops with `FATAL` and exit status 1, cocotb reports `FAIL` for `test_tick_every_div_cycles`, and the runner exits with an error.
 :::
 

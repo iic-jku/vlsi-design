@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Description: Reproduces every number that the chapter "Design for
 # Test (DFT)" quotes, inside the IIC-OSIC-TOOLS container (image
-# 2026.10). Run from the repository root:
+# 2026.11). Run from the repository root:
 #   bash scripts/check_dft.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter. The fault
@@ -105,8 +105,8 @@ verdict() {  # verdict <tb output>: the result of tb with the pattern count left
 }
 
 echo "== Versions"
-check "Yosys" "$(yosys -V | awk '{print $2}')" "0.70"
-check "OpenSTA" "$(sta -version)" "3.1.0"
+check "Yosys" "$(yosys -V | awk '{print $2}')" "0.71"
+check "OpenSTA" "$(sta -version)" "3.2.0"
 check "Icarus Verilog" "$(iverilog -V 2>&1 | head -1 | awk '{print $4}')" "14.0"
 check "Fault" "$(fault --version 2>/dev/null)" "0.9.4"
 check "ngspice" "$(ngspice -v 2>&1 | grep -o 'ngspice-[0-9]*' | head -1)" "ngspice-47"

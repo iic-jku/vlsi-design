@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Description: Reproduces every number that the chapter "Functional
 # Verification with cocotb" quotes, inside the IIC-OSIC-TOOLS container
-# (image 2026.10). Run from the repository root:
+# (image 2026.11). Run from the repository root:
 #   bash scripts/check_verification.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter. FULL=1 also runs
@@ -48,10 +48,10 @@ mutate() {  # mutate <n>: apply mutant n to rtl/fifo.sv in the current folder
 }
 
 echo "== Versions"
-check "Verilator" "$(verilator --version | awk '{print $2}')" "5.052"
+check "Verilator" "$(verilator --version | awk '{print $2}')" "5.054"
 check "Icarus Verilog" "$(iverilog -V 2>&1 | head -1 | awk '{print $4}')" "14.0"
-check "Yosys" "$(yosys -V | awk '{print $2}')" "0.70"
-check "OpenSTA" "$(sta -version)" "3.1.0"
+check "Yosys" "$(yosys -V | awk '{print $2}')" "0.71"
+check "OpenSTA" "$(sta -version)" "3.2.0"
 check "cocotb" "$(python3 -c 'import cocotb; print(cocotb.__version__)')" "2.1.0"
 check "pyuvm" "$(python3 -c 'import importlib.metadata as m; print(m.version("pyuvm"))')" "5.0.0"
 must "MCY in the image" "$(command -v mcy > /dev/null && echo yes)" "yes"
