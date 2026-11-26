@@ -1,0 +1,79 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-sequential-dlatch
+#| echo: false
+#| fig-cap: "A D latch of NAND gates. The two cross-coupled gates on the right form an SR latch with the active-low inputs $\\overline{S}$ and $\\overline{R}$. The two gates on the left pass `D` to it only while `G` is 1."
+#| fig-alt: "Gate-level circuit diagram. On the left, the input D drives the upper input of a NAND gate and, through an inverter, the lower input of a second NAND gate below it. The gate input G drives the lower input of the upper NAND gate and the upper input of the lower NAND gate. The output of the upper gate, S bar, drives the upper input of a third NAND gate, whose output is Q. The output of the lower gate, R bar, drives the lower input of a fourth NAND gate, whose output is Q bar. A dashed box labeled SR latch encloses the third and fourth gate. Q feeds back to the upper input of the fourth gate and Q bar to the lower input of the third gate, and the two feedback wires cross between the gates."
+import schemdraw as sd
+from schemdraw import logic
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+RED, GREY = '#b85450', '#666666'
+SC = 1.4                     # gate scale: inputs 0.7 apart, 2.59 long
+YS = 1.75                    # S bar and R bar wires at +YS and -YS
+XD, XG = 0.8, 2.6            # lanes of D and G
+XN, XL = 3.2, 7.6            # inputs of the front gates and of the SR latch
+XO = XL + 2.59 + 1.2         # end of the output wires
+X = 0.5                      # half height of the cross
+
+
+def text(p, s, halign='center', color='black'):
+    ''' Text aligned to p in x, with its capitals centered on p in y '''
+    # A free Label sits 0.1 to the right of its anchor with its baseline on it, so shift it back.
+    # theta(0): a label inherits the direction of the last wire, and its alignment turns with it.
+    elm.Label().theta(0).at((p[0] - 0.1, p[1] - 0.1)).label(s, color=color, halign=halign)
+
+
+def line(*pts, color='black'):
+    for a, b in zip(pts, pts[1:]):
+        elm.Line().at(a).to(b).color(color)
+
+
+def dot(p, color='black'):
+    elm.Dot(radius=0.06).at(p).color(color)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
+    # front gates: out at +YS and -YS
+    n1 = logic.Nand(inputs=2).right().scale(SC).anchor('out').at((XN + 2.59, YS))
+    n2 = logic.Nand(inputs=2).right().scale(SC).anchor('out').at((XN + 2.59, -YS))
+    # SR latch: S bar into the upper input of n3, R bar into the lower input of n4
+    n3 = logic.Nand(inputs=2).right().scale(SC).anchor('in1').at((XL, YS))
+    n4 = logic.Nand(inputs=2).right().scale(SC).anchor('in2').at((XL, -YS))
+    line(n1.out, n3.in1)
+    line(n2.out, n4.in2)
+    xs = (n1.out[0] + XL - 0.7)/2   # between the front gates and the dashed box
+    text((xs, YS + 0.3), r'$\overline{S}$')
+    text((xs, -YS - 0.3), r'$\overline{R}$')
+    # D: to n1 and through the inverter to n2
+    text((0.0, n1.in1[1] + 0.3), 'D', halign='left')
+    line((0.0, n1.in1[1]), n1.in1)
+    dot((XD, n1.in1[1]))
+    inv = logic.Not().right().anchor('in1').at((XD + 0.5, n2.in2[1]))
+    line((XD, n1.in1[1]), (XD, n2.in2[1]), inv.in1)
+    line(inv.out, n2.in2)
+    # G: to n1 and n2
+    text((0.0, 0.3), 'G', halign='left', color=RED)
+    line((0.0, 0.0), (XG, 0.0), color=RED)
+    dot((XG, 0.0), color=RED)
+    line((XG, 0.0), (XG, n1.in2[1]), n1.in2, color=RED)
+    line((XG, 0.0), (XG, n2.in1[1]), n2.in1, color=RED)
+    # outputs and the cross: Q to the upper input of n4, Q bar to the lower input of n3
+    xq, xl = n3.out[0] + 0.4, XL - 0.4
+    line(n3.out, (XO, n3.out[1]))
+    line(n4.out, (XO, n4.out[1]))
+    text((XO + 0.1, n3.out[1]), 'Q', halign='left')
+    text((XO + 0.1, n4.out[1]), r'$\overline{Q}$', halign='left')
+    dot((xq, n3.out[1]))
+    dot((xq, n4.out[1]))
+    line((xq, n3.out[1]), (xq, X), (xl, -X), (xl, n4.in1[1]), n4.in1)
+    line((xq, n4.out[1]), (xq, -X), (xl, X), (xl, n3.in2[1]), n3.in2)
+    elm.Rect(corner1=(xl - 0.3, YS + 0.75), corner2=(xq + 0.3, -YS - 0.75), lw=1).at((0, 0)).linestyle('--').color(GREY)
+    text(((xl + xq)/2, YS + 1.1), 'SR latch', color=GREY)
+```
