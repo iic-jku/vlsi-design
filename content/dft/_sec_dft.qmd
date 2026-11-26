@@ -152,7 +152,7 @@ The D-algorithm decides on internal nets, so it may find out only many steps lat
 
 ### SAT Solvers and Random Vectors {#sec-dft-sat}
 
-Modern tools often hand this search to a SAT solver, the same kind of solver as in the equivalence check of @sec-synthesis-lib-lec. A **miter** joins the good and the faulty netlist: both get the same inputs, an XOR compares each pair of outputs, and the solver searches for an input that sets one of the XORs to 1. Every solution is a test, and if there is none, the fault is proven untestable. The script `sat_test.tcl` does this with Yosys for one fault: it ties the listed cell pins to the stuck value in a copy of the netlist, builds the miter, and lets the command `sat` search:
+Modern tools often hand this search to a SAT solver, the same kind of solver as in the equivalence check of @sec-synthesis-lib-lec. There, a miter compared two cones (@fig-synthesis-lib-lec-cones), and here it joins the good and the faulty netlist: both get the same inputs, an XOR compares each pair of outputs, and the solver searches for an input that sets one of the XORs to 1. Every solution is a test, and if there is none, the fault is proven untestable. The script `sat_test.tcl` does this with Yosys for one fault: it ties the listed cell pins to the stuck value in a copy of the netlist, builds the miter, and lets the command `sat` search:
 
 ```{.tcl filename="atpg/sat_test.tcl"}
 {{< include /content/dft/code/atpg/sat_test.tcl >}}

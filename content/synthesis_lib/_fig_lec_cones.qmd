@@ -1,0 +1,148 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-synthesis-lib-lec-cones
+#| echo: false
+#| fig-cap: "The cones of a classic equivalence check, for the RTL `r <= (a & b) | c` and `assign y = r ^ c`. (a) The cone of a matched point is the logic that drives it, traced backwards to the inputs and the register outputs: one point at its tip, more and more signals at its base. The netlist builds the cone of `r.D` from two NAND gates and an inverter instead of the AND and the OR gate of the RTL, and the input `c` feeds both cones. The output of the matched register, `r.Q`, is a free input of the cone of `y`, with the same value on both sides. (b) The miter of the two cones of `y`: the same values of `r.Q` and `c` drive both cones, an XOR compares their tips, and the solver searches for an input that sets `diff` to 1."
+#| fig-alt: "Two diagrams. (a) Two lanes that face each other, the RTL (gold) on top and the netlist (gate) below. In each lane, the inputs a, b, and c enter a large shaded triangle, the cone of r.D, which narrows to its tip at the D input of a register r. In the RTL, the cone holds an AND gate of a and b, followed by an OR gate with c. In the netlist, it holds a NAND gate of a and b and an inverter on c, followed by a second NAND gate. A smaller triangle, the cone of y, holds an XOR gate of the register output r.Q and of c, which reaches it on a long wire around the lane, and narrows to its tip at the output y. Dashed red lines with an equals sign connect the tips of the two cones of r.D and the tips of the two cones of y, labeled compare r.D and compare y. A dotted grey line connects the outputs of the two registers, labeled matched r.Q: same free value. (b) A bus r.Q, c of width 2 splits to a blue triangle, the gold cone of y, and a green triangle, the gate cone of y. Their tips drive the two inputs of a red XOR gate, whose output diff goes to a box with the question solver: can diff be 1 for any input? Below it: no means the cones are equal, yes means a counterexample."
+import schemdraw as sd
+from schemdraw import flow, logic
+from schemdraw import elements as elm
+from schemdraw.elements import Element
+from schemdraw.segments import SegmentPoly
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'     # gold
+GREEN, GREEN_L = '#82b366', '#d5e8d4'   # gate
+RED, GREY = '#b85450', '#666666'
+
+YG, YT = 1.8, -1.8                      # register lines of gold and gate
+XG1, XG2, XG3 = 1.0, 3.0, 8.0           # first and second gate of the cone of r.D, the gate of the cone of y
+XRC, XRQ = 2.7, 7.3                     # c into the second gate, c into the cone of y
+XD, XR, XY = 5.9, 6.6, 10.6             # compare r.D, register r, compare y
+XB1, XB2 = 0.55, 7.45                   # bases of the two cones
+YBR = 2.3                               # branch of c to the cone of y, outside the lane
+
+
+class Cone(Element):
+    ''' A cone: a base from (x0, y0) to (x0, y1), narrowing to its tip at p '''
+    def __init__(self, x0, y0, y1, p, fill, edge, **kwargs):
+        super().__init__(**kwargs)
+        self.segments.append(SegmentPoly([(x0, y0), (x0, y1), p], fill=fill, color=edge, lw=1, zorder=0.5))
+        self.params['theta'] = 0
+
+
+def line(*pts, color='black', ls='-'):
+    for a, b in zip(pts, pts[1:]):
+        flow.Line().at(a).to(b).color(color).linestyle(ls)
+
+
+def wire(*pts):
+    ''' Lines through all points, with an arrow on the last segment '''
+    line(*pts[:-1])
+    flow.Arrow().at(pts[-2]).to(pts[-1])
+
+
+def dot(p):
+    elm.Dot(radius=0.06).at(p)
+
+
+def text(p, s, halign='center', color='black', fontsize=11):
+    ''' Text aligned to p in x, with its capitals centered on p in y '''
+    # A free Label sits 0.1 to the right of its anchor with its baseline on it, so shift it back.
+    elm.Label().theta(0).at((p[0] - 0.1, p[1] - 0.1)).label(s, color=color, halign=halign, fontsize=fontsize)
+
+
+def lane(y0, s, gold):
+    ''' One design around its register line y0, mirrored by s = -1, so that the lanes face each other '''
+    def Y(dy):
+        return y0 + s*dy
+    fill, edge = (BLUE_L, BLUE) if gold else (GREEN_L, GREEN)
+    text((XRQ + 0.5, Y(YBR)), 'RTL (gold)' if gold else 'netlist (gate)', halign='left')
+    # the cones, below everything else
+    Cone(XB1, Y(2.0), Y(-1.5), (XD, Y(0)), fill, edge).at((0, 0))
+    Cone(XB2, Y(1.1), Y(-0.6), (XY, Y(0.25)), fill, edge).at((0, 0))
+    text((4.4, Y(1.3)), 'cone of r.D', color=edge, fontsize=10)
+    text((9.2, Y(1.25)), 'cone of y', color=edge, fontsize=10)
+    # inputs
+    for name, dy in (('c', 1.0), ('a', 0.0), ('b', -0.5)):
+        text((-0.2, Y(dy)), name, halign='right')
+    g1 = (logic.And if gold else logic.Nand)().fill('white').at((XG1, Y(-0.25))).right()
+    g2 = (logic.Or if gold else logic.Nand)().fill('white').at((XG2, Y(0))).right()
+    line((0, Y(0)), (XG1, Y(0)))
+    line((0, Y(-0.5)), (XG1, Y(-0.5)))
+    line(g1.out, (XG2, Y(-0.25)))
+    # c into the second gate, through an inverter on the gate side
+    dot((0.35, Y(1.0)))
+    if gold:
+        line((0, Y(1.0)), (XRC, Y(1.0)))
+    else:
+        line((0, Y(1.0)), (1.25, Y(1.0)))
+        logic.Not().fill('white').at((1.25, Y(1.0))).right()
+        line((2.25, Y(1.0)), (XRC, Y(1.0)))
+    line((XRC, Y(1.0)), (XRC, Y(0.25)), (XG2, Y(0.25)))
+    # register r
+    flow.Box(w=1.0, h=1.2).at((XR, Y(0))).anchor('center').fill('white').color('black')
+    text((XR - 0.4, Y(0)), 'D', halign='left', fontsize=9)
+    text((XR + 0.4, Y(0)), 'Q', halign='right', fontsize=9)
+    text((XR, Y(0.85)), 'r')
+    wire(g2.out, (XR - 0.5, Y(0)))
+    # the cone of y reads r.Q and c
+    line((0.35, Y(1.0)), (0.35, Y(YBR)), (XRQ, Y(YBR)), (XRQ, Y(0.5)), (XG3, Y(0.5)))
+    line((XR + 0.5, Y(0)), (XG3, Y(0)))
+    g3 = logic.Xor().fill('white').at((XG3, Y(0.25))).right()
+    wire(g3.out, (XY + 0.6, Y(0.25)))
+    text((XY + 0.75, Y(0.25)), 'y', halign='left')
+
+
+def compare(x, y0, y1, s, left):
+    ''' Compare mark between the tips of the gold and the gate cone '''
+    ym = (y0 + y1)/2
+    line((x, y0), (x, ym + 0.32), color=RED, ls='--')
+    line((x, ym - 0.32), (x, y1), color=RED, ls='--')
+    flow.Circle(r=0.32).at((x, ym)).anchor('center').fill('white').color(RED).label('=', color=RED)
+    text((x - 0.5, ym) if left else (x + 0.5, ym), s, halign='right' if left else 'left', color=RED, fontsize=10)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    # (a) matched points cut both designs into cones
+    text((-1.0, YG + YBR), '(a)', halign='left')
+    lane(YG, 1, True)
+    lane(YT, -1, False)
+    compare(XD, YG, YT, 'compare r.D', True)
+    compare(XY, YG + 0.25, YT - 0.25, 'compare y', False)
+    line((XR + 0.65, YG), (XR + 0.65, YT), color=GREY, ls=':')
+    text((XR + 0.8, 0.2), 'matched r.Q:', halign='left', color=GREY, fontsize=10)
+    text((XR + 0.8, -0.2), 'same free value', halign='left', color=GREY, fontsize=10)
+
+    # (b) the miter of the two cones of y
+    YB = -6.9
+    YBG, YBT = YB + 1.0, YB - 1.0
+    text((-1.0, YB + 1.9), '(b)', halign='left')
+    text((-0.2, YB), 'r.Q, c', halign='right')
+    line((0, YB), (1.4, YB))
+    flow.Line().at((0.58, YB - 0.18)).to((0.82, YB + 0.18))
+    text((0.7, YB + 0.33), '2')
+    dot((1.4, YB))
+    wire((1.4, YB), (1.4, YBG), (2.2, YBG))
+    wire((1.4, YB), (1.4, YBT), (2.2, YBT))
+    Cone(2.2, YBG + 0.75, YBG - 0.75, (5.4, YBG), BLUE_L, BLUE).at((0, 0))
+    Cone(2.2, YBT + 0.75, YBT - 0.75, (5.4, YBT), GREEN_L, GREEN).at((0, 0))
+    text((2.4, YBG + 0.2), 'gold cone', halign='left', fontsize=10)
+    text((2.4, YBG - 0.2), 'of y', halign='left', fontsize=10)
+    text((2.4, YBT + 0.2), 'gate cone', halign='left', fontsize=10)
+    text((2.4, YBT - 0.2), 'of y', halign='left', fontsize=10)
+    xm = logic.Xor().fill('white').color(RED).at((6.1, YB)).right()
+    line((5.4, YBG), (5.8, YBG), (5.8, xm.in1[1]), xm.in1)
+    line((5.4, YBT), (5.8, YBT), (5.8, xm.in2[1]), xm.in2)
+    flow.Box(w=3.0, h=1.0).at((10.3, YB)).anchor('center').fill('white').color(RED)
+    text((10.3, YB + 0.2), 'solver: can diff', color=RED)
+    text((10.3, YB - 0.2), 'be 1 for any input?', color=RED)
+    flow.Arrow().at(xm.out).to((8.8, YB)).label('diff', loc='top', color='black')
+    text((8.8, YB - 1.0), 'no: the cones are equal', halign='left', fontsize=10)
+    text((8.8, YB - 1.4), 'yes: counterexample', halign='left', fontsize=10)
+```
