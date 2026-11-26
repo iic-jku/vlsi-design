@@ -1,0 +1,76 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-sequential-dlhq
+#| echo: false
+#| fig-cap: "The latch `dlhq_1` of SG13CMOS5L, drawn from the transistor netlist of the library. Two inverters make the gate signals `GATE_B` and `GATE_BB`. A clocked inverter drives its output only while its enable, the pin below it, is high, and leaves it floating otherwise. While `GATE` is high, the upper clocked inverter drives `qint`, which follows `D`, inverted twice, and the lower one is off. While `GATE` is low, the upper one is off, and the lower one closes the loop of two inverters through `qint` and `qint_b`, which holds the value. In the netlist, each clocked inverter takes both gate signals, one for its PMOS and one for its NMOS transistors, and the figure shows the one that turns it on when high."
+#| fig-alt: "Gate-level circuit diagram. The input D passes an inverter and a clocked inverter into the node qint. From qint, an inverter drives the node qint_b, and a second inverter drives the output Q. A second clocked inverter below feeds qint_b back to qint. At the bottom, the input GATE passes an inverter, which gives GATE_B, and a second inverter, which gives GATE_BB. GATE_BB drives the enable of the upper clocked inverter, and GATE_B drives the enable of the lower clocked inverter."
+import schemdraw as sd
+from schemdraw import logic
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+RED = '#b85450'
+YC = -3.4                    # the gate inverters
+YL = -4.0                    # GATE_B to the enable of the feedback inverter
+YF = -1.6                    # the feedback inverter
+XT1 = 3.4                    # start of the input clocked inverter
+XQ, XQB = 5.8, 7.6           # the nodes qint and qint_b
+XGB = 2.1                    # the node GATE_B
+
+
+def text(p, s, halign='center', color='black'):
+    ''' Text aligned to p in x, with its capitals centered on p in y '''
+    # A free Label sits 0.1 to the right of its anchor with its baseline on it, so shift it back.
+    # theta(0): a label inherits the direction of the last wire, and its alignment turns with it.
+    elm.Label().theta(0).at((p[0] - 0.1, p[1] - 0.1)).label(s, color=color, halign=halign)
+
+
+def line(*pts, color='black'):
+    for a, b in zip(pts, pts[1:]):
+        elm.Line().at(a).to(b).color(color)
+
+
+def dot(p, color='black'):
+    elm.Dot(radius=0.06).at(p).color(color)
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
+    # data path: D, input inverter, clocked inverter, qint, inverter, qint_b, output inverter, Q
+    text((0.0, 0.3), 'D', halign='left')
+    i1 = logic.Not().right().anchor('in1').at((0.8, 0.0))
+    line((0.0, 0.0), i1.in1)
+    t1 = logic.Tristate().flip().at((XT1, 0.0)).to((XT1 + 2.0, 0.0))
+    line(i1.out, (XT1, 0.0))
+    line((XT1 + 2.0, 0.0), (XQ, 0.0))
+    i2 = logic.Not().right().anchor('in1').at((XQ + 0.5, 0.0))
+    line((XQ, 0.0), i2.in1)
+    line(i2.out, (XQB, 0.0))
+    i3 = logic.Not().right().anchor('in1').at((XQB + 0.5, 0.0))
+    line((XQB, 0.0), i3.in1)
+    line(i3.out, (i3.out[0] + 0.6, 0.0))
+    text((i3.out[0] + 0.7, 0.0), 'Q', halign='left')
+    text((XQ, 0.3), 'qint')
+    text((XQB, 0.3), 'qint_b')
+    # feedback: the clocked inverter from qint_b back to qint
+    t2 = logic.Tristate().at((XQB, YF)).to((XQ, YF))
+    line((XQB, 0.0), (XQB, YF))
+    line((XQ, YF), (XQ, 0.0))
+    dot((XQ, 0.0))
+    dot((XQB, 0.0))
+    # gate inverters and the enables
+    text((0.0, YC + 0.3), 'GATE', halign='left', color=RED)
+    i4 = logic.Not().right().anchor('in1').at((0.8, YC)).color(RED)
+    line((0.0, YC), i4.in1, color=RED)
+    i5 = logic.Not().right().anchor('in1').at((XGB + 0.4, YC)).color(RED)
+    line(i4.out, (XGB, YC), i5.in1, color=RED)
+    dot((XGB, YC), color=RED)
+    line(i5.out, (t1.c[0], YC), t1.c, color=RED)
+    text((t1.c[0] + 0.15, YC + 0.75), 'GATE_BB', halign='left', color=RED)
+    line((XGB, YC), (XGB, YL), (t2.c[0], YL), t2.c, color=RED)
+    text((XGB + 0.25, YL - 0.3), 'GATE_B', halign='left', color=RED)
+```

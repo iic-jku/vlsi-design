@@ -53,6 +53,10 @@ Inside, the textbook D latch is an SR latch with two more NAND gates in front of
 
 {{< include /content/sequential/_fig_dlatch.qmd >}}
 
+The latch `dlhq_1` of SG13CMOS5L is built differently (@fig-sequential-dlhq). It uses clocked inverters, inverters whose output is switched off while their enable is inactive. While the gate is high, one of them passes `D` to the storage node `qint`. While the gate is low, this one is off, and the other one closes the loop of two inverters through `qint` and `qint_b` that holds the value. This loop is the pair of cross-coupled inverters in which a latch can become metastable (@sec-cdc-meta).
+
+{{< include /content/sequential/_fig_dlhq.qmd >}}
+
 The usual way to build a flip-flop is two D latches in series with opposite gates, the **master** and the **slave** (@fig-sequential-master-slave (a)). While the clock is low, the master is transparent and its output `qm` follows `D`, and the slave holds `Q`. At the rising edge, the master closes and holds the value of `D` at that moment, and the slave opens and passes it to `Q`. So the value that `D` has at the edge is the one that appears at `Q` (@fig-sequential-master-slave (b)). The flip-flop `dfrbpq_1` of SG13CMOS5L is built this way. Other structures exist, e.g., the flip-flop of six NAND gates in the TTL chip 7474, or the pulsed latch, a single latch that is transparent only for a short pulse after the clock edge.
 
 {{< include /content/sequential/_fig_master_slave.qmd >}}
