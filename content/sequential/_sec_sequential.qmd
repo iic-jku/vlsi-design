@@ -43,7 +43,15 @@ A **latch** is level-sensitive. While its enable, called the gate, is active, th
 
 {{< include /content/sequential/_fig_latch_ff.qmd >}}
 
-A flip-flop is built from two latches in series with opposite gates, the **master** and the **slave**. While the clock is low, the master is transparent and follows `D`, and the slave holds `Q`. At the rising edge, the master closes and holds the value of `D` at that moment, and the slave opens and passes it to `Q`. So the value that `D` has at the edge is the one that appears at `Q`.
+Latches and flip-flops are bistable elements: a loop of two inverting gates holds one bit (@fig-sequential-classes). The simplest one is the **SR latch**, two cross-coupled NAND or NOR gates without a clock or gate. Its inputs `S` and `R` set and reset `Q` as soon as they are active. With a gate input and a single data input `D`, it becomes the D latch. The gate can be any signal, but it is usually a clock, as inside the flip-flop below and in @sec-sequential-borrow. So what separates a latch from a flip-flop is not whether it has a clock, but whether it reacts to the level or to the edge of the clock.
+
+{{< include /content/sequential/_fig_classes.qmd >}}
+
+Older and many German textbooks call all of these elements flip-flops (the gray terms in @fig-sequential-classes) and split the clocked ones further, by whether one or two clock levels or edges control them. Their *zweiflankengesteuert* means that a master takes the input at one clock edge and a slave passes it to the output at the other. It is not the English dual-edge-triggered, which names a flip-flop that samples `D` at both edges.
+
+The usual way to build a flip-flop is two D latches in series with opposite gates, the **master** and the **slave** (@fig-sequential-master-slave). While the clock is low, the master is transparent and follows `D`, and the slave holds `Q`. At the rising edge, the master closes and holds the value of `D` at that moment, and the slave opens and passes it to `Q`. So the value that `D` has at the edge is the one that appears at `Q`. The flip-flop `dfrbpq_1` of SG13CMOS5L is built this way. Other structures exist, e.g., the flip-flop of six NAND gates in the TTL chip 7474, or the pulsed latch, a single latch that is transparent only for a short pulse after the clock edge.
+
+{{< include /content/sequential/_fig_master_slave.qmd >}}
 
 Synchronous designs use flip-flops (@sec-sv-sync-design). Their state changes only at the clock edges, so every path from one register to the next has exactly one clock period, and a tool can check each path on its own. A latch passes every change of `D` while it is transparent, including glitches, so a path through a latch continues into the next phase of the clock (@sec-sequential-borrow). In SG13CMOS5L, the latch `dlhq_1`, transparent while its gate is high, has an area of 30.84 µm², and the flip-flop `dfrbpq_1`, which has an asynchronous reset, 48.99 µm². In synchronous designs, latches mostly appear inside cells, e.g., in the clock gate `lgcp_1` (@sec-synth-opt).
 
@@ -330,7 +338,7 @@ Time borrowing lets latch-based designs balance their stages automatically, whic
 
 ## Summary {#sec-sequential-summary}
 
-- A latch is transparent while its gate is active. A flip-flop, built from a master and a slave latch, samples its input at the clock edge. Synchronous designs use flip-flops, so that every register-to-register path has exactly one period.
+- A latch is transparent while its gate is active. A flip-flop, usually built from a master and a slave latch, samples its input at the clock edge. Synchronous designs use flip-flops, so that every register-to-register path has exactly one period.
 - A flip-flop has a clock-to-output delay, a setup and a hold time around the clock edge, a recovery and a removal time for the release of its asynchronous reset, and minimum pulse widths. The library gives them as tables over the slews. Hold times can be negative.
 - The setup condition $t_\text{cq} + t_\text{logic,max} + t_\text{su} \le T + t_\text{skew} - t_\text{unc}$ sets the clock frequency. The hold condition $t_\text{cq} + t_\text{logic,min} \ge t_\text{hold} + t_\text{skew} + t_\text{unc}$ does not contain the period, so for a path between flip-flops on the same edge, a lower clock frequency does not fix a hold violation.
 - Static timing analysis propagates arrival times through all paths of the netlist and compares them with required times, without stimuli. It knows nothing about the function, and it checks only what the constraints describe.

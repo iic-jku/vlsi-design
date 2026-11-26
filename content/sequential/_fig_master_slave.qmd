@@ -1,0 +1,72 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-sequential-master-slave
+#| echo: false
+#| fig-cap: "A D flip-flop that triggers on the rising edge, built from two D latches with opposite gates. The bubble at the gate of the master makes it transparent while `clk` is low, and the slave is transparent while `clk` is high. The two latches are never transparent at the same time, so `D` never runs through to `Q`."
+#| fig-alt: "Circuit diagram. A dashed box labeled D flip-flop contains two orange latch boxes, the master latch on the left and the slave latch on the right, each with the pins D, G, and Q. The input D drives D of the master, Q of the master drives D of the slave, and Q of the slave is the output Q. The clock clk drives the gate G of the master through an inversion bubble and the gate G of the slave directly. Under the master, the note says transparent while clk = 0, under the slave transparent while clk = 1."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+sd.svgconfig.svg2 = False
+
+ORANGE, ORANGE_L = '#d79b00', '#ffe6cc'
+RED, GREY = '#b85450', '#666666'
+W, H = 1.4, 2.0              # latch box
+XM = 2.4                     # left edge of the master
+XS = XM + W + 2.2            # left edge of the slave
+YD, YG, YK = 0.45, -0.55, -2.4   # D and G pins, clock line
+LANE = 1.0                   # from a gate lane to its pin
+XQ = XS + W + 1.3            # end of the output wire
+FRAME = (0.7, 1.95, XS + W + 0.55, YK - 0.5)   # dashed box: left, top, right, bottom
+
+
+def text(p, s, halign='center', color='black'):
+    ''' Text aligned to p in x, with its capitals centered on p in y '''
+    # A free Label sits 0.1 to the right of its anchor with its baseline on it, so shift it back.
+    # theta(0): a label inherits the direction of the last wire, and its alignment turns with it.
+    elm.Label().theta(0).at((p[0] - 0.1, p[1] - 0.1)).label(s, color=color, halign=halign)
+
+
+def latch(xl, name, inverted):
+    ''' D latch with its left edge at xl, returns (D, Q, gate pin) '''
+    flow.Box(w=W, h=H).at((xl + W/2, 0)).anchor('center').fill(ORANGE_L).color(ORANGE)
+    text((xl + 0.25, YD), 'D')
+    text((xl + W - 0.25, YD), 'Q')
+    text((xl + 0.25, YG), 'G')
+    text((xl + W/2, H/2 + 0.35), name)
+    pin = (xl, YG)
+    if inverted:   # active-low gate: a bubble on the pin
+        elm.Dot(radius=0.09, open=True).at((xl - 0.09, YG)).color('black')
+        pin = (xl - 0.18, YG)
+    return (xl, YD), (xl + W, YD), pin
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
+    dm, qm, gm = latch(XM, 'master latch', inverted=True)
+    ds, qs, gs = latch(XS, 'slave latch', inverted=False)
+    text((0.0, YD + 0.3), 'D', halign='left')
+    flow.Arrow().at((0.0, YD)).to(dm)
+    flow.Arrow().at(qm).to(ds)
+    flow.Line().at(qs).to((XQ, YD))
+    text((XQ + 0.1, YD), 'Q', halign='left')
+    # clock to both gates
+    xgm, xgs = gm[0] - LANE, gs[0] - LANE
+    text((0.0, YK + 0.3), 'clk', halign='left', color=RED)
+    flow.Line().at((0.0, YK)).to((xgs, YK)).color(RED)
+    elm.Dot(radius=0.06).at((xgm, YK)).color(RED)
+    flow.Line().at((xgm, YK)).to((xgm, YG)).color(RED)
+    flow.Arrow().at((xgm, YG)).to(gm).color(RED)
+    flow.Line().at((xgs, YK)).to((xgs, YG)).color(RED)
+    flow.Arrow().at((xgs, YG)).to(gs).color(RED)
+    # when each latch is transparent
+    for xl, level in ((XM, '0'), (XS, '1')):
+        text((xl + W/2, -H/2 - 0.35), 'transparent', color=GREY)
+        text((xl + W/2, -H/2 - 0.75), f'while clk = {level}', color=GREY)
+    elm.Rect(corner1=FRAME[:2], corner2=FRAME[2:], lw=1).at((0, 0)).linestyle('--').color(GREY)
+    text(((FRAME[0] + FRAME[2])/2, FRAME[1] + 0.35), 'D flip-flop', color=GREY)
+```
