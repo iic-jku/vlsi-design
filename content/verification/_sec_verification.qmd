@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 The last two chapters used testbenches: a few lines of SystemVerilog or Python that drive a design and check its outputs. This chapter turns them into a methodology. Three questions guide it. How does a testbench decide that a design is correct, without anybody looking at waveforms? Which stimuli does it apply, if it cannot apply all of them? And when is the verification complete? The answers are a testbench architecture with a reference model, a mix of directed, exhaustive, and random stimuli, and the measurement of coverage. Along the way, we check the checks themselves with deliberate bugs, and we run the same testbench on the synthesized netlist, without and with the delays of the cells.
 
 ::: {.callout-note}
-All code of this chapter is available in the folder [`content/verification/code`]({{< meta var.url-repo >}}/tree/main/content/verification/code) of the course repository, with one folder per design. As in @sec-modeling, the RTL is in `rtl/`, the cocotb testbenches are in `testbenches/cocotb/`, and the files of an exercise are in `exercise/`. The assertions of the FIFO are in `testbenches/sva/`, its testbench for the comparison of the simulators is in `testbenches/verilog/`, and its timing analysis script is in `syn/`. Every file in `rtl/` lints without warnings and synthesizes. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.11` (Verilator 5.054, Icarus Verilog 14.0, cocotb 2.1.0, Yosys 0.71, OpenSTA 3.2.0) and the typical-corner library of SG13CMOS5L (`sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz`, 1.2 V, 25 °C). Run times depend on the computer, and the ones quoted here come from a laptop. The script [`scripts/check_verification.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_verification.sh) reproduces all other numbers: run `bash scripts/check_verification.sh` in the container from the root of the repository.
+All code of this chapter is available in the folder [`content/verification/code`]({{< meta var.url-repo >}}/tree/main/content/verification/code) of the course repository, with one folder per design. As in @sec-modeling, the RTL is in `rtl/`, the cocotb testbenches are in `testbenches/cocotb/`, and the files of an exercise are in `exercise/`. The assertions of the FIFO are in `testbenches/sva/`, its testbench for the comparison of the simulators is in `testbenches/verilog/`, and its timing analysis script is in `syn/`. Every file in `rtl/` lints without warnings and synthesizes. All numbers in this chapter come from the IIC-OSIC-TOOLS image `2026.10` (Verilator 5.052, Icarus Verilog 14.0, cocotb 2.1.0, Yosys 0.70, OpenSTA 3.1.0) and the typical-corner library of SG13CMOS5L (`sg13cmos5l_stdcell_typ_1p20V_25C.lib.gz`, 1.2 V, 25 °C). Run times depend on the computer, and the ones quoted here come from a laptop. The script [`scripts/check_verification.sh`]({{< meta var.url-repo >}}/blob/main/scripts/check_verification.sh) reproduces all other numbers: run `bash scripts/check_verification.sh` in the container from the root of the repository.
 :::
 
 For the exercises, clone the course repository into your designs folder once, if you have not done so yet:
@@ -326,9 +326,9 @@ The open-source tools support assertions very differently (@tbl-verification-sva
 | Tool | Immediate assertions | Concurrent assertions |
 |---|---|---|
 | Icarus Verilog 14.0 | supported, but `$error` only prints a message, and the simulation continues and exits with status 0 | rejected as not supported (`sorry`), dropped without a message with `-gsupported-assertions`, and the non-overlapping implication and `bind` are syntax errors |
-| Verilator 5.054 | supported | supported, at least the properties of this chapter, and checked by default (`--no-assert` switches them off). A failure stops the simulation. |
-| Yosys 0.71 (`read_verilog -sv`) | syntax error at `else` | syntax error at `@(posedge ...)` |
-| Yosys 0.71 with slang | read without an error | `unsupported SVA feature` for the non-overlapping implication |
+| Verilator 5.052 | supported | supported, at least the properties of this chapter, and checked by default (`--no-assert` switches them off). A failure stops the simulation. |
+| Yosys 0.70 (`read_verilog -sv`) | syntax error at `else` | syntax error at `@(posedge ...)` |
+| Yosys 0.70 with slang | read without an error | `unsupported SVA feature` for the non-overlapping implication |
 
 : Support of SystemVerilog assertions in the open-source tools {#tbl-verification-sva}
 
@@ -486,7 +486,7 @@ surfer testbenches/cocotb/sim_build/fifo_sdf.fst
 
 Both tests pass. Icarus Verilog prints 38 warnings `SDF WARNING: ... TIMINGCHECK not supported`, one per flip-flop. It reads the delays, but it never checks a setup, hold, recovery, or removal time. A timing violation therefore shows up in Icarus Verilog only if it makes a flip-flop capture a wrong value. Simulators that support timing checks evaluate the `$setuphold` and `$recrem` checks of the cell models, and on a violation the model of the flip-flop drives its output to `x`, the same mechanism that VITAL, the IEEE standard for ASIC cell models in VHDL, defines.
 
-Four traps of the open-source flow, measured with OpenSTA 3.2.0 and Icarus Verilog 14.0. `sta.tcl` handles the first three:
+Four traps of the open-source flow, measured with OpenSTA 3.1.0 and Icarus Verilog 14.0. `sta.tcl` handles the first three:
 
 - OpenSTA writes the triples as `(min::max)`, without the typical value, unless `write_sdf` gets the option `-include_typ`. By default, Icarus Verilog annotates the typical value, so without the option it annotates nothing, without any message. The simulation then runs without delays, while it seems to run with them. In the FIFO, `empty_o` falls 0.44 ns after the clock edge that stores the first push with the typical values, and 0 ns after it without them.
 - Icarus Verilog reports an error for the header lines `VOLTAGE` and `TEMPERATURE`, whose triples also lack the typical value.

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Description: Reproduces every number that the chapter "Sequential
 # Elements and Static Timing Analysis" quotes, inside the IIC-OSIC-TOOLS
-# container (image 2026.11). Run from the repository root:
+# container (image 2026.10). Run from the repository root:
 #   bash scripts/check_sequential.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter.
@@ -69,8 +69,8 @@ period() {  # period <log>: the minimum period and fmax of report_clock_min_peri
 }
 
 echo "== Versions"
-check "Yosys" "$(yosys -V | awk '{print $2}')" "0.71"
-check "OpenSTA" "$(sta -version)" "3.2.0"
+check "Yosys" "$(yosys -V | awk '{print $2}')" "0.70"
+check "OpenSTA" "$(sta -version)" "3.1.0"
 
 echo "== Cells"
 check "area of dlhq_1, dfrbpq_1" "$(attr dlhq_1 area) $(attr dfrbpq_1 area)" "30.8448 48.9888"

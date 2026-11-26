@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Description: Reproduces every number that the chapter "Logic Synthesis
 # and the Standard-Cell Library" quotes, inside the IIC-OSIC-TOOLS
-# container (image 2026.11). Run from the repository root:
+# container (image 2026.10). Run from the repository root:
 #   bash scripts/check_synthesis_lib.sh
 # Works on a copy in /tmp, so the repository stays clean. Exits with 1
 # if any result differs from the value in the chapter.
@@ -74,9 +74,9 @@ arrival() {  # arrival [corner]: the arrival time of the slowest output
 }
 
 echo "== Versions"
-check "Yosys" "$(yosys -V | awk '{print $2}')" "0.71"
-check "OpenSTA" "$(sta -version)" "3.2.0"
-check "KLayout" "$(klayout -v | awk '{print $2}')" "0.30.14"
+check "Yosys" "$(yosys -V | awk '{print $2}')" "0.70"
+check "OpenSTA" "$(sta -version)" "3.1.0"
+check "KLayout" "$(klayout -v | awk '{print $2}')" "0.30.12"
 must "EQY in the image" "$(command -v eqy > /dev/null && echo yes)" "yes"
 must "kepler-formal in the image" "$(command -v kepler-formal > /dev/null && echo yes)" "yes"
 check "kepler-formal modes" "$(kepler-formal --help 2>&1 | grep -c -- '-v <lec|sec>')" "1"
