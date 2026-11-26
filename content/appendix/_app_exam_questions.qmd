@@ -79,115 +79,117 @@ The written exam is closed book and allows no technical aids. Most questions the
 
 ## Sequential Elements and Static Timing Analysis {#sec-app-exam-sta}
 
-30. What are the setup time and the hold time of a flip-flop, and what can happen when the data changes inside the window that they form? Name the other timing parameters of a flip-flop with an asynchronous reset, and explain what a negative hold time means.
+30. What separates a latch from a flip-flop, and why is it not whether the element has a clock? Draw a D latch of NAND gates and explain when it is transparent and when it holds. Draw a D flip-flop of two D latches, sketch `clk`, `D`, the output of the master, and `Q` over a few clock periods, and explain why the flip-flop is edge-triggered.
 
-31. Draw a path between two registers with the clock tree that drives both. What are clock latency, clock skew, clock uncertainty, and jitter?
+31. What are the setup time and the hold time of a flip-flop, and what can happen when the data changes inside the window that they form? Name the other timing parameters of a flip-flop with an asynchronous reset, and explain what a negative hold time means.
 
-32. Write the setup and the hold condition of a register-to-register path, including skew and uncertainty, and define the slack of each check. Describe a setup and a hold violation. Why does a lower clock frequency fix a setup violation but not a hold violation?
+32. Draw a path between two registers with the clock tree that drives both. What are clock latency, clock skew, clock uncertainty, and jitter?
 
-33. Describe static timing analysis in one sentence. What are startpoints, endpoints, and the four kinds of timing paths, and what are WNS and TNS? What can static timing analysis not check?
+33. Write the setup and the hold condition of a register-to-register path, including skew and uncertainty, and define the slack of each check. Describe a setup and a hold violation. Why does a lower clock frequency fix a setup violation but not a hold violation?
 
-34. A register output clocks other registers. What does STA do with the paths behind it if the constraints do not mention this clock, and how does `check_setup` reveal it? Which constraint fixes the analysis, and which paths does the tool time once it knows the generated clock?
+34. Describe static timing analysis in one sentence. What are startpoints, endpoints, and the four kinds of timing paths, and what are WNS and TNS? What can static timing analysis not check?
 
-35. What are false paths and multicycle paths? Why does a multicycle path with 2 cycles for setup also need an exception of 1 cycle for hold? Why should a design have few timing exceptions?
+35. A register output clocks other registers. What does STA do with the paths behind it if the constraints do not mention this clock, and how does `check_setup` reveal it? Which constraint fixes the analysis, and which paths does the tool time once it knows the generated clock?
 
-36. How are setup and hold violations fixed, and on which paths do hold violations typically appear? The capturing flip-flop of a shift register of two flip-flops gets its clock through four buffers, and the analysis uses no clock uncertainty. Why can its hold check be worst in the slow corner?
+36. What are false paths and multicycle paths? Why does a multicycle path with 2 cycles for setup also need an exception of 1 cycle for hold? Why should a design have few timing exceptions?
+
+37. How are setup and hold violations fixed, and on which paths do hold violations typically appear? The capturing flip-flop of a shift register of two flip-flops gets its clock through four buffers, and the analysis uses no clock uncertainty. Why can its hold check be worst in the slow corner?
 
 ## Synthesis Optimizations and Low-Power Design {#sec-app-exam-opt}
 
-37. Explain the generate and the propagate signal of an adder, its carry recursion, and the prefix operator. Compare the ripple-carry, Brent-Kung, and Kogge-Stone adders by the number of levels and of prefix operators, and draw the prefix graph of an 8-bit Kogge-Stone adder.
+38. Explain the generate and the propagate signal of an adder, its carry recursion, and the prefix operator. Compare the ripple-carry, Brent-Kung, and Kogge-Stone adders by the number of levels and of prefix operators, and draw the prefix graph of an 8-bit Kogge-Stone adder.
 
-38. A prefix adder written with `+` comes out of synthesis with almost as many gates on its worst path as a ripple-carry adder. Why, and what follows for writing arithmetic in RTL?
+39. A prefix adder written with `+` comes out of synthesis with almost as many gates on its worst path as a ripple-carry adder. Why, and what follows for writing arithmetic in RTL?
 
-39. Why does a pipeline raise the throughput but not shorten the latency, and what limits the gain of more stages? Which signals must pass through the pipeline as well? What is retiming, and why does it complicate the equivalence check?
+40. Why does a pipeline raise the throughput but not shorten the latency, and what limits the gain of more stages? Which signals must pass through the pipeline as well? What is retiming, and why does it complicate the equivalence check?
 
-40. Name the three components of the power consumption of a CMOS circuit, and write the formula of the switching power. Which levers reduce the dynamic and the static power, and why does a slower clock alone not save energy per operation?
+41. Name the three components of the power consumption of a CMOS circuit, and write the formula of the switching power. Which levers reduce the dynamic and the static power, and why does a slower clock alone not save energy per operation?
 
-41. Why does a plain AND gate of the clock and an enable not work as a clock gate? Draw an integrated clock gate and its waveforms, and explain why it uses a latch. Why does clock gating save most of the power of a register whose enable is rarely high, but little when the enable is high in every cycle?
+42. Why does a plain AND gate of the clock and an enable not work as a clock gate? Draw an integrated clock gate and its waveforms, and explain why it uses a latch. Why does clock gating save most of the power of a register whose enable is rarely high, but little when the enable is high in every cycle?
 
 ## Clock Domains, Metastability, and Resets {#sec-app-exam-cdc}
 
-42. What is a clock domain, and when are two clocks synchronous or asynchronous? What is a clock domain crossing, why can static timing analysis not check it, and which SDC command removes the paths between two asynchronous clocks from the analysis?
+43. What is a clock domain, and when are two clocks synchronous or asynchronous? What is a clock domain crossing, why can static timing analysis not check it, and which SDC command removes the paths between two asynchronous clocks from the analysis?
 
-43. Explain metastability with the cross-coupled inverters of a latch and its time constant $\tau$. Write the formula for the mean time between failures (MTBF) of a synchronizer, explain each term, and say why a synchronizer is designed for the slow corner.
+44. Explain metastability with the cross-coupled inverters of a latch and its time constant $\tau$. Write the formula for the mean time between failures (MTBF) of a synchronizer, explain each term, and say why a synchronizer is designed for the slow corner.
 
-44. Draw a two-flip-flop synchronizer and explain why it raises the MTBF. Which rules must a synchronizer follow, and by which factor does a third flip-flop raise the MTBF?
+45. Draw a two-flip-flop synchronizer and explain why it raises the MTBF. Which rules must a synchronizer follow, and by which factor does a third flip-flop raise the MTBF?
 
-45. Why can a one-cycle pulse from a fast clock domain get lost in a slow one? Draw a pulse synchronizer and explain how it works. How far apart must two pulses be?
+46. Why can a one-cycle pulse from a fast clock domain get lost in a slow one? Draw a pulse synchronizer and explain how it works. How far apart must two pulses be?
 
-46. Why can a bus whose bits change at the same time not cross through one synchronizer per bit? Name three ways to cross it, explain why Gray code works for counters and pointers, and describe a handshake.
+47. Why can a bus whose bits change at the same time not cross through one synchronizer per bit? Name three ways to cross it, explain why Gray code works for counters and pointers, and describe a handshake.
 
-47. Draw an asynchronous FIFO. Why does each pointer exist in binary and in Gray code? How are the full and the empty flag computed, why can they be pessimistic, and why does the memory need no synchronizer?
+48. Draw an asynchronous FIFO. Why does each pointer exist in binary and in Gray code? How are the full and the empty flag computed, why can they be pessimistic, and why does the memory need no synchronizer?
 
-48. Why is the release of an asynchronous reset a clock domain crossing? What does a reset synchronizer do, how many does a design with several clock domains need, and why must the reset input itself be free of glitches?
+49. Why is the release of an asynchronous reset a clock domain crossing? What does a reset synchronizer do, how many does a design with several clock domains need, and why must the reset input itself be free of glitches?
 
 ## Design for Test (DFT) {#sec-app-exam-dft}
 
-49. Why must every manufactured die be tested, and how do catastrophic and parametric yield loss differ? Name the three tests that a die can go through between the wafer and the shipment, and what each of them catches. Sketch the bathtub curve of the failure rate, and explain with it what a burn-in does.
+50. Why must every manufactured die be tested, and how do catastrophic and parametric yield loss differ? Name the three tests that a die can go through between the wafer and the shipment, and what each of them catches. Sketch the bathtub curve of the failure rate, and explain with it what a burn-in does.
 
-50. What are yield, fault coverage, test coverage, and defect level? Write the model of Williams and Brown, and explain why a defect level of a few ppm needs a fault coverage close to 100 %. What is overkill, and what does it cost?
+51. What are yield, fault coverage, test coverage, and defect level? Write the model of Williams and Brown, and explain why a defect level of a few ppm needs a fault coverage close to 100 %. What is overkill, and what does it cost?
 
-51. Explain the chain of defect, fault, error, and failure. What is the stuck-at fault model, and what are the stem and the branches of a net? How many single stuck-at faults does a netlist with $n$ fault sites have? What are equivalent and untestable faults, and what does fault collapsing do?
+52. Explain the chain of defect, fault, error, and failure. What is the stuck-at fault model, and what are the stem and the branches of a net? How many single stuck-at faults does a netlist with $n$ fault sites have? What are equivalent and untestable faults, and what does fault collapsing do?
 
-52. Name three kinds of production defects, the wrong behavior that each of them causes, and the fault model that describes it. Why does a stuck-open transistor need a test of two vectors, and why can a stuck-on transistor escape every test of the logic values? What does IDDQ testing measure?
+53. Name three kinds of production defects, the wrong behavior that each of them causes, and the fault model that describes it. Why does a stuck-open transistor need a test of two vectors, and why can a stuck-on transistor escape every test of the logic values? What does IDDQ testing measure?
 
-53. Describe the three steps of finding a test for a stuck-at fault, and explain controllability and observability. What do the values $D$ and $\bar{D}$ of the D-algorithm stand for, and what are the D-frontier and the J-frontier? How does PODEM differ from the D-algorithm? How do the D-algorithm and a SAT solver on a miter show that a fault is untestable, and why do ATPG tools start with random vectors?
+54. Describe the three steps of finding a test for a stuck-at fault, and explain controllability and observability. What do the values $D$ and $\bar{D}$ of the D-algorithm stand for, and what are the D-frontier and the J-frontier? How does PODEM differ from the D-algorithm? How do the D-algorithm and a SAT solver on a miter show that a fault is untestable, and why do ATPG tools start with random vectors?
 
-54. What is scan design? Draw a scan flip-flop and a scan chain, and explain how scan turns the test of a sequential circuit into the test of a combinational one. What does scan cost, why are the chains stitched only after the placement, and how do you check that the scan insertion did not change the function?
+55. What is scan design? Draw a scan flip-flop and a scan chain, and explain how scan turns the test of a sequential circuit into the test of a combinational one. What does scan cost, why are the chains stitched only after the placement, and how do you check that the scan insertion did not change the function?
 
-55. Describe the scan test sequence, including the chain test. How many clock cycles does a test of $N$ patterns over a chain of $L$ flip-flops take, and how can the test time be reduced? Why is the shift clock often slower than the functional clock?
+56. Describe the scan test sequence, including the chain test. How many clock cycles does a test of $N$ patterns over a chain of $L$ flip-flops take, and how can the test time be reduced? Why is the shift clock often slower than the functional clock?
 
-56. Name and explain at least four design rules for testability besides those for the scan chain itself. Why does a reset synchronizer in front of the registers break the scan chain, and how is it fixed?
+57. Name and explain at least four design rules for testability besides those for the scan chain itself. Why does a reset synchronizer in front of the registers break the scan chain, and how is it fixed?
 
-57. What do an at-speed test, a logic built-in self-test, a memory BIST, and boundary scan add to the scan test? Explain launch on capture, launch on shift, and aliasing. Why should a transition test sensitize the longest path through a fault site?
+58. What do an at-speed test, a logic built-in self-test, a memory BIST, and boundary scan add to the scan test? Explain launch on capture, launch on shift, and aliasing. Why should a transition test sensitize the longest path through a fault site?
 
 ## The RTL-to-GDSII Flow with LibreLane {#sec-app-exam-flow}
 
-58. What are the die and the core of a floorplan? How does the utilization set the size of the core, and why is the core not filled with cells completely? How are the rows, the power grid, and the pins arranged, and what does a denser core gain and cost?
+59. What are the die and the core of a floorplan? How does the utilization set the size of the core, and why is the core not filled with cells completely? How are the rows, the power grid, and the pins arranged, and what does a denser core gain and cost?
 
-59. What do global placement, the repair of the design, and detailed placement do? Which limits does the repair of the design enforce, what happens to the timing of a net that exceeds them, and why does the reset net need the repair?
+60. What do global placement, the repair of the design, and detailed placement do? Which limits does the repair of the design enforce, what happens to the timing of a net that exceeds them, and why does the reset net need the repair?
 
-60. What is a clock tree, and what is it used for? How does TritonCTS build an H-tree, and what is a dummy load?
+61. What is a clock tree, and what is it used for? How does TritonCTS build an H-tree, and what is a dummy load?
 
-61. What changes in the timing analysis after clock tree synthesis, and why does the flow repair hold violations only after it? How does CTS treat a clock gate, and why do the paths into a divided clock violate hold?
+62. What changes in the timing analysis after clock tree synthesis, and why does the flow repair hold violations only after it? How does CTS treat a clock gate, and why do the paths into a divided clock violate hold?
 
-62. What do global and detailed routing do, and what is congestion? What is the antenna rule, and how is a violation fixed? Which cells does the fill insertion add to the rows after routing, and why?
+63. What do global and detailed routing do, and what is congestion? What is the antenna rule, and how is a violation fixed? Which cells does the fill insertion add to the rows after routing, and why?
 
-63. What does the signoff check? Explain parasitic extraction, the signoff STA in all corners, the IR drop analysis, DRC, and LVS, and say why the equivalence check runs again on the final netlist.
+64. What does the signoff check? Explain parasitic extraction, the signoff STA in all corners, the IR drop analysis, DRC, and LVS, and say why the equivalence check runs again on the final netlist.
 
-64. How does the flow estimate the wires after placement, and why are these estimates optimistic? Why does the slow corner lose the most slack, and why can a setup margin for the timing repair close the timing where a delay-oriented synthesis does not?
+65. How does the flow estimate the wires after placement, and why are these estimates optimistic? Why does the slow corner lose the most slack, and why can a setup margin for the timing repair close the timing where a delay-oriented synthesis does not?
 
-65. What changes when a timing simulation runs on the final netlist after the layout instead of on the synthesized netlist, and how do you check that the delays of the SDF file were really annotated? Why must the testbench change the inputs no earlier than the input delay of the SDC, and what happens in the simulation when it changes them right after the clock edge?
+66. What changes when a timing simulation runs on the final netlist after the layout instead of on the synthesized netlist, and how do you check that the delays of the SDF file were really annotated? Why must the testbench change the inputs no earlier than the input delay of the SDC, and what happens in the simulation when it changes them right after the clock edge?
 
-66. What does a padframe do? What do the IO cells, the core ring, the seal ring, and the metal fill add to a chip, and which steps does the Chip flow add to the Classic flow?
+67. What does a padframe do? What do the IO cells, the core ring, the seal ring, and the metal fill add to a chip, and which steps does the Chip flow add to the Classic flow?
 
-67. What is the difference between a static cell and a PCell? Give an example of each, and say what happens to a PCell when a layout is exported for tapeout.
+68. What is the difference between a static cell and a PCell? Give an example of each, and say what happens to a PCell when a layout is exported for tapeout.
 
 ## Calculation Problems {#sec-app-exam-calc}
 
-68. **Delay Table**: Around an input slew of 0.2 ns and a load of 0.03 pF, the table `cell_rise` of a cell holds four entries: 0.10 ns at a slew of 0.1 ns and a load of 0.02 pF, 0.20 ns at 0.1 ns and 0.06 pF, 0.14 ns at 0.3 ns and 0.02 pF, and 0.26 ns at 0.3 ns and 0.06 pF. Compute the delay by linear interpolation, first along the load and then along the slew.
+69. **Delay Table**: Around an input slew of 0.2 ns and a load of 0.03 pF, the table `cell_rise` of a cell holds four entries: 0.10 ns at a slew of 0.1 ns and a load of 0.02 pF, 0.20 ns at 0.1 ns and 0.06 pF, 0.14 ns at 0.3 ns and 0.02 pF, and 0.26 ns at 0.3 ns and 0.06 pF. Compute the delay by linear interpolation, first along the load and then along the slew.
 
-69. **Setup and Hold Slack**: A path between two flip-flops on the same clock has a clock-to-output delay of 0.2 ns, a longest logic delay of 1.5 ns, a shortest logic delay of 0.02 ns, a setup time of 0.1 ns, and a hold time of 0.05 ns. The clock reaches the capturing flip-flop 0.1 ns later than the launching one, and the clock uncertainty is 0.1 ns for both checks. Compute the setup slack at a clock period of 2 ns, the minimum period, and the hold slack. Which check fails, does a slower clock help, and how do you fix it?
+70. **Setup and Hold Slack**: A path between two flip-flops on the same clock has a clock-to-output delay of 0.2 ns, a longest logic delay of 1.5 ns, a shortest logic delay of 0.02 ns, a setup time of 0.1 ns, and a hold time of 0.05 ns. The clock reaches the capturing flip-flop 0.1 ns later than the launching one, and the clock uncertainty is 0.1 ns for both checks. Compute the setup slack at a clock period of 2 ns, the minimum period, and the hold slack. Which check fails, does a slower clock help, and how do you fix it?
 
-70. **Switching Power**: The data nets of a block have a total capacitance of 20 pF and an average activity of 0.1 transitions per clock cycle, and its clock net has 2 pF. Compute the switching power of the data nets and of the clock net at 1.2 V and 250 MHz. By which factor does the switching power grow at 1.5 V and the same clock frequency?
+71. **Switching Power**: The data nets of a block have a total capacitance of 20 pF and an average activity of 0.1 transitions per clock cycle, and its clock net has 2 pF. Compute the switching power of the data nets and of the clock net at 1.2 V and 250 MHz. By which factor does the switching power grow at 1.5 V and the same clock frequency?
 
-71. **Synchronizer MTBF**: A flip-flop has $\tau$ = 100 ps and $T_0$ = 20 ps, a clock-to-output delay of 0.2 ns, and a setup time of 0.1 ns. A signal that changes $10^7$ times per second enters a domain clocked at 500 MHz through a two-flip-flop synchronizer. Compute the MTBF, the factor by which a third flip-flop raises it, and the MTBF with three flip-flops in years. Use $e^{17} \approx 2.4 \cdot 10^7$ and 1 year $\approx 3.2 \cdot 10^7$ s.
+72. **Synchronizer MTBF**: A flip-flop has $\tau$ = 100 ps and $T_0$ = 20 ps, a clock-to-output delay of 0.2 ns, and a setup time of 0.1 ns. A signal that changes $10^7$ times per second enters a domain clocked at 500 MHz through a two-flip-flop synchronizer. Compute the MTBF, the factor by which a third flip-flop raises it, and the MTBF with three flip-flops in years. Use $e^{17} \approx 2.4 \cdot 10^7$ and 1 year $\approx 3.2 \cdot 10^7$ s.
 
-72. **Defect Level**: A process has a yield of 90 %, and the test reaches a fault coverage of 98 %. Compute the defect level in ppm with the model of Williams and Brown, and the coverage that a defect level of 10 ppm needs. Use $Y^x \approx 1 + x \ln Y$ for small $x$, and $\ln 0.9 \approx -0.105$.
+73. **Defect Level**: A process has a yield of 90 %, and the test reaches a fault coverage of 98 %. Compute the defect level in ppm with the model of Williams and Brown, and the coverage that a defect level of 10 ppm needs. Use $Y^x \approx 1 + x \ln Y$ for small $x$, and $\ln 0.9 \approx -0.105$.
 
-73. **Test Vectors**: A circuit computes $y = ab + c$, with the internal net $n = ab$. Find a test vector $(a, b, c)$ for $n$ stuck-at-0, for $a$ stuck-at-1, and for $c$ stuck-at-0, and say for each how it excites and propagates the fault, with the values $D$ and $\bar{D}$ along the path. Then show with the D-algorithm that the net $bc$ stuck-at-0 in $y = ab + \bar{a}c + bc$ is untestable.
+74. **Test Vectors**: A circuit computes $y = ab + c$, with the internal net $n = ab$. Find a test vector $(a, b, c)$ for $n$ stuck-at-0, for $a$ stuck-at-1, and for $c$ stuck-at-0, and say for each how it excites and propagates the fault, with the values $D$ and $\bar{D}$ along the path. Then show with the D-algorithm that the net $bc$ stuck-at-0 in $y = ab + \bar{a}c + bc$ is untestable.
 
-74. **Scan Test Time**: A design has 1000 flip-flops, and its test has 200 scan patterns, which the tester shifts at 20 MHz. How long does the scan test take without the chain test, with one chain, and how long with 10 chains of 100 flip-flops each?
+75. **Scan Test Time**: A design has 1000 flip-flops, and its test has 200 scan patterns, which the tester shifts at 20 MHz. How long does the scan test take without the chain test, with one chain, and how long with 10 chains of 100 flip-flops each?
 
-75. **Fault Collapsing**: A circuit has the inputs $a$, $b$, $c$, and $d$ and two outputs. An AND gate computes $p = ab$, an OR gate $y = p + c$, an inverter $\bar{c}$, and a second AND gate $z = \bar{c}\,d$, so $c$ drives the OR gate and the inverter. Count the fault sites with a site on each net and on each branch of $c$, and the single stuck-at faults. How many faults does the rule $2(P_O + F_O) + G_I - N_I$ leave? Which faults are equivalent to $y$ stuck-at-1, and which to $z$ stuck-at-0?
+76. **Fault Collapsing**: A circuit has the inputs $a$, $b$, $c$, and $d$ and two outputs. An AND gate computes $p = ab$, an OR gate $y = p + c$, an inverter $\bar{c}$, and a second AND gate $z = \bar{c}\,d$, so $c$ drives the OR gate and the inverter. Count the fault sites with a site on each net and on each branch of $c$, and the single stuck-at faults. How many faults does the rule $2(P_O + F_O) + G_I - N_I$ leave? Which faults are equivalent to $y$ stuck-at-1, and which to $z$ stuck-at-0?
 
-76. **Delay Test**: A net lies on two paths between flip-flops of the same clock, with delays of 1.2 ns and 1.9 ns, each including the clock-to-output delay and the setup time. The clock is ideal and has no uncertainty. A defect adds an extra delay to the net. Which extra delay must the defect exceed, so that an at-speed transition test at the functional clock period of 2 ns detects it along each of the two paths? Which path should the test use? Which extra delay must the defect exceed for the better path if the test runs with a slow test clock of 4 ns instead?
+77. **Delay Test**: A net lies on two paths between flip-flops of the same clock, with delays of 1.2 ns and 1.9 ns, each including the clock-to-output delay and the setup time. The clock is ideal and has no uncertainty. A defect adds an extra delay to the net. Which extra delay must the defect exceed, so that an at-speed transition test at the functional clock period of 2 ns detects it along each of the two paths? Which path should the test use? Which extra delay must the defect exceed for the better path if the test runs with a slow test clock of 4 ns instead?
 
-77. **Gray Code**: Write down the 3-bit Gray code of 0 to 7. Convert the binary value `1011` into Gray code, and the Gray code `1101` back into binary. A 4-bit binary counter steps from `0111` to `1000` while another clock domain samples it through one synchronizer per bit. Which values can the other domain see, and which with a Gray-coded counter?
+78. **Gray Code**: Write down the 3-bit Gray code of 0 to 7. Convert the binary value `1011` into Gray code, and the Gray code `1101` back into binary. A 4-bit binary counter steps from `0111` to `1000` while another clock domain samples it through one synchronizer per bit. Which values can the other domain see, and which with a Gray-coded counter?
 
 ## Reading, Writing, and Fixing Code {#sec-app-exam-code}
 
-78. **Find the Bugs**: The following module should add `d_i` to an 8-bit sum in every clock cycle in which `en_i` is high and keep the sum otherwise. The sum wraps around at 256. Find the three mistakes. For each one, explain what Verilator or Yosys reports or which hardware results, and write the corrected module.
+79. **Find the Bugs**: The following module should add `d_i` to an 8-bit sum in every clock cycle in which `en_i` is high and keep the sum otherwise. The sum wraps around at 256. Find the three mistakes. For each one, explain what Verilator or Yosys reports or which hardware results, and write the corrected module.
 
     ```systemverilog
     module acc (
@@ -212,7 +214,7 @@ The written exam is closed book and allows no technical aids. Most questions the
     endmodule
     ```
 
-79. **From VHDL to SystemVerilog**: The following counter is written in the two-process style of VHDL, with `cnt` and `next_cnt` of type `unsigned(2 downto 0)`. Translate it into a SystemVerilog module `cnt3` with the ports `clk_i`, `rst_ni`, `en_i`, `clr_i`, and `tc_o`, an asynchronous active-low reset, and the two-process style with `_d` and `_q`. Why must the sensitivity list of `cnt_logic` contain all three signals, and what replaces it in SystemVerilog?
+80. **From VHDL to SystemVerilog**: The following counter is written in the two-process style of VHDL, with `cnt` and `next_cnt` of type `unsigned(2 downto 0)`. Translate it into a SystemVerilog module `cnt3` with the ports `clk_i`, `rst_ni`, `en_i`, `clr_i`, and `tc_o`, an asynchronous active-low reset, and the two-process style with `_d` and `_q`. Why must the sensitivity list of `cnt_logic` contain all three signals, and what replaces it in SystemVerilog?
 
     ```vhdl
     reg_proc: process(rst_i, clk_i) is
@@ -237,7 +239,7 @@ The written exam is closed book and allows no technical aids. Most questions the
     tc_o <= '1' when cnt = 7 else '0';
     ```
 
-80. **Clock Enable Instead of a Divided Clock**: The following code counts at half the clock frequency. Rewrite it with only one clock, an asynchronous active-low reset `rst_ni`, and a clock enable, so that the counter still advances at every second rising edge of `clk_i`. What does a simulation of the original with Icarus Verilog show, since `div_q` has no reset, and why does your version not have this problem?
+81. **Clock Enable Instead of a Divided Clock**: The following code counts at half the clock frequency. Rewrite it with only one clock, an asynchronous active-low reset `rst_ni`, and a clock enable, so that the counter still advances at every second rising edge of `clk_i`. What does a simulation of the original with Icarus Verilog show, since `div_q` has no reset, and why does your version not have this problem?
 
     ```systemverilog
     always_ff @(posedge clk_i) begin
@@ -249,7 +251,7 @@ The written exam is closed book and allows no technical aids. Most questions the
     end
     ```
 
-81. **Liberty Cell**: The following excerpt describes a cell of the typical library, whose units are ns and pF.
+82. **Liberty Cell**: The following excerpt describes a cell of the typical library, whose units are ns and pF.
 
     ```default
     cell (sg13cmos5l_a21oi_1) {
@@ -275,7 +277,7 @@ The written exam is closed book and allows no technical aids. Most questions the
 
     Draw the gate that the function describes. What does the timing sense of the arc from `A1` to `Y` mean? How large is the cell in gate equivalents, if a 2-input NAND gate has 7.2576 µm²? What is the input capacitance of `A1` in fF, and what happens when the output has to drive more than `max_capacitance`?
 
-82. **Timing Report**: The following report of OpenSTA shows the worst setup path of a block with an ideal clock of 1.25 ns.
+83. **Timing Report**: The following report of OpenSTA shows the worst setup path of a block with an ideal clock of 1.25 ns.
 
     ```default
     Startpoint: a_q (rising edge-triggered flip-flop clocked by clk)
@@ -310,9 +312,9 @@ The written exam is closed book and allows no technical aids. Most questions the
 
     Is the check met? Compute the minimum clock period of this path. Which cell takes the most time, and why is its rising output slow? Propose two fixes. Which lines of the two clock paths change if only `set_propagated_clock` is added to the constraints after clock tree synthesis, and why?
 
-83. **Timing Constraints**: Write the SDC constraints for a block with the clock input `clk_i` at 200 MHz, a clock transition of 0.1 ns, a clock uncertainty of 0.15 ns, input delays of 1.5 ns at all other inputs, output delays of 1.5 ns at all outputs, the cell `sg13cmos5l_buf_2` with its output pin `X` as the driver of the inputs, and a load of 10 fF at the outputs, in the units of the library, ns and pF. Explain what each command tells the timing analysis.
+84. **Timing Constraints**: Write the SDC constraints for a block with the clock input `clk_i` at 200 MHz, a clock transition of 0.1 ns, a clock uncertainty of 0.15 ns, input delays of 1.5 ns at all other inputs, output delays of 1.5 ns at all outputs, the cell `sg13cmos5l_buf_2` with its output pin `X` as the driver of the inputs, and a load of 10 fF at the outputs, in the units of the library, ns and pF. Explain what each command tells the timing analysis.
 
-84. **Clock Domain Crossing**: `req_a` is a pulse of one cycle of the faster clock `clk_a_i`, and the following code takes it into the domain of `clk_b_i`. Find the three mistakes, and draw a corrected crossing.
+85. **Clock Domain Crossing**: `req_a` is a pulse of one cycle of the faster clock `clk_a_i`, and the following code takes it into the domain of `clk_b_i`. Find the three mistakes, and draw a corrected crossing.
 
     ```systemverilog
     // domain A
