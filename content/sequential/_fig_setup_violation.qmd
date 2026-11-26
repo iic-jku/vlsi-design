@@ -1,0 +1,54 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-sequential-setup-violation
+#| echo: false
+#| fig-cap: "A setup violation. `D` changes from `a` to `b` less than $t_\\text{su}$ before the rising clock edge (red), i.e., inside the window of @fig-sequential-ff-timing. The new value arrives too late. From $t_\\text{cq}$ after the edge, `Q` is undefined (hatched): it may show `a` or `b`, and it may become metastable and settle only after an unpredictable time."
+#| fig-alt: "Timing diagram with the rows clk, D, and Q around one rising clock edge, marked by a dashed line. A shaded window starts t_su before the edge and ends t_hold after it. D holds the value a and changes to b inside the window, two steps before the edge. A red arrow from this change to the edge is labeled less than t_su. Q shows the old value and becomes undefined, drawn hatched, t_cq after the edge. Blue arrows below the rows mark t_su and t_hold."
+import schemdraw as sd
+from schemdraw import logic
+from schemdraw import elements as elm
+from schemdraw.util import Point
+sd.svgconfig.svg2 = False
+
+BLUE = '#6c8ebf'
+RED = '#b85450'
+waves = {'signal': [
+    {'name': 'clk', 'wave': '0.......1.......', 'period': 0.5},
+    {'name': 'D', 'wave': '=.....=.........', 'period': 0.5, 'data': ['a', 'b']},
+    {'name': 'Q', 'wave': '=..........x....', 'period': 0.5, 'data': ['old']},
+], 'config': {'hscale': 1}}
+
+S = 0.8   # one time step in drawing units
+LY = 0.45  # label baseline below its arrow
+
+
+def x(step):
+    return step*S + 0.04
+
+
+def span(xa, xb, y, text, color=BLUE):
+    ''' Arrow from xa to xb with a label below '''
+    elm.Line(arrow='<->').at((xa, y)).to((xb, y)).color(color).linewidth(1.2)
+    elm.Label().at(((xa + xb)/2, y - LY)).label(text, color=color)
+
+
+with sd.Drawing(canvas='svg') as dr:
+    dr.config(fontsize=11, lw=1.5, bgcolor='white', margin=0.15)
+    elm.Rect(corner1=(x(5), -0.45), corner2=(x(10), -1.35), fill='#eaf1fb', lw=0).color('#eaf1fb')
+    td = logic.TimingDiagram(waves, ygap=0.5, risetime=0.1, yheight=0.8, fontsize=11, namecolor='black',
+                             grid=False)
+    for seg in td.segments:
+        if getattr(seg, 'align', None) == ('right', 'bottom'):   # signal names, onto the wave centers
+            seg.xy = Point((seg.xy[0], seg.xy[1] + 0.2))
+        if getattr(seg, 'text', None) == 'old':   # clear of the red marker
+            seg.xy = Point((seg.xy[0] - 0.5, seg.xy[1]))
+    elm.Line().at((x(8), 1.0)).to((x(8), -3.0)).color('#A6A6A6').linestyle('--').linewidth(1)
+    elm.Line().at((x(6), -1.35)).to((x(6), -3.3)).color(RED).linestyle(':').linewidth(1)
+    span(x(6), x(8), -3.3, '$< t_\\mathrm{su}$', RED)
+    span(x(5), x(8), -4.3, '$t_\\mathrm{su}$')
+    span(x(8), x(10), -4.3, '$t_\\mathrm{hold}$')
+```

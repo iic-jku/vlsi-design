@@ -94,7 +94,13 @@ sta -no_init -exit ff.tcl
 
 : Timing parameters of `sg13cmos5l_dfrbpq_1` in the typical corner, with clock and data slews of 0.1 ns and a load of 5 fF {#tbl-sequential-params}
 
-What happens when `D` changes inside the window? The master latch may then capture a voltage between 0 and 1, and the flip-flop can become **metastable**: its output hangs at an invalid level for an unpredictable time before it settles to 0 or 1. Inside a synchronous design, the timing checks of @sec-sequential-sta rule this out. For signals from other clock domains and for asynchronous inputs, it can happen, and @sec-cdc treats it.
+What happens when `D` changes inside the window? If it changes less than $t_\text{su}$ before the edge, the new value arrives too late for this edge, a **setup violation** (@fig-sequential-setup-violation). If it changes less than $t_\text{hold}$ after the edge, the next value arrives too early, a **hold violation** (@fig-sequential-hold-violation). In both cases, the master latch may capture a voltage between 0 and 1, and the flip-flop can become **metastable**: its output hangs at an invalid level for an unpredictable time before it settles to 0 or 1, and either value is possible.
+
+{{< include /content/sequential/_fig_setup_violation.qmd >}}
+
+{{< include /content/sequential/_fig_hold_violation.qmd >}}
+
+Inside a synchronous design, the timing checks of @sec-sequential-sta rule out both violations. For signals from other clock domains and for asynchronous inputs, it can happen, and @sec-cdc treats it.
 
 ## Timing of a Register-to-Register Path {#sec-sequential-path}
 
@@ -112,11 +118,12 @@ $$t_\text{cq} + t_\text{logic,min} \ge t_\text{hold} + t_\text{skew} + t_\text{u
 
 The uncertainty makes both checks harder. The hold check compares the same clock edge at both registers, so the jitter of the source cancels there, and its uncertainty only needs to cover the skew. `set_clock_uncertainty` with `-setup` or `-hold` sets the two margins separately. The **slack** is the margin of a check: the required time minus the arrival time for setup, and the arrival time minus the required time for hold. A slack of zero or more means that the check is met.
 
-Three consequences follow from the two conditions:
+Four consequences follow from the two conditions:
 
 - **The setup condition sets the clock frequency.** The minimum period of a path is $T_\text{min} = t_\text{cq} + t_\text{logic,max} + t_\text{su} - t_\text{skew} + t_\text{unc}$, and the slowest path of the design sets the maximum frequency $f_\text{max} = 1/T_\text{min}$. With the values of @tbl-sequential-params, logic of 1 ns, no skew, and no uncertainty, $T_\text{min} = 0.207 + 1 + 0.127 = 1.334$ ns.
 - **The hold condition does not contain the clock period.** For a path between two flip-flops on the same clock edge, a hold violation fails at every clock frequency, even at a slow one. It cannot be fixed by lowering the clock frequency, and a chip with such a violation may not work at all.
 - **Skew helps one check and hurts the other.** A capturing clock that arrives later gives the setup check more time and takes the same time away from the hold check. Hold violations therefore appear on short paths, e.g., between registers without logic in between, as in shift registers and scan chains (@sec-dft), when the clock reaches the capturing register late.
+- **Each check has its own worst corner.** A setup violation comes from a path that is too slow, so the setup check is usually hardest to meet in the slow corner, with the maximum delays. A hold violation comes from a path that is too fast, so the hold check is usually hardest to meet in the fast corner, with the minimum delays. This is only a rule of thumb, because the clock network slows down with the logic. The signoff therefore runs both checks in all corners (@sec-synthesis-lib-corners).
 
 ## Static Timing Analysis {#sec-sequential-sta}
 
@@ -297,7 +304,7 @@ The hold slack is back at 0.247 ns. The rule is to set `-hold` to one less than 
 
 Before the layout, the clock is ideal, and the uncertainty is the only margin that the hold check keeps for the skew of the future clock tree. After clock tree synthesis, `set_propagated_clock` makes STA compute the latency of every register through the buffers of the clock tree. A short path between two registers whose clocks arrive at different times can then fail the hold check. The layout flow repairs such paths after clock tree synthesis by inserting delay into the data path (@sec-digital-flow). SG13CMOS5L has three delay cells for that, `dlygate4sd1_1` to `dlygate4sd3_1`, with increasing delay.
 
-A setup violation and a hold violation are fixed in opposite ways. A setup violation needs a shorter path: stronger cells, different logic, a pipeline register (@sec-synth-opt), or a slower clock. A hold violation needs a longer shortest path or less skew, and the added delay must not break the setup check of the same path.
+A setup violation and a hold violation are fixed in opposite ways. A setup violation needs a shorter path: stronger cells, different logic, a pipeline register (@sec-synth-opt), or a slower clock. A hold violation needs a longer shortest path or less skew, and the added delay must not break the setup check of the same path. Both repairs can use buffers, in opposite roles: a buffer that splits a large load, as `abc -constr` inserted in @sec-sequential-opensta, makes a slow path faster, while a delay cell in a short path only adds delay.
 
 ::: {.callout-tip title="Exercise: Fix a Hold Violation"}
 All commands start in the folder `content/sequential/code/hold`. The netlist `shift.v` holds two flip-flops in a row, as in a shift register. The clock reaches `ff1` directly and `ff2` through four `buf_1` cells. The script `hold.tcl` propagates the clock through them and reports the hold and the setup check of the path from `ff1` to `ff2`.
@@ -348,7 +355,7 @@ Time borrowing lets latch-based designs balance their stages automatically, whic
 - Static timing analysis propagates arrival times through all paths of the netlist and compares them with required times, without stimuli. It knows nothing about the function, and it checks only what the constraints describe.
 - SDC constraints define the clocks with their transition and uncertainty, generated clocks, the input and output delays of the environment, the driving cells and loads, and timing exceptions. `check_setup` finds what they forgot. A multicycle path for setup needs a matching one for hold.
 - OpenSTA reports each path with its arrival time, required time, and slack. With its high-fanout nets buffered, the barrel shifter between two registers reaches 591 MHz between its registers in the typical corner, and the release of its reset limits the block to 494 MHz.
-- Hold violations come from clock skew on short paths. Delay cells in the data path fix them, and hold must be checked in all corners.
+- Hold violations come from clock skew on short paths. Delay cells in the data path fix them. Setup is usually hardest to meet in the slow corner and hold in the fast corner, but both must be checked in all corners.
 - A latch lets a slow stage borrow time from the next one, at the price of a more complex analysis.
 
 In @sec-synth-opt, we use these reports to make a design faster, smaller, and less power-hungry: pipelining, retiming, resource sharing, and clock gating.

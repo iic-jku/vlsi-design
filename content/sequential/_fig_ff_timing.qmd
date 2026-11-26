@@ -22,6 +22,7 @@ waves = {'signal': [
 ], 'config': {'hscale': 1}}
 
 S = 0.8   # one time step in drawing units
+LY = 0.45  # label baseline below its arrow
 
 
 def x(step):
@@ -31,7 +32,7 @@ def x(step):
 def span(xa, xb, y, text):
     ''' Arrow from xa to xb with a label below '''
     elm.Line(arrow='<->').at((xa, y)).to((xb, y)).color(BLUE).linewidth(1.2)
-    elm.Label().at(((xa + xb)/2, y - 0.3)).label(text, color=BLUE)
+    elm.Label().at(((xa + xb)/2, y - LY)).label(text, color=BLUE)
 
 
 with sd.Drawing(canvas='svg') as dr:
@@ -45,5 +46,5 @@ with sd.Drawing(canvas='svg') as dr:
     elm.Line().at((x(8), 1.0)).to((x(8), -3.0)).color('#A6A6A6').linestyle('--').linewidth(1)
     span(x(5), x(8), -3.3, '$t_\\mathrm{su}$')
     span(x(8), x(10), -3.3, '$t_\\mathrm{hold}$')
-    span(x(8), x(11), -4.1, '$t_\\mathrm{cq}$')
+    span(x(8), x(11), -4.3, '$t_\\mathrm{cq}$')
 ```
