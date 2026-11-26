@@ -17,9 +17,11 @@ RED = '#b85450'
 YC = -3.4                    # the gate inverters
 YL = -4.0                    # GATE_B to the enable of the feedback inverter
 YF = -1.6                    # the feedback inverter
-XT1 = 3.4                    # start of the input clocked inverter
-XQ, XQB = 5.8, 7.6           # the nodes qint and qint_b
-XGB = 2.1                    # the node GATE_B
+XI = 1.4                     # the input inverters, clear of the labels D and GATE
+XT1 = 3.8                    # start of the input clocked inverter
+XQ, XQB = 6.2, 8.2           # the nodes qint and qint_b
+GAP = 0.75                   # from a node to the next inverter, clear of the node's label
+XGB = 2.6                    # the node GATE_B
 
 
 def text(p, s, halign='center', color='black'):
@@ -42,15 +44,15 @@ with sd.Drawing(canvas='svg') as d:
     d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white', margin=0.2)
     # data path: D, input inverter, clocked inverter, qint, inverter, qint_b, output inverter, Q
     text((0.0, 0.3), 'D', halign='left')
-    i1 = logic.Not().right().anchor('in1').at((0.8, 0.0))
+    i1 = logic.Not().right().anchor('in1').at((XI, 0.0))
     line((0.0, 0.0), i1.in1)
     t1 = logic.Tristate().flip().at((XT1, 0.0)).to((XT1 + 2.0, 0.0))
     line(i1.out, (XT1, 0.0))
     line((XT1 + 2.0, 0.0), (XQ, 0.0))
-    i2 = logic.Not().right().anchor('in1').at((XQ + 0.5, 0.0))
+    i2 = logic.Not().right().anchor('in1').at((XQ + GAP, 0.0))
     line((XQ, 0.0), i2.in1)
     line(i2.out, (XQB, 0.0))
-    i3 = logic.Not().right().anchor('in1').at((XQB + 0.5, 0.0))
+    i3 = logic.Not().right().anchor('in1').at((XQB + GAP, 0.0))
     line((XQB, 0.0), i3.in1)
     line(i3.out, (i3.out[0] + 0.6, 0.0))
     text((i3.out[0] + 0.7, 0.0), 'Q', halign='left')
@@ -64,7 +66,7 @@ with sd.Drawing(canvas='svg') as d:
     dot((XQB, 0.0))
     # gate inverters and the enables
     text((0.0, YC + 0.3), 'GATE', halign='left', color=RED)
-    i4 = logic.Not().right().anchor('in1').at((0.8, YC)).color(RED)
+    i4 = logic.Not().right().anchor('in1').at((XI, YC)).color(RED)
     line((0.0, YC), i4.in1, color=RED)
     i5 = logic.Not().right().anchor('in1').at((XGB + 0.4, YC)).color(RED)
     line(i4.out, (XGB, YC), i5.in1, color=RED)
