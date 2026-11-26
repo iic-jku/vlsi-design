@@ -12,6 +12,7 @@ import schemdraw as sd
 from schemdraw import logic
 from schemdraw import elements as elm
 from schemdraw.util import Point
+from schemdraw.segments import SegmentText
 sd.svgconfig.svg2 = False
 
 BLUE = '#6c8ebf'
@@ -32,13 +33,17 @@ def x(t):
     return (t - T0)*K
 
 
-def row(name, wave, times, data=None):
+def row(name, wave, times):
     ''' Async row with its edges centered on the given times '''
     steps = [(x(t) - RISE/2)/(0.05*K) for t in times]
-    sig = {'name': name, 'wave': wave, 'async': [0] + steps + [(T1 - T0)/0.05], 'period': 0.5}
-    if data:
-        sig['data'] = data
-    return sig
+    return {'name': name, 'wave': wave, 'async': [0] + steps + [(T1 - T0)/0.05], 'period': 0.5}
+
+
+def value(xc, r, text):
+    ''' Value of a data box at xc in row r. schemdraw 0.23 fails with
+    KeyError 'datasize' on 'data' in an async row, so the figure places
+    the values itself, where schemdraw 0.22 put them '''
+    td.segments.append(SegmentText((xc, -ROW*r + 0.4), text, fontsize=11, align=('center', 'center')))
 
 
 def span(ta, tb, y, text):
@@ -49,9 +54,9 @@ def span(ta, tb, y, text):
 
 waves = {'signal': [
     row('clk', '01', [0.0]),
-    ['early', row('RESET_B', '01', [REL['early']]), row('Q', '==', [T_CQ], ['0', '1'])],
-    ['in window', row('RESET_B', '01', [REL['in window']]), row('Q', '=x', [T_CQ], ['0'])],
-    ['late', row('RESET_B', '01', [REL['late']]), row('Q', '=', [], ['0'])],
+    ['early', row('RESET_B', '01', [REL['early']]), row('Q', '==', [T_CQ])],
+    ['in window', row('RESET_B', '01', [REL['in window']]), row('Q', '=x', [T_CQ])],
+    ['late', row('RESET_B', '01', [REL['late']]), row('Q', '=', [])],
 ], 'config': {'hscale': 0.875}}
 
 with sd.Drawing(canvas='svg') as dr:
@@ -66,8 +71,9 @@ with sd.Drawing(canvas='svg') as dr:
         if getattr(seg, 'align', None) == ('right', 'bottom'):   # signal names, onto the wave centers
             seg.xy = Point((seg.xy[0], seg.xy[1] + 0.2))
             xname = seg.xy[0]
-        if getattr(seg, 'text', None) == '0':   # off the dashed line of the edge
-            seg.xy = Point((x(-0.25), seg.xy[1]))
+    for r in (2, 4, 6):   # the Q rows: 0, off the dashed line of the edge
+        value(x(-0.25), r, '0')
+    value((x(T_CQ) + x(T1))/2 + RISE/4, 2, '1')   # center of the box after the edge
     elm.Line().at((x(0), 1.0)).to((x(0), -ROW*6 - 0.4)).color('#A6A6A6').linestyle('--').linewidth(1)
     y = -ROW*6 - 0.7
     span(-T_REC, 0, y, '$t_\\mathrm{rec}$ = 0.133 ns')
