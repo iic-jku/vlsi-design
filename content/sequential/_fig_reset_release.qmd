@@ -1,0 +1,82 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-sequential-reset-release
+#| echo: false
+#| fig-cap: "The release of the asynchronous reset of `dfrbpq_1`, drawn to scale with the values of @tbl-sequential-params and `D` = 1, relative to the rising clock edge at 0. The recovery time of 0.133 ns and the removal time of -0.114 ns leave a window of only 19 ps for a forbidden release, and it ends 0.114 ns before the edge (shaded). Early: `RESET_B` rises at -0.30 ns, so the flip-flop leaves the reset at this edge, and `Q` rises $t_\\text{cq}$ = 0.207 ns after it. In window: `RESET_B` rises at -0.124 ns, so `Q` is undefined (hatched): the flip-flop may leave the reset at this edge or only at the next one, and it may become metastable. Late: `RESET_B` rises at -0.05 ns, before the edge but after the window, so the edge still finds the flip-flop in reset, and `Q` stays 0 until the next edge. The edges are drawn steep."
+#| fig-alt: "Timing diagram drawn to scale over a time axis from -0.4 to 0.4 ns, with a dashed line at the rising clock edge at 0. Below the row clk follow three groups, early, in window, and late, each with the rows RESET_B and Q. On every RESET_B row, a narrow shaded window lies between -0.133 and -0.114 ns. In the group early, RESET_B rises at -0.30 ns, and Q changes from 0 to 1 at 0.207 ns. In the group in window, RESET_B rises inside the shaded window, and Q is 0 until 0.207 ns and undefined, drawn hatched, afterwards. In the group late, RESET_B rises at -0.05 ns, and Q stays 0. Arrows below the rows mark t_rec = 0.133 ns from the start of the window to the edge, t_cq = 0.207 ns from the edge to the change of Q, and t_rem = -0.114 ns from the end of the window to the edge."
+import schemdraw as sd
+from schemdraw import logic
+from schemdraw import elements as elm
+from schemdraw.util import Point
+sd.svgconfig.svg2 = False
+
+BLUE = '#6c8ebf'
+GRAY = '#666666'
+SHADE = '#eaf1fb'
+
+# dfrbpq_1 in the typical corner, in ns from the rising clock edge
+T_REC, T_REM, T_CQ = 0.133, -0.114, 0.207
+REL = {'early': -0.30, 'in window': -0.124, 'late': -0.05}   # releases of RESET_B
+T0, T1 = -0.4, 0.4   # time axis
+K = 14               # drawing units per ns, 0.05 ns per async step with hscale 0.875
+RISE = 0.1           # drawn width of an edge
+ROW = 1.3            # row pitch, yheight + ygap
+LY = 0.45            # label baseline below its arrow
+
+
+def x(t):
+    return (t - T0)*K
+
+
+def row(name, wave, times, data=None):
+    ''' Async row with its edges centered on the given times '''
+    steps = [(x(t) - RISE/2)/(0.05*K) for t in times]
+    sig = {'name': name, 'wave': wave, 'async': [0] + steps + [(T1 - T0)/0.05], 'period': 0.5}
+    if data:
+        sig['data'] = data
+    return sig
+
+
+def span(ta, tb, y, text):
+    ''' Arrow from ta to tb with a label below '''
+    elm.Line(arrow='<->').at((x(ta), y)).to((x(tb), y)).color(BLUE).linewidth(1.2)
+    elm.Label().at(((x(ta) + x(tb))/2, y - LY)).label(text, color=BLUE)
+
+
+waves = {'signal': [
+    row('clk', '01', [0.0]),
+    ['early', row('RESET_B', '01', [REL['early']]), row('Q', '==', [T_CQ], ['0', '1'])],
+    ['in window', row('RESET_B', '01', [REL['in window']]), row('Q', '=x', [T_CQ], ['0'])],
+    ['late', row('RESET_B', '01', [REL['late']]), row('Q', '=', [], ['0'])],
+], 'config': {'hscale': 0.875}}
+
+with sd.Drawing(canvas='svg') as dr:
+    dr.config(fontsize=11, lw=1.5, bgcolor='white', margin=0.15)
+    for r in (1, 3, 5):   # the RESET_B rows
+        elm.Rect(corner1=(x(-T_REC), -ROW*r + 0.85), corner2=(x(T_REM), -ROW*r - 0.05),
+                 fill=SHADE, lw=0).color(SHADE)
+    td = logic.TimingDiagram(waves, ygap=0.5, risetime=RISE, yheight=0.8, fontsize=11, namecolor='black',
+                             grid=False)
+    xname = 0
+    for seg in td.segments:
+        if getattr(seg, 'align', None) == ('right', 'bottom'):   # signal names, onto the wave centers
+            seg.xy = Point((seg.xy[0], seg.xy[1] + 0.2))
+            xname = seg.xy[0]
+        if getattr(seg, 'text', None) == '0':   # off the dashed line of the edge
+            seg.xy = Point((x(-0.25), seg.xy[1]))
+    elm.Line().at((x(0), 1.0)).to((x(0), -ROW*6 - 0.4)).color('#A6A6A6').linestyle('--').linewidth(1)
+    y = -ROW*6 - 0.7
+    span(-T_REC, 0, y, '$t_\\mathrm{rec}$ = 0.133 ns')
+    span(0, T_CQ, y, '$t_\\mathrm{cq}$ = 0.207 ns')
+    span(T_REM, 0, y - 1.0, '$t_\\mathrm{rem}$ = −0.114 ns')
+    ya = y - 2.0   # time axis
+    elm.Line().at((x(T0), ya)).to((x(T1), ya)).color(GRAY).linewidth(1)
+    for i in range(-4, 5):
+        elm.Line().at((x(i/10), ya)).to((x(i/10), ya - 0.1)).color(GRAY).linewidth(1)
+        elm.Label().at((x(i/10) - 0.1, ya - LY)).label(f'{i/10:g}'.replace('-', '−'), color=GRAY)
+    elm.Label().at((xname - 0.6, ya - LY)).label('time (ns)', halign='right', color=GRAY)
+```
