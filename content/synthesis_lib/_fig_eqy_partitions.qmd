@@ -1,0 +1,166 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+```{python}
+#| label: fig-synthesis-lib-eqy-partitions
+#| echo: false
+#| fig-cap: "How EQY cuts the FIFO into partitions, shown for the write side, with clock and reset not drawn. Unlike a cone of @fig-synthesis-lib-lec-cones, a partition keeps its register inside, together with the loop through it, so EQY compares gold and gate at the matched signals in every cycle after reset. A matched signal that another partition computes enters as a free input at a cut point (red cross): the solver may set it to any value, but to the same value on both sides. (a) By default, every matched signal gets its own partition. In the partition of `wr_ptr_q`, the RTL reads the flag `full_o`, while the netlist computes the full flag a second time from the pointers and reads `rd_ptr_q`. These two free inputs are not tied together, so the solver can set `full_o` to 0 while the pointers say full, and the partition fails although the designs are equal. (b) `bind full_o` puts `wr_ptr_q` and the storage `mem_q` (not drawn) into the partition of `full_o`. The flag is now computed inside, both sides read the same free input `rd_ptr_q`, and the check passes. The cut at `rd_ptr_q` remains, since `bind empty_o` puts the read pointer into the partition of `empty_o`."
+#| fig-alt: "Two diagrams, each with two shaded partitions that face each other, the RTL (gold) in blue on top and the netlist (gate) in green below. (a) Partition wr_ptr_q. In the gold lane, push_i and full_o enter a box push, +1, which drives the D input of the register wr_ptr_q. Its output leaves as wr_ptr_q and loops back into the box. full_o crosses the edge of the partition at a red cross labeled cut. In the gate lane, rd_ptr_q, at a red cross labeled cut, and push_i enter a box full again, push, +1, with the same register and loop. A dashed red line with an equals sign connects the two wr_ptr_q outputs, labeled compare wr_ptr_q in every cycle. Red text between the lanes: full_o and rd_ptr_q are free and not tied together, the solver may set full_o = 0 with a full FIFO. (b) Partition full_o. In both lanes, push_i and rd_ptr_q, at a red cross labeled cut, enter the partition. rd_ptr_q drives a box full, whose output is full_o. In the gold lane, full_o also feeds a box push, +1. In the gate lane, rd_ptr_q also feeds a box full again, push, +1 directly. Each box push drives the register wr_ptr_q, whose output loops back into both boxes. Dashed red lines with an equals sign compare full_o and wr_ptr_q between the lanes. Red text between the lanes: both sides read the same free rd_ptr_q, nothing is cut at full_o."
+import schemdraw as sd
+from schemdraw import flow
+from schemdraw import elements as elm
+from schemdraw.elements import Element
+from schemdraw.segments import SegmentPoly
+sd.svgconfig.svg2 = False
+
+BLUE, BLUE_L = '#6c8ebf', '#dae8fc'     # gold
+GREEN, GREEN_L = '#82b366', '#d5e8d4'   # gate
+RED, GREY = '#b85450', '#666666'
+
+XP = 0.9                                # left edge of a partition, where the cut points sit
+
+
+class Region(Element):
+    ''' A shaded partition from x0 to x1 and y0 to y1, below everything else '''
+    def __init__(self, x0, x1, y0, y1, fill, edge, **kwargs):
+        super().__init__(**kwargs)
+        self.segments.append(SegmentPoly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], fill=fill, color=edge, lw=1, zorder=0.5))
+        self.params['theta'] = 0
+
+
+def line(*pts, color='black', ls='-'):
+    for a, b in zip(pts, pts[1:]):
+        flow.Line().at(a).to(b).color(color).linestyle(ls)
+
+
+def wire(*pts):
+    ''' Lines through all points, with an arrow on the last segment '''
+    line(*pts[:-1])
+    flow.Arrow().at(pts[-2]).to(pts[-1])
+
+
+def dot(p):
+    elm.Dot(radius=0.06).at(p)
+
+
+def text(p, s, halign='center', color='black', fontsize=11):
+    ''' Text aligned to p in x, with its capitals centered on p in y '''
+    # A free Label sits 0.1 to the right of its anchor with its baseline on it, so shift it back.
+    elm.Label().theta(0).at((p[0] - 0.1, p[1] - 0.1)).label(s, color=color, halign=halign, fontsize=fontsize)
+
+
+def cut(p):
+    ''' A cut point: a red cross on the wire '''
+    x, y = p
+    line((x - 0.13, y - 0.13), (x + 0.13, y + 0.13), color=RED)
+    line((x - 0.13, y + 0.13), (x + 0.13, y - 0.13), color=RED)
+
+
+def box(p, w, h, s):
+    flow.Box(w=w, h=h).at(p).anchor('center').fill('white').color('black').label(s, color='black', fontsize=10)
+
+
+def register(x, y, name, yname):
+    flow.Box(w=1.0, h=1.0).at((x, y)).anchor('center').fill('white').color('black')
+    text((x - 0.4, y), 'D', halign='left', fontsize=9)
+    text((x + 0.4, y), 'Q', halign='right', fontsize=9)
+    text((x, yname), name, fontsize=10)
+
+
+def compare(x, y0, y1, s, left):
+    ''' Compare mark between gold and gate '''
+    ym = (y0 + y1)/2
+    line((x, y0), (x, ym + 0.32), color=RED, ls='--')
+    line((x, ym - 0.32), (x, y1), color=RED, ls='--')
+    flow.Circle(r=0.32).at((x, ym)).anchor('center').fill('white').color(RED).label('=', color=RED)
+    lines = s.split('\n')
+    for i, t in enumerate(lines):
+        dy = 0.2*(len(lines) - 1) - 0.4*i
+        text((x - 0.5, ym + dy) if left else (x + 0.5, ym + dy), t, halign='right' if left else 'left', color=RED, fontsize=10)
+
+
+def lane_a(y0, s, gold):
+    ''' (a) The default partition of wr_ptr_q, mirrored by s = -1, so that the lanes face each other '''
+    def Y(dy):
+        return y0 + s*dy
+    fill, edge = (BLUE_L, BLUE) if gold else (GREEN_L, GREEN)
+    text((-2.6, Y(1.05)), 'RTL (gold)' if gold else 'netlist (gate)', halign='left')
+    Region(XP, 8.2, Y(-1.15), Y(1.3), fill, edge).at((0, 0))
+    text((XP + 0.15, Y(1.0)), 'partition wr_ptr_q', halign='left', color=edge, fontsize=10)
+    text((-0.2, Y(0.4)), 'push_i', halign='right')
+    text((-0.2, Y(-0.4)), 'full_o' if gold else 'rd_ptr_q', halign='right')
+    wire((0, Y(0.4)), (2.1, Y(0.4)))
+    wire((0, Y(-0.4)), (2.1, Y(-0.4)))
+    cut((XP, Y(-0.4)))
+    text((XP + 0.25, Y(-0.75)), 'cut', halign='left', color=RED, fontsize=9)
+    box((3.3, Y(0)), 2.4, 1.2, 'push, +1' if gold else 'full again,\npush, +1')
+    register(6.0, Y(0), 'wr_ptr_q', Y(0.8))
+    wire((4.5, Y(0)), (5.5, Y(0)))
+    wire((6.5, Y(0)), (9.6, Y(0)))
+    text((9.75, Y(0)), 'wr_ptr_q', halign='left')
+    # the loop through the register stays inside the partition
+    dot((7.0, Y(0)))
+    wire((7.0, Y(0)), (7.0, Y(-0.9)), (3.3, Y(-0.9)), (3.3, Y(-0.6)))
+
+
+def lane_b(y0, s, gold):
+    ''' (b) The partition of full_o after bind full_o '''
+    def Y(dy):
+        return y0 + s*dy
+    fill, edge = (BLUE_L, BLUE) if gold else (GREEN_L, GREEN)
+    text((-2.6, Y(1.1)), 'RTL (gold)' if gold else 'netlist (gate)', halign='left')
+    Region(XP, 9.6, Y(-1.3), Y(1.35), fill, edge).at((0, 0))
+    text((XP + 0.15, Y(1.05)), 'partition full_o', halign='left', color=edge, fontsize=10)
+    text((-0.2, Y(0.45)), 'push_i', halign='right')
+    text((-0.2, Y(-0.45)), 'rd_ptr_q', halign='right')
+    wire((0, Y(0.45)), (4.2, Y(0.45)))
+    wire((0, Y(-0.45)), (2.0, Y(-0.45)))
+    cut((XP, Y(-0.45)))
+    text((XP + 0.25, Y(-0.8)), 'cut', halign='left', color=RED, fontsize=9)
+    box((2.6, Y(-0.45)), 1.2, 0.5, 'full')
+    box((5.2, Y(0.2)), 2.0, 1.0, 'push, +1' if gold else 'full again,\npush, +1')
+    if gold:
+        # the RTL reads the flag, now inside the partition
+        line((3.2, Y(-0.45)), (3.7, Y(-0.45)))
+        dot((3.7, Y(-0.45)))
+        wire((3.7, Y(-0.45)), (3.7, Y(0.0)), (4.2, Y(0.0)))
+    else:
+        # the netlist computes full again from the pointers
+        line((3.2, Y(-0.45)), (3.7, Y(-0.45)))
+        dot((1.4, Y(-0.45)))
+        wire((1.4, Y(-0.45)), (1.4, Y(0.0)), (4.2, Y(0.0)))
+    text((3.85, Y(-0.72)), 'full_o', halign='left', fontsize=10)
+    register(7.4, Y(0.2), 'wr_ptr_q', Y(0.95))
+    wire((6.2, Y(0.2)), (6.9, Y(0.2)))
+    wire((7.9, Y(0.2)), (11.0, Y(0.2)))
+    text((11.15, Y(0.2)), 'wr_ptr_q', halign='left')
+    dot((8.4, Y(0.2)))
+    line((8.4, Y(0.2)), (8.4, Y(-1.0)), (2.6, Y(-1.0)))
+    flow.Arrow().at((2.6, Y(-1.0))).to((2.6, Y(-0.7)))
+    dot((5.2, Y(-1.0)))
+    flow.Arrow().at((5.2, Y(-1.0))).to((5.2, Y(-0.3)))
+
+
+with sd.Drawing(canvas='svg') as d:
+    d.config(unit=1, fontsize=11, lw=1.5, bgcolor='white')
+    # (a) the default partition of wr_ptr_q fails
+    YA = 0.0
+    text((-2.6, YA + 3.6), '(a) default partitions: wr_ptr_q fails', halign='left')
+    lane_a(YA + 1.9, 1, True)
+    lane_a(YA - 1.9, -1, False)
+    compare(8.8, YA + 1.9, YA - 1.9, 'compare wr_ptr_q\nin every cycle', False)
+    text((4.5, YA + 0.2), 'full_o and rd_ptr_q are free and not tied together:', color=RED, fontsize=10)
+    text((4.5, YA - 0.2), 'the solver may set full_o = 0 with a full FIFO', color=RED, fontsize=10)
+
+    # (b) bind full_o keeps the flag together with the logic that reads it
+    YB = -8.0
+    text((-2.6, YB + 3.6), '(b) with bind full_o: the check passes', halign='left')
+    lane_b(YB + 1.9, 1, True)
+    lane_b(YB - 1.9, -1, False)
+    compare(3.7, YB + 1.9 - 0.45, YB - 1.9 + 0.45, 'compare full_o', True)
+    compare(10.2, YB + 1.9 + 0.2, YB - 1.9 - 0.2, 'compare wr_ptr_q\nin every cycle', False)
+    text((6.9, YB + 0.2), 'both sides read the same free rd_ptr_q,', color=RED, fontsize=10)
+    text((6.9, YB - 0.2), 'nothing is cut at full_o', color=RED, fontsize=10)
+```
