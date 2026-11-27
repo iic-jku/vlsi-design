@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 ```{python}
 #| label: fig-sequential-setup-violation
 #| echo: false
-#| fig-cap: "A setup violation. `D` changes from `a` to `b` less than $t_\\text{su}$ before the rising clock edge (red), i.e., inside the window of @fig-sequential-ff-timing. The new value arrives too late. From $t_\\text{cq}$ after the edge, `Q` is undefined (hatched): it may show `a` or `b`, and it may become metastable and settle only after an unpredictable time."
+#| fig-cap: "A setup violation. `D` changes from `a` to `b` less than $t_\\text{su}$ before the rising clock edge (red), i.e., inside the window of @fig-sequential-ff-timing. The new value arrives too late. Until $t_\\text{cq}$ after the edge, `Q` still shows `old`, the value it captured at the previous rising edge. From then on, `Q` is undefined (hatched): it may show `a` or `b`, and it may become metastable and settle only after an unpredictable time."
 #| fig-alt: "Timing diagram with the rows clk, D, and Q around one rising clock edge, marked by a dashed line. A shaded window starts t_su before the edge and ends t_hold after it. D holds the value a and changes to b inside the window, two steps before the edge. A red arrow from this change to the edge is labeled less than t_su. Q shows the old value and becomes undefined, drawn hatched, t_cq after the edge. Blue arrows below the rows mark t_su and t_hold."
 import schemdraw as sd
 from schemdraw import logic
