@@ -549,6 +549,10 @@ fifo fifo.data_o : data_o[7:0]`, solver: "bound" },
     $("body").innerHTML = s.b;
     $("term").innerHTML = s.term;
     [...dotsBox.children].forEach((b, i) => { if (i === n - 1) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current"); });
+    // a disabled button drops the focus to <body>, so hand it to the other one first
+    const active = document.activeElement;
+    if (n === 1 && active === $("prev")) $("next").focus();
+    if (n === N && active === $("next")) $("prev").focus();
     $("prev").disabled = n === 1;
     $("next").disabled = n === N;
     const cls = svg.classList;
@@ -675,7 +679,7 @@ fifo fifo.data_o : data_o[7:0]`, solver: "bound" },
   $("next").addEventListener("click", () => { stopPlay(); go(step + 1); });
   // arrow keys only while the figure has the focus, so the book page keeps its own keys
   root.addEventListener("keydown", ev => {
-    if (ev.target.closest(".eqy-solver")) return;
+    if (ev.target.closest(".eqy-solver") || ev.altKey || ev.ctrlKey || ev.metaKey) return;   // Alt+Left is the browser's Back
     if (ev.key === "ArrowRight") { stopPlay(); go(step + 1); ev.preventDefault(); }
     else if (ev.key === "ArrowLeft") { stopPlay(); go(step - 1); ev.preventDefault(); }
   });
