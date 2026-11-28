@@ -1,0 +1,275 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+::: {.content-visible when-format="html"}
+::: {#fig-synthesis-lib-nldm-lookup}
+
+```{=html}
+<style>
+#nldm-root { text-align: left; container-type: inline-size; }
+#nldm-root .nldm-controls { display: grid; grid-template-columns: max-content minmax(8em, 1fr) 6.5em; gap: 0.25em 0.8em; align-items: center; margin-bottom: 0.5em; font-size: 0.9em; }
+#nldm-root .nldm-controls label { margin: 0; }
+#nldm-root .nldm-controls input[type=number] { padding: 0.1em 0.3em; }
+@container (max-width: 520px) {
+  #nldm-root .nldm-controls { grid-template-columns: 1fr 6.5em; }
+  #nldm-root .nldm-controls label { grid-column: 1 / -1; margin-top: 0.3em; }
+}
+#nldm-root svg text { font-family: Arial, Helvetica, sans-serif; }
+#nldm-root .nldm-scroll { overflow-x: auto; }
+#nldm-root .nldm-stage svg { min-width: 560px; }
+#nldm-root .nldm-tables { display: grid; gap: 0.5em; margin-top: 0.5em; }
+@container (min-width: 760px) { #nldm-root .nldm-tables { grid-template-columns: 1fr 1fr; } }
+#nldm-root .nldm-tables svg { min-width: 336px; }
+#nldm-root code { background: transparent; color: inherit; padding: 0; }
+#nldm-root .nldm-calc { font-size: 0.9em; margin-top: 0.5em; }
+#nldm-root .nldm-calc table { margin-bottom: 0.4em; }
+#nldm-root .nldm-calc td { font-variant-numeric: tabular-nums; }
+#nldm-root .nldm-in { color: #4a7a2c; }
+#nldm-root .nldm-ex { color: #b85450; }
+body.quarto-dark #nldm-root .nldm-in { color: #93c572; }
+body.quarto-dark #nldm-root .nldm-ex { color: #f08a80; }
+</style>
+<div id="nldm-root">
+<div class="nldm-controls"></div>
+<div class="nldm-scroll nldm-stage"></div>
+<div class="nldm-tables"></div>
+<div class="nldm-calc"></div>
+<p class="nldm-live visually-hidden" aria-live="polite"></p>
+<noscript>This figure needs JavaScript.</noscript>
+</div>
+<script>
+(() => {
+  // sg13cmos5l_inv_1, typical library, arc A falling to Y rising (cell_rise, rise_transition)
+  const slewIdx = [0.0186, 0.0966, 0.174, 0.3294, 0.6408, 1.263, 2.5074];   // index_1 (ns)
+  const loadIdx = [0.001, 0.0234, 0.039, 0.0648, 0.108, 0.18, 0.3];        // index_2 (pF)
+  const rows = text => text.map(r => r.split(", "));
+  const tables = [
+    {name: "cell_rise", what: "delay", vals: rows([
+      "0.0205647, 0.0848969, 0.128137, 0.199515, 0.318905, 0.518173, 0.849492",
+      "0.0398334, 0.127379, 0.172342, 0.243951, 0.363448, 0.563548, 0.894211",
+      "0.0494593, 0.16103, 0.211237, 0.285953, 0.405855, 0.604919, 0.93662",
+      "0.06145, 0.213087, 0.276414, 0.363301, 0.491278, 0.693125, 1.02497",
+      "0.0755205, 0.288689, 0.374069, 0.487653, 0.64212, 0.86334, 1.20383",
+      "0.0904964, 0.386189, 0.508826, 0.663145, 0.869187, 1.1435, 1.52963",
+      "0.103076, 0.507299, 0.680755, 0.904929, 1.19043, 1.56201, 2.05537"])},
+    {name: "rise_transition", what: "output slew", vals: rows([
+      "0.0126307, 0.100854, 0.163465, 0.267101, 0.44044, 0.729681, 1.21162",
+      "0.0294124, 0.110169, 0.168005, 0.268377, 0.44053, 0.730647, 1.21163",
+      "0.0403832, 0.128637, 0.18274, 0.276993, 0.443535, 0.733586, 1.21164",
+      "0.0585181, 0.1676, 0.221528, 0.310425, 0.465559, 0.739269, 1.21311",
+      "0.0869432, 0.235708, 0.29811, 0.389208, 0.537851, 0.791143, 1.23917",
+      "0.133685, 0.345868, 0.423899, 0.533757, 0.692914, 0.942666, 1.35673",
+      "0.212562, 0.512127, 0.629664, 0.77292, 0.968291, 1.24551, 1.66746"])}
+  ];
+  const SLEW_MAX = 3.5;   // beyond max_transition (2.5074 ns), to show the extrapolation
+  const root = document.getElementById("nldm-root");
+  // Inputs and results are rounded to 0.1 ps and 0.1 fF, as report_dcalc -digits 4 prints them.
+  const r4 = v => Math.round(v * 1e4) / 1e4;
+  const f4 = v => (r4(v) < 0 ? "−" : "") + Math.abs(r4(v)).toFixed(4);
+  const sub = s => `<sub>${s}</sub>`;
+
+  // OpenSTA's table lookup: the interval of the axis that holds x (the last one beyond the end),
+  // and the position f in it, outside [0, 1] when extrapolating.
+  function axis(idx, x) {
+    let i = 0;
+    while (i < idx.length - 2 && x >= idx[i + 1]) i++;
+    return {i, f: (x - idx[i]) / (idx[i + 1] - idx[i])};
+  }
+  function lookup(tab, a, b) {
+    const y = (r, c) => parseFloat(tab.vals[r][c]);
+    const row0 = y(a.i, b.i) + b.f * (y(a.i, b.i + 1) - y(a.i, b.i));
+    const row1 = y(a.i + 1, b.i) + b.f * (y(a.i + 1, b.i + 1) - y(a.i + 1, b.i));
+    return {row0, row1, val: row0 + a.f * (row1 - row0)};
+  }
+
+  // Each slider moves through its table indices at an even pace: every interval between two indices takes the same length.
+  const knots = {s: slewIdx.concat([SLEW_MAX]), C: loadIdx};
+  const toVal = (k, p) => { const n = Math.min(Math.floor(p), k.length - 2); return k[n] + (p - n) * (k[n + 1] - k[n]); };
+  const toPos = (k, v) => { const a = axis(k, v); return a.i + a.f; };
+  const controls = [
+    ["s", "Input slew <i>s</i> of <code>A</code> (ns)", 0.25],
+    ["C", "Output load <i>C</i> at <code>Y</code> (pF)", 0.05]
+  ];
+  const state = {};
+  const clampVal = (k, v) => r4(Math.min(Math.max(v, knots[k][0]), knots[k][knots[k].length - 1]));
+
+  const svgEl = (W, H, label, desc, body) =>
+    `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${label}" style="width: 100%; height: auto; max-width: ${W}px;"><desc>${desc}</desc>` +
+    `<rect x="0" y="0" width="${W}" height="${H}" fill="white"/>${body}</svg>`;
+  const line = (xa, ya, xb, yb, col, dash, w) =>
+    `<line x1="${xa.toFixed(1)}" y1="${ya.toFixed(1)}" x2="${xb.toFixed(1)}" y2="${yb.toFixed(1)}" stroke="${col}" stroke-width="${w || 1}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+  const text = (x, y, s, anchor, col, size, weight) =>
+    `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor || "middle"}" fill="${col || "black"}" font-size="${size || 12}"${weight ? ` font-weight="${weight}"` : ""}>${s}</text>`;
+  const halo = s => s.replace("<text ", `<text stroke="white" stroke-width="4" paint-order="stroke" `);
+  const pts = p => p.map(q => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" ");
+  const BLUE = "#3c5f92", GREEN = "#4a7a2c", RED = "#b85450", GRAY = "#a6a6a6";
+
+  function stage(s, C, tpd, sout) {
+    const W = 760, HT = 300, X0 = 70, X1 = 700, yT = 128, yB = 228, yc = 32;
+    let g = "";
+    // inverter, load, and the next cell
+    g += line(40, yc, 170, yc, "black", "", 1.4) + text(32, yc + 4, "A", "end", "black", 13);
+    g += `<polygon points="170,${yc - 16} 170,${yc + 16} 199,${yc}" fill="white" stroke="black" stroke-width="1.4"/>`;
+    g += `<circle cx="204" cy="${yc}" r="5" fill="white" stroke="black" stroke-width="1.4"/>`;
+    g += text(184, yc + 31, "<tspan font-family='Consolas, monospace'>inv_1</tspan>", "middle", "black", 12);
+    g += line(209, yc, 560, yc, "black", "", 1.4) + text(222, yc - 7, "Y", "middle", "black", 13);
+    g += `<circle cx="330" cy="${yc}" r="3" fill="black"/>` + line(330, yc, 330, yc + 13, "black", "", 1.4);
+    g += line(316, yc + 13, 344, yc + 13, "black", "", 2) + line(316, yc + 19, 344, yc + 19, "black", "", 2);
+    g += line(330, yc + 19, 330, yc + 28, "black", "", 1.4) + line(320, yc + 28, 340, yc + 28, "black", "", 1.4);
+    g += line(324, yc + 32, 336, yc + 32, "black", "", 1.4) + line(328, yc + 36, 332, yc + 36, "black", "", 1.4);
+    g += text(352, yc + 22, `<tspan font-style="italic">C</tspan> = ${f4(C)} pF`, "start", "black", 12);
+    g += `<rect x="560" y="${yc - 16}" width="120" height="32" fill="white" stroke="black" stroke-width="1.2" stroke-dasharray="4 3"/>`;
+    g += text(620, yc + 4, "next cell", "middle", "black", 12);
+    g += text(105, yc - 7, `slew ${f4(s)} ns`, "middle", BLUE, 12);
+    g += text(445, yc - 7, `slew ${f4(sout)} ns`, "middle", GREEN, 12);
+    // edges as straight ramps: 20 % to 80 % of the swing take one slew, so the full swing takes slew / 0.6
+    const hA = s / 1.2, hY = sout / 1.2;
+    let lo = Math.min(-hA, tpd - hY), hi = Math.max(hA, tpd + hY);
+    const pad = 0.12 * (hi - lo);
+    lo -= pad; hi += pad;
+    const xs = t => X0 + (t - lo) / (hi - lo) * (X1 - X0);
+    const yv = f => yB - f * (yB - yT);
+    for (const [f, lab, dash] of [[0.8, "80 %", "2 3"], [0.5, "50 %", "5 3"], [0.2, "20 %", "2 3"]]) {
+      g += line(X0, yv(f), X1, yv(f), GRAY, dash, 1) + text(X1 + 6, yv(f) + 4, lab, "start", "#666666", 10);
+    }
+    g += line(X0, yT, X1, yT, "#dddddd", "", 1) + line(X0, yB, X1, yB, "#dddddd", "", 1);
+    g += `<polyline points="${pts([[X0, yT], [xs(-hA), yT], [xs(hA), yB], [X1, yB]])}" fill="none" stroke="${BLUE}" stroke-width="2"/>`;
+    g += `<polyline points="${pts([[X0, yB], [xs(tpd - hY), yB], [xs(tpd + hY), yT], [X1, yT]])}" fill="none" stroke="${GREEN}" stroke-width="2"/>`;
+    g += text(X0 - 10, yT + 4, "A", "end", BLUE, 13, "bold") + text(X0 - 10, yB + 4, "Y", "end", GREEN, 13, "bold");
+    // slews between the 20 % and 80 % points, delay between the 50 % points
+    const bracket = (ta, tb, ya, yb, y, col, label) => {
+      let b = line(xs(ta), ya, xs(ta), y, col, "2 2") + line(xs(tb), yb, xs(tb), y, col, "2 2");
+      b += line(xs(ta), y, xs(tb), y, col, "", 1.6) + line(xs(ta), y - 4, xs(ta), y + 4, col, "", 1.6) + line(xs(tb), y - 4, xs(tb), y + 4, col, "", 1.6);
+      b += `<circle cx="${xs(ta).toFixed(1)}" cy="${ya.toFixed(1)}" r="3" fill="${col}"/><circle cx="${xs(tb).toFixed(1)}" cy="${yb.toFixed(1)}" r="3" fill="${col}"/>`;
+      const xl = Math.min(Math.max((xs(ta) + xs(tb)) / 2, X0 + 70), X1 - 70);
+      return b + halo(text(xl, y - 5, label, "middle", col, 12));
+    };
+    g += bracket(-s / 2, s / 2, yv(0.8), yv(0.2), yT - 12, BLUE, `input slew ${f4(s)} ns`);
+    g += bracket(tpd - sout / 2, tpd + sout / 2, yv(0.2), yv(0.8), yT - 34, GREEN, `output slew ${f4(sout)} ns`);
+    const yD = yB + 16, x50A = xs(0), x50Y = xs(tpd);
+    g += line(x50A, yv(0.5), x50A, yD, "black", "3 2") + line(x50Y, yv(0.5), x50Y, yD, "black", "3 2");
+    g += `<circle cx="${x50A.toFixed(1)}" cy="${yv(0.5).toFixed(1)}" r="3.5" fill="black"/><circle cx="${x50Y.toFixed(1)}" cy="${yv(0.5).toFixed(1)}" r="3.5" fill="black"/>`;
+    g += line(x50A, yD, x50Y, yD, "black", "", 1.4);
+    if (x50Y - x50A > 14) {
+      g += `<polygon points="${pts([[x50A, yD], [x50A + 7, yD - 3.5], [x50A + 7, yD + 3.5]])}" fill="black"/>`;
+      g += `<polygon points="${pts([[x50Y, yD], [x50Y - 7, yD - 3.5], [x50Y - 7, yD + 3.5]])}" fill="black"/>`;
+    }
+    g += halo(text(Math.min(Math.max((x50A + x50Y) / 2, X0 + 60), X1 - 60), yD + 16, `delay ${f4(tpd)} ns`, "middle", "black", 12));
+    // time axis with a step of 1, 2, or 5 times a power of ten
+    const yAx = yB + 44, raw = (hi - lo) / 6, p10 = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 5, 10].map(m => m * p10).find(v => v >= raw);
+    const dec = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+    g += line(X0, yAx, X1, yAx, "black", "", 1);
+    for (let k = Math.ceil(lo / step); k * step <= hi + 1e-12; k++) {
+      const t = k * step;
+      g += line(xs(t), yAx, xs(t), yAx + 4, "black", "", 1);
+      g += text(xs(t), yAx + 16, (t < -1e-12 ? "−" : "") + Math.abs(t).toFixed(dec), "middle", "black", 11);
+    }
+    g += text(X0 - 10, yAx + 16, "time (ns)", "end", "black", 11);
+    const desc = "Top: the inverter inv_1 with input A, output Y, the load capacitance C, and the next cell. " +
+                 "Bottom: the falling input edge A and the rising output edge Y as straight ramps over time, with brackets for the input and the output slew between the 20 % and 80 % points and an arrow for the delay between the 50 % points.";
+    return svgEl(W, HT, `Inverter inv_1 with an input slew of ${f4(s)} ns and a load of ${f4(C)} pF: delay ${f4(tpd)} ns, output slew ${f4(sout)} ns`, desc, g);
+  }
+
+  function grid(tab, a, b, ex) {
+    const W = 368, H = 226, X0 = 56, CW = 44, Y0 = 44, RH = 22;
+    const cx = c => X0 + (c + 0.5) * CW, cy = r => Y0 + (r + 0.5) * RH;
+    let g = text(4, 15, `<tspan font-family="Consolas, monospace" font-weight="bold">${tab.name}</tspan>: ${tab.what} (ns)`, "start", "black", 12);
+    g += text(X0 - 4, 37, "<tspan font-style='italic'>s</tspan> \\ <tspan font-style='italic'>C</tspan>", "end", "#444444", 11);
+    loadIdx.forEach((v, c) => { g += text(cx(c), 37, v.toFixed(4), "middle", "black", 10.5, "bold"); });
+    slewIdx.forEach((v, r) => { g += text(X0 - 4, cy(r) + 4, v.toFixed(4), "end", "black", 10.5, "bold"); });
+    const used = (r, c) => (r === a.i || r === a.i + 1) && (c === b.i || c === b.i + 1);
+    const fill = (r, c) => used(r, c) ? "#fbe9c2" : "white";
+    for (let r = 0; r < 7; r++) for (let c = 0; c < 7; c++) {
+      const u = used(r, c);
+      g += `<rect x="${X0 + c * CW}" y="${Y0 + r * RH}" width="${CW}" height="${RH}" fill="${fill(r, c)}" stroke="${u ? "#b9790b" : "#d0d0d0"}" stroke-width="${u ? 1.4 : 0.8}"/>`;
+    }
+    // the operating point between the centers of the four entries, outside them when extrapolating
+    const px = cx(b.i) + b.f * CW, py = cy(a.i) + a.f * RH, col = ex ? RED : "black";
+    if (ex) g += `<rect x="${X0 + b.i * CW}" y="${Y0 + a.i * RH}" width="${2 * CW}" height="${2 * RH}" fill="none" stroke="${RED}" stroke-width="1.6" stroke-dasharray="4 3"/>`;
+    g += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="4" fill="${col}" stroke="white" stroke-width="1.5"/>`;
+    // the values on top, with a halo in the cell color, so that the dot never hides a digit
+    for (let r = 0; r < 7; r++) for (let c = 0; c < 7; c++) {
+      g += text(cx(c), cy(r) + 4, parseFloat(tab.vals[r][c]).toFixed(4), "middle", "black", 10.5)
+        .replace("<text ", `<text stroke="${fill(r, c)}" stroke-width="3" paint-order="stroke" `);
+    }
+    if (ex) g += text(Math.min(Math.max(px, X0 + 40), W - 40), H - 5, "extrapolated", "middle", RED, 11, "bold");
+    const used4 = [a.i, a.i + 1].map(r => [b.i, b.i + 1].map(c => tab.vals[r][c]).join(" and ") + ` ns at the slew ${slewIdx[r]} ns`).join(", and ");
+    const label = `Table ${tab.name} of inv_1, 7 slews by 7 loads. The lookup uses ${used4}, for the loads ${loadIdx[b.i]} and ${loadIdx[b.i + 1]} pF.`;
+    const desc = `The table ${tab.name} as a grid, input slews in rows and output loads in columns, with the four entries of the lookup highlighted and a dot at the operating point.`;
+    return svgEl(W, H, label, desc, g);
+  }
+
+  function calc(a, b, res, s, C, ex) {
+    const iv = (v, idx, i) => `(${f4(v)} − ${idx[i].toFixed(4)}) / (${idx[i + 1].toFixed(4)} − ${idx[i].toFixed(4)})`;
+    const rowTxt = (tab, r, rv) => `${tab.vals[r][b.i]} + <i>u</i> · (${tab.vals[r][b.i + 1]} − ${tab.vals[r][b.i]}) = ${f4(rv)}`;
+    const cols = res.map(([tab, l]) => [
+      rowTxt(tab, a.i, l.row0), rowTxt(tab, a.i + 1, l.row1),
+      `${f4(l.row0)} + <i>v</i> · (${f4(l.row1)} − ${f4(l.row0)}) = <b>${f4(l.val)} ns</b>`]);
+    const status = ex
+      ? `<span class="nldm-ex"><b>Extrapolated:</b> the slew lies beyond the last index, ${slewIdx[6].toFixed(4)} ns, which is also <code>max_transition</code> of <code>A</code>. With <i>v</i> &gt; 1, the result continues the line through the two last rows, outside the range the library was characterized for.</span>`
+      : `<span class="nldm-in"><b>Interpolated:</b> the slew and the load lie inside the table, between the four highlighted entries.</span>`;
+    // the tag name is built at run time, else Quarto tries to parse a table out of this raw block
+    const T = "table";
+    return `<p>Position between the indices: <i>u</i> = ${iv(C, loadIdx, b.i)} = ${f4(b.f)} along the load, ` +
+      `<i>v</i> = ${iv(s, slewIdx, a.i)} = ${f4(a.f)} along the slew.</p>` +
+      `<div class="nldm-scroll"><${T} class="table table-sm"><thead><tr><th>Step</th><th>Delay from <code>cell_rise</code></th><th>Output slew from <code>rise_transition</code></th></tr></thead><tbody>` +
+      `<tr><td>Row <i>s</i> = ${slewIdx[a.i].toFixed(4)} ns</td><td>${cols[0][0]}</td><td>${cols[1][0]}</td></tr>` +
+      `<tr><td>Row <i>s</i> = ${slewIdx[a.i + 1].toFixed(4)} ns</td><td>${cols[0][1]}</td><td>${cols[1][1]}</td></tr>` +
+      `<tr><td>Along the slew</td><td>${cols[0][2]}</td><td>${cols[1][2]}</td></tr>` +
+      `</tbody></${T}></div><p>${status} The rows and the result use the unrounded table values. The output slew is the input slew of the next cell.</p>`;
+  }
+
+  const box = root.querySelector(".nldm-controls");
+  box.innerHTML = controls.map(([k, label]) => {
+    const n = knots[k].length;
+    return `<label for="nldm-${k}">${label}</label>` +
+      `<input type="range" class="form-range" id="nldm-${k}" data-k="${k}" min="0" max="${n - 1}" step="0.01">` +
+      `<input type="number" class="form-control form-control-sm" data-k="${k}" min="${knots[k][0]}" max="${knots[k][n - 1]}" step="0.0001" aria-label="${label.replace(/<[^>]+>/g, "")}">`;
+  }).join("");
+  const input = (k, type) => box.querySelector(`input[type=${type}][data-k="${k}"]`);
+
+  function update() {
+    const {s, C} = state;
+    const a = axis(slewIdx, s), b = axis(loadIdx, C), ex = s > slewIdx[6];
+    const res = tables.map(t => [t, lookup(t, a, b)]);
+    const tpd = res[0][1].val, sout = res[1][1].val;
+    root.querySelector(".nldm-stage").innerHTML = stage(s, C, tpd, sout);
+    root.querySelector(".nldm-tables").innerHTML = tables.map(t => `<div class="nldm-scroll">${grid(t, a, b, ex)}</div>`).join("");
+    root.querySelector(".nldm-calc").innerHTML = calc(a, b, res, s, C, ex);
+    root.querySelector(".nldm-live").textContent =
+      `Delay ${f4(tpd)} ns, output slew ${f4(sout)} ns, ${ex ? "extrapolated" : "interpolated"}.`;
+  }
+  function set(k, v, from) {
+    state[k] = clampVal(k, v);
+    if (from !== "range") input(k, "range").value = toPos(knots[k], state[k]);
+    if (from !== "number") input(k, "number").value = state[k].toFixed(4);
+  }
+  box.addEventListener("input", ev => {
+    const el = ev.target, k = el.dataset.k, v = parseFloat(el.value);
+    if (!k || !Number.isFinite(v)) return;
+    set(k, el.type === "range" ? toVal(knots[k], v) : v, el.type);
+    update();
+  });
+  box.addEventListener("change", ev => {
+    if (ev.target.type === "number") ev.target.value = state[ev.target.dataset.k].toFixed(4);
+  });
+  for (const [k, , v] of controls) set(k, v);
+  update();
+})();
+</script>
+```
+
+Interactive lookup in the tables `cell_rise` and `rise_transition` of `sg13cmos5l_inv_1` in the typical library, for a falling input `A` and a rising output `Y`. Set the input slew and the output load with the sliders, which move through the table indices at an even pace, or type a value. Top: the inverter with its load and the next cell, and below it the input edge (blue) and the output edge (green), drawn as straight ramps on a time axis that adapts to the values. The delay is measured between the 50 % points, each slew between the 20 % and 80 % points, as the library defines them (@sec-synthesis-lib-liberty). Real edges are curved, and a straight ramp puts each 50 % point halfway between the 20 % and 80 % points, which a real edge need not do. Middle: the two tables with their indices and values rounded to four decimals, the four entries that the lookup uses (highlighted), and the operating point (dot). Bottom: the interpolation as in @sec-synthesis-lib-delay, with the unrounded table values. The default values are those of @tbl-synthesis-lib-interp. The slew slider goes beyond the last index, 2.5074 ns, which is also `max_transition` of `A`. There, the dot leaves the table and turns red, a dashed red frame marks the four entries of the two last rows, and the value is extrapolated from them. The load slider ends at the last index, 0.3 pF, which is `max_capacitance` of `Y`.
+:::
+:::
+
+::: {.content-visible unless-format="html"}
+::: {#fig-synthesis-lib-nldm-lookup}
+The interactive table lookup is part of the HTML version of this book: <https://iic-jku.github.io/vlsi-design/vlsi.html#fig-synthesis-lib-nldm-lookup>.
+
+Interactive lookup in the tables `cell_rise` and `rise_transition` of `sg13cmos5l_inv_1`, with sliders for the input slew and the output load, the four table entries that the lookup uses, the interpolated delay and output slew, and the input and output edges.
+:::
+:::
