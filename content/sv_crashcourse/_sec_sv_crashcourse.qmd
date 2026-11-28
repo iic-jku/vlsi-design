@@ -438,6 +438,10 @@ With blocking assignments in this block, `b_q` would read the *new* value of `a_
 4. Never use the plain `always` block or `initial` in RTL, only `always_comb`, `always_ff`, and `always_latch`.
 :::
 
+@fig-sv-nba steps through one rising clock edge of the swap, with blocking and non-blocking assignments side by side. The simulator first runs every block that the edge triggers, and only then applies all non-blocking updates together. Below the values, the figure shows the flip-flops that synthesis builds from the same code. Switch to two blocks and change the order in which the simulator runs them: the blocking version changes its result with the order, while the netlist always swaps.
+
+{{< include /content/sv_crashcourse/_fig_nba.qmd >}}
+
 ### Registers and Resets {#sec-sv-registers}
 
 In your VHDL style, every register process has an active-high asynchronous reset (@sec-sv-sync-design). In SystemVerilog, the three register variants you need look as follows:

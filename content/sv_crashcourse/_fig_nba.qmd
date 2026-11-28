@@ -1,0 +1,322 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+::: {.content-visible when-format="html"}
+::: {#fig-sv-nba}
+
+```{=html}
+<style>
+#nba-root {
+  --panel: #ffffff; --fg: #1b2330; --muted: #566174; --rule: #d6dce5; --soft: #f3f5f8;
+  --wire: #2a3240; --line-hl: #dae8fc; --line-mark: #3c5f92; --chg: #fbe9c2; --chg-line: #b9790b; --chg-ink: #8a5a00;
+  --good: #4a7a2c; --bad: #b85450;
+  --sans: var(--bs-body-font-family, system-ui, sans-serif);
+  --mono: var(--bs-font-monospace, ui-monospace, Consolas, monospace);
+  text-align: left; container-type: inline-size; color: var(--fg); font-family: var(--sans);
+}
+body.quarto-dark #nba-root {
+  --panel: #19202a; --fg: #e3e8ef; --muted: #9ba6b6; --rule: #2b3441; --soft: #10141a;
+  --wire: #c8d0db; --line-hl: #23344d; --line-mark: #9dbbe8; --chg: #3b2f14; --chg-line: #f0b445; --chg-ink: #f0b445;
+  --good: #93c572; --bad: #f08a80;
+}
+#nba-root * { box-sizing: border-box; }
+#nba-root [hidden] { display: none !important; }
+#nba-root code { font-family: var(--mono); background: transparent; color: inherit; padding: 0; }
+#nba-root button { font: 600 0.9rem var(--sans); color: var(--fg); background: var(--soft); border: 1px solid var(--rule); border-radius: 7px; padding: 4px 12px; cursor: pointer; line-height: 1.4; }
+#nba-root button:hover { border-color: var(--muted); }
+#nba-root button[aria-pressed="true"], #nba-root button.nba-primary { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+#nba-root button:focus-visible { outline: 2px solid var(--line-mark); outline-offset: 2px; }
+#nba-root button:disabled { opacity: 0.4; cursor: default; }
+#nba-root .nba-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-bottom: 8px; font-size: 0.9em; }
+#nba-root .nba-group { display: inline-flex; align-items: center; gap: 6px; }
+#nba-root .nba-regions { display: flex; flex-wrap: wrap; gap: 4px 6px; list-style: none; margin: 0 0 8px; padding: 0; font-size: 0.85em; }
+#nba-root .nba-regions li { border: 1px solid var(--rule); border-radius: 999px; padding: 2px 10px; color: var(--muted); background: var(--panel); }
+#nba-root .nba-regions li.nba-on { border-color: var(--fg); color: var(--fg); font-weight: 700; background: var(--line-hl); }
+#nba-root .nba-lanes { display: grid; gap: 10px; }
+@container (min-width: 620px) {
+  #nba-root .nba-lanes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+#nba-root .nba-lane { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+#nba-root .nba-lane-h { margin: 0; font-weight: 700; }
+#nba-root .nba-code { margin: 0; padding: 6px 0; background: var(--soft); border: 1px solid var(--rule); border-radius: 7px; font: 400 13px/1.5 var(--mono); overflow-x: auto; white-space: pre; color: var(--fg); }
+#nba-root .nba-code span { display: block; padding: 0 10px 0 8px; border-left: 3px solid transparent; }
+#nba-root .nba-code span.nba-cur { background: var(--line-hl); border-left-color: var(--line-mark); font-weight: 700; }
+#nba-root .nba-code span.nba-cmt { color: var(--muted); }
+#nba-root .nba-vars { display: flex; flex-wrap: wrap; gap: 8px; }
+#nba-root .nba-var { border: 1.5px solid var(--rule); border-radius: 7px; padding: 2px 10px; min-width: 84px; display: grid; transition: background 0.4s, border-color 0.4s; }
+#nba-root .nba-var span { font: 400 0.78rem var(--mono); color: var(--muted); }
+#nba-root .nba-var output { font: 600 1.3rem/1.2 var(--mono); }
+#nba-root .nba-var.nba-chg { background: var(--chg); border-color: var(--chg-line); }
+#nba-root .nba-sched { font-size: 0.85em; }
+#nba-root .nba-sched p { margin: 0; color: var(--muted); }
+#nba-root .nba-sched ul { margin: 2px 0 0; padding-left: 1.2em; }
+#nba-root .nba-sched li.nba-done { color: var(--muted); }
+#nba-root .nba-hw-h { margin: 0; font-size: 0.85em; color: var(--muted); }
+#nba-root .nba-hw { display: block; width: 100%; max-width: 360px; height: auto; }
+#nba-root .nba-hw .nba-box { fill: var(--panel); stroke: var(--wire); stroke-width: 1.4; }
+#nba-root .nba-hw .nba-w { fill: none; stroke: var(--wire); stroke-width: 1.4; }
+#nba-root .nba-hw .nba-arrow { fill: var(--wire); }
+#nba-root .nba-hw text { font-family: var(--mono); fill: var(--fg); }
+#nba-root .nba-hw .nba-pin { font-size: 10px; fill: var(--muted); }
+#nba-root .nba-hw .nba-dval { font-size: 11px; font-weight: 700; fill: var(--line-mark); }
+#nba-root .nba-hw .nba-qval { font-size: 17px; font-weight: 700; }
+#nba-root .nba-hw .nba-qval.nba-chg { fill: var(--chg-ink); }
+#nba-root .nba-verdict { margin: 0; font-size: 0.9em; }
+#nba-root .nba-good { color: var(--good); font-weight: 600; }
+#nba-root .nba-bad { color: var(--bad); font-weight: 600; }
+#nba-root .nba-card { margin-top: 10px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; display: grid; gap: 8px; }
+#nba-root .nba-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#nba-root .nba-dots { display: flex; gap: 4px; margin-left: auto; }
+#nba-root .nba-dots button { width: 26px; height: 26px; padding: 0; border-radius: 50%; font: 600 0.72rem var(--mono); }
+#nba-root .nba-dots button[aria-current="step"] { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+#nba-root .nba-kicker { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+#nba-root .nba-h { margin: 0; font-size: 1.1rem; font-weight: 700; }
+#nba-root .nba-body p { margin: 0 0 6px; }
+#nba-root .nba-body p:last-child { margin-bottom: 0; }
+@media (prefers-reduced-motion: reduce) {
+  #nba-root .nba-var { transition: none !important; }
+}
+</style>
+<div id="nba-root">
+<div class="nba-bar">
+<span class="nba-group" role="group" aria-label="Example"><span>Example:</span>
+<button type="button" id="nba-m1" aria-pressed="true">One block</button>
+<button type="button" id="nba-m2" aria-pressed="false">Two blocks</button></span>
+<span class="nba-group" id="nba-orders" role="group" aria-label="Order in which the simulator runs the blocks" hidden><span>Simulator runs:</span>
+<button type="button" id="nba-o1" aria-pressed="true">Block 1 first</button>
+<button type="button" id="nba-o2" aria-pressed="false">Block 2 first</button></span>
+</div>
+<ol class="nba-regions" id="nba-regions" aria-label="Phases of the time step">
+<li>Clock edge</li><li>Active region: the blocks run</li><li>NBA region: non-blocking updates</li><li>Time step done</li>
+</ol>
+<div class="nba-lanes">
+<div class="nba-lane" id="nba-lane-b"></div>
+<div class="nba-lane" id="nba-lane-n"></div>
+</div>
+<div class="nba-card">
+<div class="nba-nav">
+<button type="button" id="nba-prev" aria-label="Previous step">← Back</button>
+<button type="button" id="nba-next" class="nba-primary" aria-label="Next step">Next →</button>
+<button type="button" id="nba-play" aria-pressed="false">Play</button>
+<div class="nba-dots" id="nba-dots" role="group" aria-label="Steps"></div>
+</div>
+<div aria-live="polite">
+<p class="nba-kicker" id="nba-kicker"></p>
+<p class="nba-h" id="nba-title"></p>
+<div class="nba-body" id="nba-body"></div>
+</div>
+</div>
+<noscript>This figure needs JavaScript.</noscript>
+</div>
+<script>
+(() => {
+  const root = document.getElementById("nba-root");
+  const $ = id => document.getElementById("nba-" + id);
+  const INIT = { a_q: 0, b_q: 1 };
+  const N = 5;
+  let step = 1, mode = 1, order = 1, playTimer = null;
+  const c = s => `<code>${s}</code>`;
+
+  // Code lines and the statements in the order the simulator runs them (line = index into lines).
+  function program(op, ord) {
+    if (mode === 1) return {
+      lines: ["always_ff @(posedge clk_i) begin", `  a_q ${op} b_q;`, `  b_q ${op} a_q;`, "end"],
+      run: [{ lhs: "a_q", rhs: "b_q", line: 1, blk: 1 }, { lhs: "b_q", rhs: "a_q", line: 2, blk: 1 }]
+    };
+    const s1 = { lhs: "a_q", rhs: "b_q", line: 2, blk: 1 }, s2 = { lhs: "b_q", rhs: "a_q", line: 6, blk: 2 };
+    return {
+      lines: ["// block 1", "always_ff @(posedge clk_i) begin", `  a_q ${op} b_q;`, "end",
+              "// block 2", "always_ff @(posedge clk_i) begin", `  b_q ${op} a_q;`, "end"],
+      run: ord === 1 ? [s1, s2] : [s2, s1]
+    };
+  }
+
+  // One time step in the simulator: trace[i] is the state shown at step i + 1.
+  function simulate(blocking, ord = order) {
+    const p = program(blocking ? "=" : "<=", ord), v = Object.assign({}, INIT), sched = [], written = {}, trace = [];
+    trace.push({ v: Object.assign({}, v), sched: [] });
+    for (const s of p.run) {
+      const ev = { s, val: v[s.rhs], prev: v[s.lhs], by: written[s.rhs], pending: sched.some(u => u.lhs === s.rhs) };
+      if (blocking) { v[s.lhs] = ev.val; written[s.lhs] = s; } else sched.push({ lhs: s.lhs, val: ev.val });
+      trace.push({ v: Object.assign({}, v), sched: sched.map(u => Object.assign({}, u)), ev });
+    }
+    for (const u of sched) v[u.lhs] = u.val;
+    const done = sched.map(u => Object.assign({ done: true }, u));
+    trace.push({ v: Object.assign({}, v), sched: done }, { v: Object.assign({}, v), sched: done });
+    return { p, trace };
+  }
+
+  // What synthesis builds: every block reads the flip-flop outputs, and a blocking write is seen
+  // only by the later statements of the same block, in source order. Returns the source of each D input.
+  function netlist(blocking) {
+    const p = program(blocking ? "=" : "<=", order), d = {}, env = {};
+    for (const s of p.run.slice().sort((x, y) => x.line - y.line)) {
+      env[s.blk] = env[s.blk] || {};
+      const src = blocking && s.rhs in env[s.blk] ? env[s.blk][s.rhs] : s.rhs;
+      d[s.lhs] = src;
+      if (blocking) env[s.blk][s.lhs] = src;
+    }
+    return d;
+  }
+
+  const swapped = v => v.a_q === INIT.b_q && v.b_q === INIT.a_q;
+  const after = d => ({ a_q: INIT[d.a_q], b_q: INIT[d.b_q] });
+
+  function hw(d, q, changed) {
+    const X = { a_q: 64, b_q: 196 }, R = {
+      "a_q<b_q": [[260, 40], [284, 40], [284, 10], [40, 10], [40, 40], [64, 40]],
+      "b_q<a_q": [[128, 40], [196, 40]],
+      "b_q<b_q": [[260, 40], [284, 40], [284, 10], [176, 10], [176, 40], [196, 40]]
+    };
+    const pts = p => p.map(q => q.join(",")).join(" ");
+    let s = `<desc>Two D flip-flops a_q and b_q on the clock clk_i. A wire runs from the Q output of a flip-flop to each D input it captures from.</desc>`;
+    s += `<polyline class="nba-w" points="${pts([[42, 100], [180, 100]])}"/>`;
+    if (d.a_q === "b_q" && d.b_q === "b_q") s += `<circle class="nba-arrow" cx="176" cy="10" r="2.6"/>`;
+    s += `<text x="4" y="104" font-size="11">clk_i</text>`;
+    for (const k of ["a_q", "b_q"]) {
+      const x = X[k], route = R[`${k}<${d[k]}`], end = route[route.length - 1];
+      s += `<polyline class="nba-w" points="${pts(route.slice(0, -1).concat([[end[0] - 6, end[1]]]))}"/>`;
+      s += `<polygon class="nba-arrow" points="${pts([[end[0], end[1]], [end[0] - 7, end[1] - 3.5], [end[0] - 7, end[1] + 3.5]])}"/>`;
+      s += `<polyline class="nba-w" points="${pts([[x - 16, 100], [x - 16, 70], [x, 70]])}"/>`;
+      s += `<rect class="nba-box" x="${x}" y="24" width="64" height="60" rx="3"/>`;
+      s += `<polyline class="nba-w" points="${pts([[x, 64], [x + 8, 70], [x, 76]])}"/>`;
+      s += `<text class="nba-pin" x="${x + 5}" y="44">D</text><text class="nba-pin" x="${x + 59}" y="44" text-anchor="end">Q</text>`;
+      s += `<text x="${x + 32}" y="44" font-size="12" text-anchor="middle">${k}</text>`;
+      s += `<text class="nba-qval${changed && q[k] !== INIT[k] ? " nba-chg" : ""}" x="${x + 34}" y="75" text-anchor="middle">${q[k]}</text>`;
+      s += `<text class="nba-dval" x="${x - 12}" y="34" text-anchor="middle">${INIT[d[k]]}</text>`;
+    }
+    const label = `Netlist: flip-flop a_q captures ${d.a_q}, flip-flop b_q captures ${d.b_q}. a_q holds ${q.a_q}, b_q holds ${q.b_q}.`;
+    return `<svg class="nba-hw" viewBox="0 0 296 112" role="img" aria-label="${label}">${s}</svg>`;
+  }
+
+  function lane(blocking) {
+    const { p, trace } = simulate(blocking), t = trace[step - 1], prev = trace[Math.max(step - 2, 0)];
+    const d = netlist(blocking), last = step === N;
+    const cur = t.ev && step <= 3 ? t.ev.s.line : -1;
+    let h = `<p class="nba-lane-h">${blocking ? "Blocking " + c("=") : "Non-blocking " + c("&lt;=")}</p>`;
+    h += `<pre class="nba-code" aria-label="Code">` + p.lines.map((l, i) =>
+      `<span class="${i === cur ? "nba-cur" : ""}${l.startsWith("//") ? " nba-cmt" : ""}">${l.replace(/</g, "&lt;")}</span>`).join("") + `</pre>`;
+    h += `<div class="nba-vars">` + ["a_q", "b_q"].map(k =>
+      `<div class="nba-var${step > 1 && t.v[k] !== prev.v[k] ? " nba-chg" : ""}"><span>${k}</span><output>${t.v[k]}</output></div>`).join("") + `</div>`;
+    h += `<div class="nba-sched"><p>Scheduled updates:${t.sched.length ? "" : blocking ? " none, " + c("=") + " writes at once" : " none yet"}</p>`;
+    if (t.sched.length) h += `<ul>` + t.sched.map(u => `<li class="${u.done ? "nba-done" : ""}">${c(u.lhs)} ← ${u.val}${u.done ? ", applied" : ""}</li>`).join("") + `</ul>`;
+    h += `</div><p class="nba-hw-h">Flip-flops that synthesis builds from this code</p>`;
+    h += hw(d, last ? after(d) : INIT, last);
+    if (last) {
+      const sim = swapped(t.v), net = swapped(after(d));
+      const word = (ok, who) => `<span class="${ok ? "nba-good" : "nba-bad"}">${who}: ${ok ? "swap" : "no swap"}</span>`;
+      h += `<p class="nba-verdict">${word(sim, "Simulation")}, ${word(net, "netlist")}.${sim === net ? "" : ` <span class="nba-bad">Simulation and netlist differ.</span>`}</p>`;
+    }
+    return h;
+  }
+
+  function said(ev, blocking) {
+    const { s, val, prev } = ev;
+    if (blocking) {
+      const fresh = ev.by ? `, the new value that ${mode === 1 ? "the statement before" : "block " + ev.by.blk} has just written,` : "";
+      return `${c(`${s.lhs} = ${s.rhs}`)} reads ${val}${fresh} and writes it at once, so ${c(s.lhs)} ${val === prev ? "keeps" : "is already"} ${val}.`;
+    }
+    const old = ev.pending ? `, its old value, because the update of ${c(s.rhs)} is only scheduled,` : "";
+    return `${c(`${s.lhs} &lt;= ${s.rhs}`)} reads ${val}${old} and schedules ${c(s.lhs)} ← ${val}. ${c(s.lhs)} keeps ${prev} for now.`;
+  }
+
+  function text() {
+    const B = simulate(true), NB = simulate(false), dB = netlist(true), dN = netlist(false);
+    const tb = B.trace[step - 1], tn = NB.trace[step - 1];
+    const blocks = mode === 1 ? `the ${c("always_ff")} block` : `both ${c("always_ff")} blocks`;
+    if (step === 1) return ["The rising edge of " + c("clk_i"), [
+      `Both versions start with ${c("a_q")} = ${INIT.a_q} and ${c("b_q")} = ${INIT.b_q}. The rising edge of ${c("clk_i")} starts ${blocks}, and the simulator enters the active region of this time step, in which it runs the triggered blocks.`,
+      mode === 1 ? "The statements of a block run one after the other, from top to bottom."
+                 : `The standard leaves open in which order the simulator runs the two blocks. Here, block ${order} runs first.`]];
+    if (step <= 3) {
+      const ev = tb.ev;
+      return [mode === 1 ? (step === 2 ? "The first statement" : "The second statement") : `Block ${ev.s.blk} runs`,
+        [`Blocking: ${said(tb.ev, true)}`, `Non-blocking: ${said(tn.ev, false)}`]];
+    }
+    if (step === 4) {
+      const ups = tn.sched.map(u => `${c(u.lhs)} becomes ${u.val}`).join(" and ");
+      return ["The NBA region", [
+        `All triggered blocks have run, so the active region is over. Now the simulator applies the scheduled non-blocking updates, all together: ${ups}.`,
+        `The blocking version has nothing scheduled. Its values were final when its statements ran.`]];
+    }
+    const res = (t, d, name) => {
+      const sim = swapped(t.v), net = swapped(after(d));
+      let r = `${name}: ${sim ? "the registers swap" : `no swap, both registers hold ${t.v.a_q}`}`;
+      r += sim === net ? `, and the flip-flops of the netlist do the same.`
+                       : `, but synthesis builds the swap, because each block reads the flip-flop outputs. Simulation and netlist differ.`;
+      return r;
+    };
+    const tail = mode === 1
+      ? `The flip-flops of the netlist all capture their D inputs at the same clock edge. This is what the non-blocking update models.`
+      : `Switch the order of the blocks: the blocking version then ends with both registers at ${simulate(true, 3 - order).trace[N - 1].v.a_q}, and the non-blocking version swaps in both orders.`;
+    return ["The result: simulation against netlist", [res(tb, dB, "Blocking"), res(tn, dN, "Non-blocking"), tail]];
+  }
+
+  const regionOf = [0, 1, 1, 2, 3];
+  function render() {
+    $("lane-b").innerHTML = lane(true);
+    $("lane-n").innerHTML = lane(false);
+    [...$("regions").children].forEach((li, i) => li.classList.toggle("nba-on", i === regionOf[step - 1]));
+    const [title, paras] = text();
+    $("kicker").textContent = `Step ${step} of ${N}`;
+    $("title").innerHTML = title;
+    $("body").innerHTML = paras.map(x => `<p>${x}</p>`).join("");
+    $("prev").disabled = step === 1;
+    $("next").disabled = step === N;
+    [...$("dots").children].forEach((b, i) => {
+      if (i + 1 === step) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current");
+    });
+    $("m1").setAttribute("aria-pressed", mode === 1); $("m2").setAttribute("aria-pressed", mode === 2);
+    $("o1").setAttribute("aria-pressed", order === 1); $("o2").setAttribute("aria-pressed", order === 2);
+    $("orders").hidden = mode !== 2;
+  }
+
+  function go(n) { step = Math.min(Math.max(n, 1), N); render(); }
+  function stopPlay() {
+    if (playTimer) clearInterval(playTimer);
+    playTimer = null;
+    $("play").textContent = "Play";
+    $("play").setAttribute("aria-pressed", "false");
+  }
+  for (let i = 1; i <= N; i++) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = i; b.setAttribute("aria-label", `Step ${i}`);
+    b.addEventListener("click", () => { stopPlay(); go(i); });
+    $("dots").appendChild(b);
+  }
+  $("prev").addEventListener("click", () => { stopPlay(); go(step - 1); });
+  $("next").addEventListener("click", () => { stopPlay(); go(step + 1); });
+  $("play").addEventListener("click", () => {
+    if (playTimer) { stopPlay(); return; }
+    if (step === N) go(1);
+    $("play").textContent = "Pause";
+    $("play").setAttribute("aria-pressed", "true");
+    playTimer = setInterval(() => { go(step + 1); if (step === N) stopPlay(); }, 5000);
+  });
+  $("m1").addEventListener("click", () => { stopPlay(); mode = 1; render(); });
+  $("m2").addEventListener("click", () => { stopPlay(); mode = 2; render(); });
+  $("o1").addEventListener("click", () => { stopPlay(); order = 1; render(); });
+  $("o2").addEventListener("click", () => { stopPlay(); order = 2; render(); });
+  // arrow keys only while the figure has the focus, so the book page keeps its own keys
+  root.addEventListener("keydown", ev => {
+    if (ev.key === "ArrowRight") { stopPlay(); go(step + 1); ev.preventDefault(); }
+    else if (ev.key === "ArrowLeft") { stopPlay(); go(step - 1); ev.preventDefault(); }
+  });
+  render();
+})();
+</script>
+```
+
+Interactive step-through of one rising edge of `clk_i` for the swap of the two registers above, with blocking assignments `=` on the left and non-blocking assignments `<=` on the right, both starting from `a_q` = 0 and `b_q` = 1. Choose one `always_ff` block or two blocks with one assignment each, and step with the buttons, or with the arrow keys once a button has the focus. The strip on top marks the phase of the time step: at the clock edge, the simulator first runs every block that the edge triggers (the active region), and only then applies the scheduled non-blocking updates, all together (the NBA region). In each code panel, the statement that runs is highlighted. The boxes below show the values of `a_q` and `b_q`, with a value that has just changed in yellow, and the list holds the updates that a non-blocking assignment has scheduled but not yet applied. Below the list, the flip-flops that Yosys 0.70 builds from the code: a wire runs from the Q output of a flip-flop to each D input it feeds, the small number is the value at the D input at the clock edge, and the number in the box is the value the flip-flop holds, before the edge and, in the last step, after it (in yellow where it changed). With two blocks, the standard leaves open which block runs first, so the blocking version ends with both registers at 1 or both at 0, depending on the order, while the netlist swaps in both cases.
+:::
+:::
+
+::: {.content-visible unless-format="html"}
+::: {#fig-sv-nba}
+The interactive step-through is part of the HTML version of this book: <https://iic-jku.github.io/vlsi-design/vlsi.html#fig-sv-nba>.
+
+Interactive step-through of one clock edge of the swap of two registers with blocking and non-blocking assignments, in one `always_ff` block or in two: the values after each statement, the active and the NBA region of the time step, and the flip-flops that synthesis builds.
+:::
+:::
