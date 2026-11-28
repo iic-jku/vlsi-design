@@ -187,6 +187,10 @@ The work of pipelining is in the details. Every signal that belongs to the same 
 
 **Retiming** moves registers across combinational logic without changing the behavior at the outputs (@fig-synth-opt-pipeline (b)), e.g., to balance the stages of a pipeline that is cut at the wrong place. Retiming can change the number of registers, it must compute new reset or initial values for the registers it moves, and it breaks the matching of the registers by name in equivalence checking (@sec-synthesis-lib-lec). Commercial synthesis tools retime on request. In the open-source flow, Yosys passes flip-flops to ABC only with `abc -dff` (in LibreLane `SYNTH_ABC_DFF`, off by default), and only flip-flops without a reset: `yosys -h abc` lists `$_DFF_?_` and `$_DFFE_??_`. Every default script of ABC then runs `dretime`, which by default retimes for minimum area, i.e., it moves registers to reduce their number, not the delay. Only with a delay target, `abc -dff -D <ps>`, does ABC add a delay-oriented `retime`. And `abc -dff` must run before `dfflibmap`, while the flip-flops are still generic cells. The designs of this course use flip-flops with an asynchronous reset and place their pipeline registers in the RTL.
 
+@fig-synth-opt-pipeline-steps goes through both examples of @fig-synth-opt-pipeline step by step, interactively in the HTML version of this book. It pipelines the path of panel (a), first without and then with the register for `x`, retimes the path of panel (b), and shows how a retiming for fewer registers can give back the gain of a pipeline. For every step, it gives the longest path, the clock period, the latency, the throughput, and the number of registers, and it computes the outputs for a short input sequence, so you can check which changes keep the function.
+
+{{< include /content/synth_opt/_fig_pipeline_steps.qmd >}}
+
 ::: {.callout-tip title="Exercise: Pipeline the Adder"}
 All commands start in the folder `content/synth_opt/code/adder`. It holds the reference solution `rtl/add_pipe.sv`, so move it out of the way first: `cd /foss/designs/vlsi-design/content/synth_opt/code/adder`, then `mv rtl/add_pipe.sv add_pipe_solution.sv`.
 
