@@ -1,0 +1,269 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+::: {.content-visible when-format="html"}
+::: {#fig-sequential-slack-explorer}
+
+```{=html}
+<style>
+#slx-root { text-align: left; }
+#slx-root .slx-controls { display: grid; grid-template-columns: max-content minmax(8em, 16em) 5.5em; gap: 0.25em 0.8em; align-items: center; margin-bottom: 0.5em; font-size: 0.9em; }
+#slx-root .slx-controls label { margin: 0; }
+#slx-root .slx-controls input[type=number] { padding: 0.1em 0.3em; }
+@media (max-width: 575.98px) {
+  #slx-root .slx-controls { grid-template-columns: 1fr 5.5em; }
+  #slx-root .slx-controls label { grid-column: 1 / -1; margin-top: 0.3em; }
+}
+#slx-root svg text { font-family: Arial, Helvetica, sans-serif; }
+#slx-root .slx-readout { font-size: 0.9em; margin-top: 0.5em; }
+#slx-root .slx-diagram { overflow-x: auto; }
+#slx-root .slx-diagram svg { min-width: 560px; }
+#slx-root .slx-met { color: #4a7a2c; }
+#slx-root .slx-viol { color: #b85450; }
+body.quarto-dark #slx-root .slx-met { color: #93c572; }
+body.quarto-dark #slx-root .slx-viol { color: #f08a80; }
+</style>
+<div id="slx-root">
+<div class="slx-controls"></div>
+<div class="slx-diagram"></div>
+<div class="slx-readout"></div>
+<p class="slx-live visually-hidden" aria-live="polite"></p>
+<noscript>This figure needs JavaScript.</noscript>
+</div>
+<script>
+(() => {
+  // dfrbpq_1, typical corner, rising D and Q (tbl-sequential-params)
+  const tcq = 0.207, tsu = 0.127, thold = -0.072;
+  const tpwLow = 0.249;   // minimum CLK low pulse, so T >= 2 * tpwLow at a duty cycle of 50 %
+  const root = document.getElementById("slx-root");
+  // Every time is a multiple of 1 ps (T is rounded in check), so the verdict always matches the printed slack.
+  const ps = v => Math.round(v * 1000) / 1000;
+  const met = s => ps(s) >= 0;
+  const fmt = v => (ps(v) < 0 ? "−" : "") + Math.abs(ps(v)).toFixed(3);
+  const verdictText = s => met(s) ? "met" : "violated";
+  const sub = s => `<i>t</i><sub>${s}</sub>`;
+  const desc = "Timing diagram with the rows clock at FF1, Q of FF1, clock at FF2, D of FF2 with the shaded setup and hold window before each edge of FF2, and Q of FF2. " +
+               "Two arrows below the rows mark the setup slack and the hold slack, green when the check is met and red when it is violated.";
+  const controls = [
+    ["fMHz", "Clock frequency (MHz)", 500, 2000, 10, 500],
+    ["tmax", `Max. logic delay ${sub("logic,max")} (ns)`, 0, 2, 0.01, 1],
+    ["tmin", `Min. logic delay ${sub("logic,min")} (ns)`, 0, 2, 0.01, 0.3],
+    ["skew", `Clock skew ${sub("skew")} (ns)`, -0.4, 0.8, 0.01, 0]
+  ];
+
+  function check(p) {
+    const T = ps(1000 / p.fMHz);
+    const tminE = Math.min(p.tmin, p.tmax);   // the shortest path cannot be longer than the longest
+    const setupArr = tcq + p.tmax, setupReq = T + p.skew - tsu;
+    const holdArr = tcq + tminE, holdReq = thold + p.skew;
+    return {T, tminE, setupArr, setupReq, setupSlack: setupReq - setupArr,
+            holdArr, holdReq, holdSlack: holdArr - holdReq, Tmin: tcq + p.tmax + tsu - p.skew};
+  }
+
+  function draw(p, chk) {
+    const {fMHz, tmax, skew} = p, {T, tminE} = chk;
+    const A = -0.5, B = 3.2;                        // time axis in ns
+    const W = 760, X0 = 92, X1 = 748, H = 24;
+    const xs = t => X0 + (t - A) / (B - A) * (X1 - X0);
+    const BLUE = "#6c8ebf", RED = "#b85450", GREEN = "#4a7a2c", GRAY = "#a6a6a6";
+    const yClk1 = 10, yQ1 = 44, yClk2 = 88, yD2 = 122, yQ2 = 156;
+    const ySetup = 202, yHold = 240, yAxis = 278, HT = 304;
+    const kLo = Math.floor((A - tcq - tmax) / T) - 1, kHi = Math.ceil((B - Math.min(tcq, skew)) / T) + 1;
+    const letter = k => "abcdefghijklmnopqrstuvwxyz"[((k + 1) % 26 + 26) % 26];   // a at edge -1, b at edge 0, z and y before a
+    const pts = p => p.map(q => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" ");
+    const line = (xa, ya, xb, yb, col, dash, w) =>
+      `<line x1="${xa.toFixed(1)}" y1="${ya}" x2="${xb.toFixed(1)}" y2="${yb}" stroke="${col}" stroke-width="${w || 1}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+    const text = (x, y, s, anchor, col, size) =>
+      `<text x="${x.toFixed(1)}" y="${y}" text-anchor="${anchor || "middle"}" fill="${col || "black"}" font-size="${size || 12}">${s}</text>`;
+
+    // Segments of a bus row from its changes [{s, e, v}]: unknown during [s, e], then value v.
+    // v === null marks an undefined value, drawn hatched.
+    function segments(init, changes) {
+      const raw = [];
+      let t = -Infinity, v = init;
+      for (const c of changes) {
+        if (c.s >= t) {
+          raw.push({t0: t, t1: c.s, v: v}, {t0: c.s, t1: c.e, v: null});
+        } else {
+          raw[raw.length - 1].t1 = Math.max(raw[raw.length - 1].t1, c.e);
+        }
+        t = Math.max(t, c.e);
+        v = c.v;
+      }
+      raw.push({t0: t, t1: Infinity, v: v});
+      const segs = [];
+      for (const g of raw) {
+        if (g.t1 - g.t0 < 1e-9) continue;
+        const last = segs[segs.length - 1];
+        if (last && last.v === null && g.v === null) last.t1 = g.t1;
+        else segs.push(Object.assign({}, g));
+      }
+      return segs;
+    }
+
+    // A value label goes to the segment center, or as near to it as it gets clear of the vertical lines obst.
+    function labelX(xa, xb, v, obst) {
+      const xc = (xa + xb) / 2, gap = 5 + 3.5 * v.length;
+      for (let d = 0; d <= (xb - xa) / 2 - gap; d += 3) {
+        for (const x of [xc - d, xc + d]) if (obst.every(o => Math.abs(o - x) > gap)) return x;
+      }
+      return xc;
+    }
+
+    function bus(segs, yt, obst) {
+      const yb = yt + H, ym = yt + H / 2;
+      let s = "";
+      for (const g of segs) {
+        if (g.t1 <= A || g.t0 >= B) continue;
+        const openL = g.t0 <= A, openR = g.t1 >= B;
+        const xa = xs(Math.max(g.t0, A)), xb = xs(Math.min(g.t1, B)), w = xb - xa;
+        const ra = openL ? 0 : Math.min(4, w / 2), rb = openR ? 0 : Math.min(4, w / 2);
+        const top = [openL ? [xa, yt] : [xa, ym], [xa + ra, yt], [xb - rb, yt], openR ? [xb, yt] : [xb, ym]];
+        const bot = [openL ? [xa, yb] : [xa, ym], [xa + ra, yb], [xb - rb, yb], openR ? [xb, yb] : [xb, ym]];
+        if (g.v === null) s += `<polygon points="${pts(top.concat(bot.slice().reverse()))}" fill="url(#slx-hatch)" stroke="none"/>`;
+        s += `<polyline points="${pts(top)}" fill="none" stroke="black" stroke-width="1.2"/>`;
+        s += `<polyline points="${pts(bot)}" fill="none" stroke="black" stroke-width="1.2"/>`;
+        if (g.v && w > 24) s += text(labelX(xa, xb, g.v, obst), ym + 4, g.v);
+      }
+      return s;
+    }
+
+    function clock(off, yt) {
+      const ph = t => (((t - off) % T) + T) % T;
+      let lvl = ph(A) < T / 2 ? yt : yt + H;
+      const p = [[xs(A), lvl]];
+      for (let k = Math.floor((A - off) / T); k * T + off < B; k++) {
+        for (const te of [k * T + off, k * T + off + T / 2]) {
+          if (te <= A || te >= B) continue;
+          const nl = ph(te + 1e-9) < T / 2 ? yt : yt + H;
+          p.push([xs(te) - 1.5, lvl], [xs(te) + 1.5, nl]);
+          lvl = nl;
+        }
+      }
+      p.push([xs(B), lvl]);
+      return `<polyline points="${pts(p)}" fill="none" stroke="black" stroke-width="1.2"/>`;
+    }
+
+    function arrow(ta, tb, y, col, label) {
+      const xa = xs(Math.min(ta, tb)), xb = xs(Math.max(ta, tb));
+      let s = line(xa, y, xb, y, col, "", 1.4);
+      if (xb - xa > 12) {
+        s += `<polygon points="${pts([[xa, y], [xa + 7, y - 3.5], [xa + 7, y + 3.5]])}" fill="${col}"/>`;
+        s += `<polygon points="${pts([[xb, y], [xb - 7, y - 3.5], [xb - 7, y + 3.5]])}" fill="${col}"/>`;
+      }
+      const xl = Math.min(Math.max((xa + xb) / 2, X0 + 60), X1 - 60);
+      return s + text(xl, y + 16, label, "middle", col).replace("<text ", `<text stroke="white" stroke-width="4" paint-order="stroke" `);
+    }
+
+    // Data: FF1 launches letter(k) at its edge k*T, FF2 sees it between the earliest and the latest arrival.
+    const q1 = [], d2 = [];
+    for (let k = kLo; k <= kHi; k++) {
+      q1.push({s: k * T + tcq, e: k * T + tcq, v: letter(k)});
+      d2.push({s: k * T + tcq + tminE, e: k * T + tcq + tmax, v: letter(k)});
+    }
+    const d2Segs = segments(letter(kLo - 1), d2);
+    // FF2 captures at k*T + skew what D held stable over the whole window, else Q is undefined.
+    const q2 = [];
+    for (let k = kLo; k <= kHi; k++) {
+      const c = k * T + skew;
+      if (c + tcq <= A) continue;
+      const g = d2Segs.find(g => g.v !== null && g.t0 <= c - tsu + 1e-9 && g.t1 >= c + thold - 1e-9);
+      q2.push({s: c + tcq, e: c + tcq, v: g ? g.v : null});
+    }
+
+    const sCol = met(chk.setupSlack) ? GREEN : RED, hCol = met(chk.holdSlack) ? GREEN : RED;
+    let s = `<defs><pattern id="slx-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">` +
+            `<line x1="0" y1="0" x2="0" y2="6" stroke="black" stroke-width="1"/></pattern></defs>`;
+    s += `<rect x="0" y="0" width="${W}" height="${HT}" fill="white"/>`;
+    const x1Edges = [], x2Edges = [], xWins = [];
+    for (let k = Math.ceil(A / T); k * T < B; k++) x1Edges.push(xs(k * T));
+    for (let k = Math.ceil((A - skew) / T); k * T + skew < B; k++) x2Edges.push(xs(k * T + skew));
+    for (let k = Math.floor((A - skew) / T); k * T + skew - tsu < B; k++) {   // windows of FF2
+      const c = k * T + skew;
+      if (c + thold > A) {
+        const xa = xs(Math.max(c - tsu, A)), xb = xs(Math.min(c + thold, B));
+        s += `<rect x="${xa.toFixed(1)}" y="${yD2 - 4}" width="${(xb - xa).toFixed(1)}" height="${H + 8}" fill="#cfdff5"/>`;
+        xWins.push(xa, xb);
+      }
+    }
+    for (const x of x1Edges) s += line(x, yClk1 - 4, x, yQ1 + H + 4, GRAY, "4 3");
+    for (const x of x2Edges) s += line(x, yClk2 - 4, x, yQ2 + H + 4, GRAY, "4 3");
+    const guides = [[chk.setupArr, ySetup, sCol], [chk.setupReq, ySetup, sCol], [chk.holdArr, yHold, hCol], [chk.holdReq, yHold, hCol]];
+    for (const [t, y, col] of guides) s += line(xs(t), yD2 + H, xs(t), y, col, "2 2");
+    s += clock(0, yClk1) + bus(segments(letter(kLo - 1), q1), yQ1, x1Edges);
+    s += clock(skew, yClk2) + bus(d2Segs, yD2, x2Edges.concat(xWins));
+    s += bus(segments("old", q2), yQ2, x2Edges.concat(guides.map(g => xs(g[0]))));
+    s += arrow(chk.setupArr, chk.setupReq, ySetup, sCol, `${fmt(chk.setupSlack)} ns, ${verdictText(chk.setupSlack)}`);
+    s += arrow(chk.holdReq, chk.holdArr, yHold, hCol, `${fmt(chk.holdSlack)} ns, ${verdictText(chk.holdSlack)}`);
+    for (const [name, y] of [["FF1 clk", yClk1], ["FF1 Q", yQ1], ["FF2 clk", yClk2], ["FF2 D", yD2], ["FF2 Q", yQ2]])
+      s += text(X0 - 10, y + H / 2 + 4, name, "end", "black", 13);
+    s += text(X0 - 10, ySetup + 4, "setup slack", "end", sCol, 13) + text(X0 - 10, yHold + 4, "hold slack", "end", hCol, 13);
+    s += line(X0, yAxis, X1, yAxis, "black", "", 1);
+    for (let t = A; t <= B + 1e-9; t += 0.5) {
+      s += line(xs(t), yAxis, xs(t), yAxis + 4, "black", "", 1);
+      s += text(xs(t), yAxis + 17, fmt(t).replace(/\.?0+$/, "") || "0", "middle", "black", 11);
+    }
+    s += text(X0 - 26, yAxis + 17, "time (ns)", "end", "black", 12);
+    return `<svg viewBox="0 0 ${W} ${HT}" role="img" aria-label="Timing diagram at ${fMHz} MHz: setup slack ${fmt(chk.setupSlack)} ns, hold slack ${fmt(chk.holdSlack)} ns" style="width: 100%; height: auto; max-width: ${W}px;"><desc>${desc}</desc>${s}</svg>`;
+  }
+
+  function readout(p, c) {
+    const verdict = v => `<span class="${met(v) ? "slx-met" : "slx-viol"}"><b>${fmt(v)} ns</b>, ${verdictText(v)}</span>`;
+    const tmin = `Minimum period <i>T</i><sub>min</sub> = ${sub("cq")} + ${sub("logic,max")} + ${sub("su")} &minus; ${sub("skew")} = ${fmt(c.Tmin)} ns`;
+    const pw = `The minimum pulse width of ${fmt(tpwLow)} ns for <code>CLK</code> low limits the clock to a period of at least ${fmt(2 * tpwLow)} ns at a duty cycle of 50 %, i.e., ${(1000 / (2 * tpwLow)).toFixed(1)} MHz. `;
+    const fmax = c.Tmin > 2 * tpwLow ? `${tmin}, i.e., <i>f</i><sub>max</sub> = ${(1000 / c.Tmin).toFixed(1)} MHz. `
+               : (c.Tmin > 0 ? `${tmin}. ` : "With this skew, the setup check of this path holds at any clock period. ") + pw;
+    return `<table class="table table-sm">
+      <thead><tr><th>Check</th><th>Arrival time</th><th>Required time</th><th>Slack</th></tr></thead>
+      <tbody>
+        <tr><td>Setup</td><td>${sub("cq")} + ${sub("logic,max")} = ${fmt(c.setupArr)} ns</td>
+            <td><i>T</i> + ${sub("skew")} &minus; ${sub("su")} = ${fmt(c.setupReq)} ns</td><td>${verdict(c.setupSlack)}</td></tr>
+        <tr><td>Hold</td><td>${sub("cq")} + ${sub("logic,min")} = ${fmt(c.holdArr)} ns</td>
+            <td>${sub("hold")} + ${sub("skew")} = ${fmt(c.holdReq)} ns</td><td>${verdict(c.holdSlack)}</td></tr>
+      </tbody>
+    </table><p>Clock period <i>T</i> = ${fmt(c.T)} ns. ` + fmax +
+      (p.tmin > p.tmax ? `${sub("logic,min")} is limited to ${sub("logic,max")} = ${fmt(p.tmax)} ns. ` : "") +
+      `Fixed by the flip-flop: ${sub("cq")} = ${fmt(tcq)} ns, ${sub("su")} = ${fmt(tsu)} ns, ${sub("hold")} = ${fmt(thold)} ns.</p>`;
+  }
+
+  // The range inputs hold the values, each number input mirrors its range input.
+  const box = root.querySelector(".slx-controls");
+  box.innerHTML = controls.map(([k, label, lo, hi, step, v]) =>
+    `<label for="slx-${k}">${label}</label>` +
+    `<input type="range" class="form-range" id="slx-${k}" data-k="${k}" min="${lo}" max="${hi}" step="${step}" value="${v}">` +
+    `<input type="number" class="form-control form-control-sm" data-k="${k}" min="${lo}" max="${hi}" step="${step}" value="${v}" aria-label="${label.replace(/<[^>]+>/g, "")}">`).join("");
+  const range = k => box.querySelector(`input[type=range][data-k="${k}"]`);
+  function update(ev) {
+    const src = ev && ev.target;
+    if (src && src.dataset.k) {
+      if (!Number.isFinite(parseFloat(src.value))) return;
+      for (const el of box.querySelectorAll(`input[data-k="${src.dataset.k}"]`)) if (el !== src) el.value = src.value;
+    }
+    const p = {};
+    for (const [k] of controls) p[k] = parseFloat(range(k).value);
+    const chk = check(p);
+    root.querySelector(".slx-diagram").innerHTML = draw(p, chk);
+    root.querySelector(".slx-readout").innerHTML = readout(p, chk);
+    root.querySelector(".slx-live").textContent =
+      `Setup slack ${fmt(chk.setupSlack)} ns, ${verdictText(chk.setupSlack)}. Hold slack ${fmt(chk.holdSlack)} ns, ${verdictText(chk.holdSlack)}.`;
+  }
+  box.addEventListener("input", update);
+  box.addEventListener("change", ev => { if (ev.target.type === "number") ev.target.value = range(ev.target.dataset.k).value; });
+  update();
+})();
+</script>
+```
+
+Interactive timing diagram of the path of @fig-sequential-path, with the values of `dfrbpq_1` for a rising `D` and `Q` from @tbl-sequential-params and no uncertainty. FF1 launches `b` at the clock edge at time 0, and the clock reaches FF2 $t_\text{skew}$ later. When both checks are met, FF2 captures the old value `a` of FF1 at this edge, which `b` must not disturb (hold check), and `b` at the next edge (setup check). `D` of FF2 may change between the earliest arrival $t_\text{cq} + t_\text{logic,min}$ and the latest arrival $t_\text{cq} + t_\text{logic,max}$ (hatched). The setup and hold window of FF2 (shaded) moves with its clock edge but keeps its width for every setting. Because $t_\text{hold}$ of `dfrbpq_1` is negative, the window ends before the edge. When `D` may change inside the window, `Q` of FF2 becomes undefined (hatched) $t_\text{cq}$ after the edge, as in @fig-sequential-setup-violation and @fig-sequential-hold-violation. If a check fails although `D` changes only outside the window, FF2 captures clean but wrong values instead: after a hold violation every value one cycle early, after a setup violation every value one or more cycles late.
+:::
+:::
+
+::: {.content-visible unless-format="html"}
+::: {#fig-sequential-slack-explorer}
+The interactive timing diagram is part of the HTML version of this book: <https://iic-jku.github.io/vlsi-design/vlsi.html#fig-sequential-slack-explorer>.
+
+Interactive timing diagram of the path of @fig-sequential-path, with sliders for the clock frequency, the logic delays, and the clock skew, and the resulting setup and hold slack.
+:::
+:::

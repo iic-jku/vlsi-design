@@ -127,6 +127,10 @@ Four consequences follow from the two conditions:
 - **Skew helps one check and hurts the other.** A capturing clock that arrives later gives the setup check more time and takes the same time away from the hold check. Hold violations therefore appear on short paths, e.g., between registers without logic in between, as in shift registers and scan chains (@sec-dft), when the clock reaches the capturing register late.
 - **Each check has its own worst corner.** A setup violation comes from a path that is too slow, so the setup check is usually hardest to meet in the slow corner, with the maximum delays. A hold violation comes from a path that is too fast, so the hold check is usually hardest to meet in the fast corner, with the minimum delays. This is only a rule of thumb, because the clock network slows down with the logic. The signoff therefore runs both checks in all corners (@sec-synthesis-lib-corners).
 
+@fig-sequential-slack-explorer shows both checks of one path, interactively in the HTML version of this book. Raise the clock frequency, and only the setup slack shrinks, while the hold slack stays where it is. Delay the clock of FF2 with a positive skew, and the setup slack grows by the same amount by which the hold slack shrinks. The setup and hold window of FF2 never changes its width, because $t_\text{su}$ and $t_\text{hold}$ belong to the flip-flop. What moves are the clock edges and the arrival times of the data, and with them the slacks.
+
+{{< include /content/sequential/_fig_slack_explorer.qmd >}}
+
 ## Static Timing Analysis {#sec-sequential-sta}
 
 **Static timing analysis** (STA) checks these conditions for every path of a design, without simulating it. It splits the netlist into **timing paths**. A path starts at a **startpoint**, an input port or the clock pin of a register, and it ends at an **endpoint**, an output port or a data pin of a register. That gives four kinds of paths (@fig-sequential-io): from an input to a register, from register to register, from a register to an output, and from an input straight through to an output.
