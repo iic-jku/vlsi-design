@@ -1,0 +1,216 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+::: {.content-visible when-format="html"}
+::: {#fig-digital-flow-stages}
+
+```{=html}
+<style>
+#fls-root {
+  --panel: #ffffff; --fg: #1b2330; --muted: #566174; --rule: #d6dce5; --soft: #f3f5f8; --focus: #3c5f92;
+  --sans: var(--bs-body-font-family, system-ui, sans-serif);
+  --mono: var(--bs-font-monospace, ui-monospace, Consolas, monospace);
+  text-align: left; container-type: inline-size; color: var(--fg); font-family: var(--sans);
+}
+body.quarto-dark #fls-root {
+  --panel: #19202a; --fg: #e3e8ef; --muted: #9ba6b6; --rule: #2b3441; --soft: #10141a; --focus: #9dbbe8;
+}
+#fls-root * { box-sizing: border-box; }
+#fls-root [hidden] { display: none !important; }
+#fls-root .fls-stage { background: #000; border-radius: 10px; overflow: hidden; line-height: 0; }
+#fls-root .fls-stage img { display: block; width: 100%; height: auto; transition: opacity 0.2s; }
+#fls-root .fls-stage.fls-wait img { opacity: 0.55; }
+#fls-root .fls-card { margin-top: 10px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; display: grid; gap: 12px; }
+@container (min-width: 640px) {
+  #fls-root .fls-card { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); column-gap: 20px; }
+  #fls-root .fls-nav { grid-column: 1 / -1; }
+}
+#fls-root .fls-col { display: grid; gap: 8px; align-content: start; min-width: 0; }
+#fls-root .fls-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#fls-root button { font: 600 0.9rem var(--sans); color: var(--fg); background: var(--soft); border: 1px solid var(--rule); border-radius: 7px; padding: 5px 12px; cursor: pointer; line-height: 1.4; }
+#fls-root button:hover { border-color: var(--muted); }
+#fls-root button.primary { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+#fls-root button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+#fls-root button:disabled { opacity: 0.4; cursor: default; }
+#fls-root .fls-dots { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+#fls-root .fls-dots button { width: 26px; height: 26px; padding: 0; border-radius: 50%; font: 600 0.72rem var(--mono); }
+#fls-root .fls-dots button[aria-current="step"] { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+#fls-root .fls-kicker { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+#fls-root .fls-h { margin: 0; font-size: 1.15rem; font-weight: 700; line-height: 1.25; }
+#fls-root .fls-body { margin: 0; }
+#fls-root .fls-sub { margin: 0; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+#fls-root ul { margin: 0; padding-left: 1.1em; font-size: 0.88em; }
+#fls-root li { margin: 0 0 2px; }
+#fls-root code { background: transparent; color: inherit; padding: 0; font-family: var(--mono); font-size: 0.92em; }
+#fls-root #fls-steps code { white-space: pre-wrap; overflow-wrap: anywhere; }
+#fls-root .fls-legend { list-style: none; padding-left: 0; }
+#fls-root .fls-sw { display: inline-block; width: 14px; height: 10px; margin-right: 6px; vertical-align: baseline; border: 1px solid #000; }
+#fls-root .fls-sw.line { height: 3px; border: 0; vertical-align: middle; }
+@media (prefers-reduced-motion: reduce) {
+  #fls-root .fls-stage img { transition: none !important; }
+}
+</style>
+<div id="fls-root">
+<div class="fls-stage" id="fls-stage">
+<img src="figures/digital_flow/bs_reg_stage_1_floorplan.png" width="754" height="718" loading="lazy" alt="OpenROAD GUI on a black background: a gray rectangle, the die, around a smaller area of 42 green row outlines, the core, with no cells and no pins yet.">
+<img src="figures/digital_flow/bs_reg_stage_2_power.png" width="754" height="718" loading="lazy" hidden alt="The same view with blue Metal1 rails along the rows, vertical yellow-green Metal4 straps in pairs at three places and a single one at the right edge, and three pairs of horizontal pink TopMetal1 straps.">
+<img src="figures/digital_flow/bs_reg_stage_3_global_placement.png" width="754" height="718" loading="lazy" hidden alt="The same view with the power grid and small blue cell outlines spread unevenly over the core, some overlapping and off the rows, and the pins as small green arrows on the left and right edges and red arrows on the top and bottom edges.">
+<img src="figures/digital_flow/bs_reg_stage_4_detailed_placement.png" width="754" height="718" loading="lazy" hidden alt="The same view with the cells lined up in the rows, and many cells filled in cyan, the buffers of the repair, spread over the core and along its edges.">
+<img src="figures/digital_flow/bs_reg_stage_5_clock_tree.png" width="754" height="718" loading="lazy" hidden alt="The same view without the power grid: cyan flip-flops mostly along the edges of the core, red clock buffers, one in the middle and sixteen spread over the core, and green straight lines from the middle buffer to the others and from each of them to its flip-flops.">
+<img src="figures/digital_flow/bs_reg_stage_6_global_routing.png" width="754" height="718" loading="lazy" hidden alt="The same view covered by a grid of colored tiles, dark red in the middle of the core, orange and yellow around it, and green and turquoise at the edges, with a legend from 0 to 100 percent at the top right.">
+<img src="figures/digital_flow/bs_reg_stage_7_detailed_routing.png" width="754" height="718" loading="lazy" hidden alt="The same view densely covered by wires, red and yellow-green vertical, green and pink horizontal, with wires from the pins on all four edges into the core.">
+<img src="figures/digital_flow/bs_reg_stage_8_fill.png" width="754" height="718" loading="lazy" hidden alt="The same view without the signal wires: the rows completely filled, with many cyan decoupling capacitors and small red filler cells between the blue logic cells.">
+</div>
+<div class="fls-card">
+<div class="fls-nav">
+<button id="fls-prev" type="button" aria-label="Previous step">← Back</button>
+<button id="fls-next" type="button" class="primary" aria-label="Next step">Next →</button>
+<button id="fls-play" type="button" aria-pressed="false">Play</button>
+<div class="fls-dots" id="fls-dots" role="group" aria-label="Steps"></div>
+</div>
+<div class="fls-col" aria-live="polite">
+<p class="fls-kicker" id="fls-kicker">Step 1 of 8</p>
+<p class="fls-h" id="fls-title"></p>
+<p class="fls-body" id="fls-body"></p>
+</div>
+<div class="fls-col">
+<p class="fls-sub">LibreLane steps</p>
+<ul id="fls-steps"></ul>
+<p class="fls-sub" id="fls-legend-h">Colors</p>
+<ul class="fls-legend" id="fls-legend"></ul>
+</div>
+</div>
+<noscript>This figure needs JavaScript.</noscript>
+</div>
+<script>
+(() => {
+  const root = document.getElementById("fls-root");
+  const $ = id => document.getElementById("fls-" + id);
+  const stage = $("stage");
+  const imgs = [...stage.querySelectorAll("img")];
+  // swatch colors sampled from the screenshots, kinds: box (layer, highlight) or line (flywire)
+  const C = { m1: "#0000cc", m2: "#d80000", m3: "#08ca00", m4: "#b9ee4f", tm1: "#d9205e",
+              row: "#00d600", die: "#808080", cyan: "#1e9fb4", red: "#a01818", fly: "#00ff00" };
+  const sw = (c, line) => `<span class="fls-sw${line ? " line" : ""}" style="background:${c}"></span>`;
+  const STEPS = [
+    { t: "Floorplan: die, core, and rows",
+      s: [["OpenROAD.Floorplan", "13-openroad-floorplan"], ["OpenROAD.TapEndcapInsertion", "19-openroad-tapendcapinsertion"]],
+      b: "The floorplan sizes the core for 50 % utilization of the synthesized cells and fills it with 42 rows of 336 sites. The die adds a margin around the core for the pins. The tap and endcap step adds no cells, because the cells of IHP LV tie their wells to the supplies themselves.",
+      l: [[C.row, "row"], [C.die, "die"]] },
+    { t: "Power grid",
+      s: [["OpenROAD.GeneratePDN", "21-openroad-generatepdn"]],
+      b: "The power grid brings <code>VDD</code> and <code>VSS</code> to every row: rails on Metal1 along the rows, vertical straps on Metal4, and horizontal straps on TopMetal1, in pairs of <code>VDD</code> and <code>VSS</code> every 50 µm. The last Metal4 pair keeps only its <code>VDD</code> strap, because its <code>VSS</code> strap would lie beyond the core. The cells are not placed yet.",
+      l: [[C.m1, "Metal1 rail"], [C.m4, "Metal4 strap"], [C.tm1, "TopMetal1 strap"]] },
+    { t: "Global placement",
+      s: [["OpenROAD.GlobalPlacementSkipIO", "24-openroad-globalplacementskipio"], ["OpenROAD.IOPlacement", "25-openroad-ioplacement"], ["OpenROAD.GlobalPlacement", "28-openroad-globalplacement"]],
+      b: "A first global placement without the pins shows the IO placer where the cells of each pin lie, and it places the pins next to them: on Metal3 left and right, on Metal2 at the top and bottom. The second global placement spreads the cells over the core with the pins fixed. The cells may still overlap and sit between the rows.",
+      l: [[C.m3, "pin on Metal3"], [C.m2, "pin on Metal2"]] },
+    { t: "Repair of the design and detailed placement",
+      s: [["OpenROAD.RepairDesignPostGPL", "32-openroad-repairdesignpostgpl"], ["OpenROAD.DetailedPlacement", "34-openroad-detailedplacement"]],
+      b: "The repair of the design puts a <code>buf_1</code> behind each of the 40 inputs and in front of each of the 32 outputs, and 142 more buffers into the nets that break the slew or fanout limits. Detailed placement then moves every cell onto a site of a row, without overlaps.",
+      l: [[C.cyan, "buffer of the repair (214)"]] },
+    { t: "Clock tree synthesis",
+      s: [["OpenROAD.CTS", "35-openroad-cts"], ["OpenROAD.ResizerTimingPostCTS", "37-openroad-resizertimingpostcts"]],
+      b: "TritonCTS builds an H-tree for the 71 flip-flops: a <code>buf_8</code> at the root in the middle of the core drives 16 leaf buffers, and each leaf drives 4 or 5 flip-flops. The 9 leaves with only 4 flip-flops get a dummy load, an <code>inv_1</code>. The clock nets have no wires yet, so the GUI draws each as straight flywires from its driver to its sinks. The timing repair with the real clock finds no hold violation and adds no delay cells.",
+      l: [[C.red, "clock buffer or dummy load"], [C.cyan, "flip-flop"], [C.fly, "clock net (flywire)", true]] },
+    { t: "Global routing",
+      s: [["OpenROAD.GlobalRouting", "39-openroad-globalrouting"]],
+      b: "The global router gives each net a path through tiles of 7.2 µm and counts the demand of each tile against its tracks. The heat map colors each tile by the share of its tracks in use, as in the <a href=\"#fig-digital-flow-gui-congestion\">congestion map of <code>base</code></a>: the middle of the core is the fullest, but no tile overflows. The antenna check after it finds no violation, so no diode is needed.",
+      l: [] },
+    { t: "Detailed routing",
+      s: [["OpenROAD.DetailedRouting", "44-openroad-detailedrouting"]],
+      b: "TritonRoute draws every wire on the tracks of its layer, vertically on Metal2 and Metal4, horizontally on Metal3 and TopMetal1. It starts with 683 violations of the design rules and removes them in four iterations. The wires are 40,693 µm long in all.",
+      l: [[C.m2, "Metal2"], [C.m3, "Metal3"], [C.m4, "Metal4"], [C.tm1, "TopMetal1"]] },
+    { t: "Fill and decoupling capacitors",
+      s: [["OpenROAD.FillInsertion", "52-openroad-fillinsertion"]],
+      b: "The fill insertion closes the gaps in the rows: 634 <code>decap_8</code> and 151 <code>decap_4</code> hold charge between <code>VDD</code> and <code>VSS</code>, and 255 <code>fill_2</code> and 280 <code>fill_1</code> fill the gaps that are too small for them. The signal and clock nets are hidden here. With them, this is the <a href=\"#fig-digital-flow-layout\">finished layout</a>, which goes to signoff next.",
+      l: [[C.cyan, "decoupling capacitor"], [C.red, "filler cell"]] }
+  ];
+  const N = STEPS.length;
+  let step = 1, token = 0, playTimer = null;
+
+  const dots = $("dots");
+  STEPS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = i + 1;
+    b.setAttribute("aria-label", `Step ${i + 1}: ${s.t}`);
+    b.addEventListener("click", () => { stopPlay(); go(i + 1, true); });
+    dots.appendChild(b);
+  });
+
+  // The pictures are lazy, so only the one shown and its neighbors are fetched.
+  function fetchImg(n) {
+    const im = imgs[n - 1];
+    if (im && im.loading !== "eager") im.loading = "eager";
+    return im;
+  }
+
+  function go(n, user) {
+    n = Math.max(1, Math.min(N, n));
+    step = n;
+    const t = ++token, s = STEPS[n - 1];
+    $("kicker").textContent = `Step ${n} of ${N}`;
+    $("title").textContent = s.t;
+    $("body").innerHTML = s.b;
+    $("steps").innerHTML = s.s.map(([id, dir]) => `<li><code>${id}</code> in <code>runs/base/${dir}/</code></li>`).join("");
+    $("legend").innerHTML = s.l.map(([c, label, line]) => `<li>${sw(c, line)}${label}</li>`).join("");
+    $("legend-h").hidden = s.l.length === 0;
+    [...dots.children].forEach((b, i) => { if (i === n - 1) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current"); });
+    $("prev").disabled = n === 1;
+    $("next").disabled = n === N;
+    const im = user ? fetchImg(n) : imgs[n - 1];
+    // keep the old picture until the new one is decoded, so the view never flashes empty
+    const swap = () => {
+      if (t !== token) return;
+      imgs.forEach((x, i) => { x.hidden = i !== n - 1; });
+      stage.classList.remove("fls-wait");
+    };
+    if (im.complete && im.naturalWidth) swap();
+    else {
+      stage.classList.add("fls-wait");
+      (im.decode ? im.decode() : Promise.reject()).then(swap, () => im.addEventListener("load", swap, { once: true }));
+    }
+    if (user) { fetchImg(n + 1); fetchImg(n - 1); }
+  }
+
+  function stopPlay() {
+    if (playTimer) clearInterval(playTimer);
+    playTimer = null;
+    $("play").textContent = "Play";
+    $("play").setAttribute("aria-pressed", "false");
+  }
+  $("play").addEventListener("click", () => {
+    if (playTimer) { stopPlay(); return; }
+    if (step >= N) go(1, true);
+    $("play").textContent = "Pause";
+    $("play").setAttribute("aria-pressed", "true");
+    playTimer = setInterval(() => { if (step >= N) stopPlay(); else go(step + 1, true); }, 7000);
+  });
+  $("prev").addEventListener("click", () => { stopPlay(); go(step - 1, true); });
+  $("next").addEventListener("click", () => { stopPlay(); go(step + 1, true); });
+  // arrow keys only while the figure has the focus, so the book page keeps its own keys
+  root.addEventListener("keydown", ev => {
+    if (ev.key === "ArrowRight") { stopPlay(); go(step + 1, true); ev.preventDefault(); }
+    else if (ev.key === "ArrowLeft") { stopPlay(); go(step - 1, true); ev.preventDefault(); }
+  });
+  root.addEventListener("pointerenter", () => fetchImg(step + 1), { once: true });
+  root.addEventListener("focusin", () => fetchImg(step + 1), { once: true });
+  go(1, false);
+})();
+</script>
+```
+
+Interactive walk through the run `base` of `bs_reg` in the OpenROAD GUI, from the floorplan to the fill, with the same view and zoom in every step. Step through with the buttons, or with the arrow keys once a button has the focus. Each picture is a screenshot of the state that the last listed step of LibreLane hands on, opened in the GUI from a copy of the run, with image 2026.10 as in the rest of this chapter. The layers keep the colors of the GUI, and the pins are small arrows in the color of their layer. The cyan and red fills of whole cells and the green flywires are highlights added for this figure, and each step names their meaning. Step 5 hides the power grid, and steps 6 and 8 hide the signal and clock nets together with their pins.
+:::
+:::
+
+::: {.content-visible unless-format="html"}
+::: {#fig-digital-flow-stages}
+The interactive walk through the run is part of the HTML version of this book: <https://iic-jku.github.io/vlsi-design/vlsi.html#fig-digital-flow-stages>.
+
+Interactive walk through the run `base` of `bs_reg` in the OpenROAD GUI, one screenshot per stage with the same view: floorplan, power grid, global placement, repair and detailed placement, clock tree synthesis, global routing, detailed routing, and fill.
+:::
+:::

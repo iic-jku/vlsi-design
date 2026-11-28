@@ -224,6 +224,10 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 :::
 :::
 
+@fig-digital-flow-stages follows the run `base` of `bs_reg` once more from the floorplan to the fill, with one screenshot of the OpenROAD GUI per stage at the same view and zoom. Each step names the steps of LibreLane behind its picture and their folders in `runs/base/`.
+
+{{< include /content/digital_flow/_fig_stages.qmd >}}
+
 ## Signoff {#sec-digital-flow-signoff}
 
 Only now are the wires known. **Parasitic extraction** with OpenRCX computes the resistance of every wire and its capacitance to ground and to its neighbors from the routed layout and the rules of the PDK, and writes them as SPEF. STA reads the SPEF instead of the estimates, and it writes SDF files with the delays of every cell and every wire, which a gate-level simulation can back-annotate (@sec-digital-flow-postlayout). The **signoff STA** checks setup and hold in every corner, the slow corner for setup and the fast one for hold in particular, and LibreLane collects the results in `55-openroad-stapostpnr/summary.rpt`.
