@@ -1,0 +1,698 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+::: {.content-visible when-format="html"}
+::: {#fig-synthesis-lib-eqy-steps}
+
+```{=html}
+<style>
+#eqy-root {
+  --panel: #ffffff; --fg: #1b2330; --muted: #566174; --rule: #d6dce5; --soft: #f3f5f8;
+  --wire: #2a3240; --node-stroke: #9aa5b5;
+  --gold: #6c8ebf; --gold-ink: #3c5f92; --gold-fill: #dae8fc; --gold-band: #eef3fb;
+  --gate: #82b366; --gate-ink: #4b7633; --gate-fill: #d5e8d4; --gate-band: #eef5ec;
+  --cut: #b85450; --match: #b9790b; --match-fill: #fbe9c2; --pass: #2c7a4b; --fail: #b85450;
+  --term-bg: #17202b; --term-fg: #d9e1eb; --term-dim: #8b98aa; --term-ok: #7fd49f; --term-bad: #f08f87;
+  --sans: var(--bs-body-font-family, system-ui, sans-serif);
+  --mono: var(--bs-font-monospace, ui-monospace, Consolas, monospace);
+  text-align: left; container-type: inline-size; color: var(--fg); font-family: var(--sans);
+}
+body.quarto-dark #eqy-root {
+  --panel: #19202a; --fg: #e3e8ef; --muted: #9ba6b6; --rule: #2b3441; --soft: #10141a;
+  --wire: #c8d0db; --node-stroke: #4b5667;
+  --gold: #86a8dc; --gold-ink: #9dbbe8; --gold-fill: #23344d; --gold-band: #151c27;
+  --gate: #95c57b; --gate-ink: #a9d48f; --gate-fill: #25371f; --gate-band: #151d16;
+  --cut: #ee8178; --match: #f0b445; --match-fill: #3b2f14; --pass: #63c98f; --fail: #ee8178;
+  --term-bg: #0a0e13;
+}
+#eqy-root * { box-sizing: border-box; }
+#eqy-root [hidden] { display: none !important; }
+#eqy-root .eqy-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 8px; font-size: 0.85em; color: var(--muted); }
+#eqy-root .eqy-legend span { display: inline-flex; align-items: center; gap: 6px; }
+#eqy-root .eqy-sw { width: 13px; height: 13px; border-radius: 3px; border: 1.5px solid; display: inline-block; }
+#eqy-root .eqy-sw.gold { background: var(--gold-fill); border-color: var(--gold); }
+#eqy-root .eqy-sw.gate { background: var(--gate-fill); border-color: var(--gate); }
+#eqy-root .eqy-sw.match { background: var(--match-fill); border-color: var(--match); }
+#eqy-root .eqy-x { color: var(--cut); font-weight: 700; }
+#eqy-root .eqy-stage-box { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; overflow-x: auto; }
+#eqy-root .eqy-stage { display: block; width: 100%; min-width: 720px; height: auto; }
+#eqy-root .eqy-card { margin-top: 10px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; display: grid; gap: 12px; }
+@container (min-width: 700px) {
+  #eqy-root .eqy-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 20px; }
+  #eqy-root .eqy-nav { grid-column: 1 / -1; }
+}
+#eqy-root .eqy-col { display: grid; gap: 10px; align-content: start; min-width: 0; }
+#eqy-root .eqy-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#eqy-root button { font: 600 0.9rem var(--sans); color: var(--fg); background: var(--soft); border: 1px solid var(--rule); border-radius: 7px; padding: 5px 12px; cursor: pointer; line-height: 1.4; }
+#eqy-root button:hover { border-color: var(--node-stroke); }
+#eqy-root button.primary { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+#eqy-root button:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; }
+#eqy-root button:disabled { opacity: 0.4; cursor: default; }
+#eqy-root .eqy-dots { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+#eqy-root .eqy-dots button { width: 26px; height: 26px; padding: 0; border-radius: 50%; font: 600 0.72rem var(--mono); }
+#eqy-root .eqy-dots button[aria-current="step"] { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+#eqy-root .eqy-kicker { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+#eqy-root .eqy-h { margin: 0; font-size: 1.2rem; font-weight: 700; line-height: 1.25; }
+#eqy-root .eqy-body { display: grid; gap: 8px; }
+#eqy-root .eqy-body p { margin: 0; }
+#eqy-root .gold-t { color: var(--gold-ink); font-weight: 600; }
+#eqy-root .gate-t { color: var(--gate-ink); font-weight: 600; }
+#eqy-root .cut-t { color: var(--cut); font-weight: 600; }
+#eqy-root .eqy-term { background: var(--term-bg); color: var(--term-fg); border: 0; border-radius: 7px; padding: 8px 10px; font: 400 12px/1.5 var(--mono); overflow-x: auto; white-space: pre; margin: 0; }
+#eqy-root .eqy-term .d { color: var(--term-dim); }
+#eqy-root .eqy-term .ok { color: var(--term-ok); }
+#eqy-root .eqy-term .bad { color: var(--term-bad); }
+#eqy-root .eqy-solver { border-top: 1px solid var(--rule); padding-top: 10px; display: grid; gap: 10px; }
+#eqy-root .eqy-solver-h { margin: 0; font-weight: 700; }
+#eqy-root .eqy-mode, #eqy-root .eqy-why { margin: 0; color: var(--muted); font-size: 0.9em; }
+#eqy-root .eqy-ins { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+#eqy-root .eqy-ctl { display: grid; gap: 3px; }
+#eqy-root .eqy-lbl { font: 600 0.82rem var(--mono); }
+#eqy-root .eqy-lbl em { font: 400 0.75rem var(--sans); font-style: normal; color: var(--cut); margin-left: 4px; }
+#eqy-root .eqy-bits { display: flex; gap: 4px; }
+#eqy-root .eqy-bit { width: 32px; padding: 4px 0; font: 600 0.9rem var(--mono); text-align: center; }
+#eqy-root .eqy-bit[aria-pressed="true"] { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+#eqy-root .eqy-bit:disabled { opacity: 1; background: transparent; border-style: dashed; color: var(--muted); }
+#eqy-root .eqy-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+#eqy-root .eqy-regs { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+#eqy-root .eqy-regv { border-radius: 7px; padding: 4px 10px; border: 1.5px solid; display: grid; min-width: 108px; }
+#eqy-root .eqy-regv span { font-size: 0.78rem; }
+#eqy-root .eqy-regv code { background: transparent; color: inherit; padding: 0; font-family: var(--mono); }
+#eqy-root .eqy-regv output { font: 600 1.35rem/1.2 var(--mono); font-variant-numeric: tabular-nums; }
+#eqy-root .eqy-regv.gold { background: var(--gold-fill); border-color: var(--gold); }
+#eqy-root .eqy-regv.gate { background: var(--gate-fill); border-color: var(--gate); }
+#eqy-root .eqy-verdict { align-self: center; font-weight: 700; font-size: 0.9rem; padding: 4px 10px; border-radius: 999px; border: 1.5px solid var(--pass); color: var(--pass); }
+#eqy-root .eqy-verdict.bad { border-color: var(--fail); color: var(--fail); }
+#eqy-root .eqy-hist-box { overflow-x: auto; }
+#eqy-root .eqy-hist { width: 100%; border-collapse: collapse; font: 400 0.82rem var(--mono); font-variant-numeric: tabular-nums; margin: 0; }
+#eqy-root .eqy-hist th { font: 600 0.75rem var(--sans); color: var(--muted); text-align: left; border-bottom: 1px solid var(--rule); padding: 2px 6px; }
+#eqy-root .eqy-hist td { padding: 2px 6px; border-bottom: 1px solid var(--rule); }
+#eqy-root .eqy-hist tr.bad td { color: var(--fail); font-weight: 600; }
+
+#eqy-root svg text { font-family: var(--sans); }
+#eqy-root .band { stroke: none; }
+#eqy-root .lane-gold .band { fill: var(--gold-band); }
+#eqy-root .lane-gate .band { fill: var(--gate-band); }
+#eqy-root .lane-label { font: 700 14px var(--sans); }
+#eqy-root .lane-gold .lane-label { fill: var(--gold-ink); }
+#eqy-root .lane-gate .lane-label { fill: var(--gate-ink); }
+#eqy-root .node { transition: transform 0.8s cubic-bezier(.3,.7,.3,1), opacity 0.5s; }
+#eqy-root .node-rect { fill: var(--panel); stroke: var(--node-stroke); stroke-width: 1.2; transition: fill 0.6s, stroke 0.6s; }
+#eqy-root .s-split .lane-gold .node-rect { fill: var(--gold-fill); stroke: var(--gold); stroke-width: 1.6; }
+#eqy-root .s-split .lane-gate .node-rect { fill: var(--gate-fill); stroke: var(--gate); stroke-width: 1.6; }
+#eqy-root .s-bound .lane-gold .node-rect { stroke: var(--gold); }
+#eqy-root .s-bound .lane-gate .node-rect { stroke: var(--gate); }
+#eqy-root .title { font: 600 12.5px var(--mono); fill: var(--fg); }
+#eqy-root .title-chip { fill: transparent; stroke: none; transition: fill 0.4s; }
+#eqy-root .s-matched .title-chip { fill: var(--match-fill); stroke: var(--match); stroke-width: 1.2; }
+#eqy-root .logic { fill: var(--panel); stroke: var(--wire); stroke-width: 1.3; }
+#eqy-root .logic-t { font: 400 11.5px var(--sans); fill: var(--fg); }
+#eqy-root .reg { fill: var(--panel); stroke: var(--wire); stroke-width: 1.4; }
+#eqy-root .reg-t { font: 400 9.5px var(--mono); fill: var(--muted); }
+#eqy-root .wire { fill: none; stroke: var(--wire); stroke-width: 1.5; }
+#eqy-root .edge { transition: opacity 0.6s; }
+#eqy-root .s-cut .edge { opacity: 0.28; stroke-dasharray: 4 4; }
+#eqy-root .s-split .edge { opacity: 0; }
+#eqy-root .s-bound .edge.e-cut { opacity: 0; }
+#eqy-root .dot { fill: var(--wire); transition: opacity 0.4s; }
+#eqy-root .dot.off { opacity: 0; }
+#eqy-root .arrowhead { fill: var(--wire); }
+#eqy-root .pin-t { font: 400 11px var(--mono); fill: var(--muted); }
+#eqy-root .stub { opacity: 0; transition: opacity 0.45s; }
+#eqy-root .s-cut .stub, #eqy-root .s-split .stub, #eqy-root .s-bound .stub.e-cut { opacity: 1; }
+#eqy-root .stub .x { stroke: var(--cut); stroke-width: 2.2; stroke-linecap: round; fill: none; }
+#eqy-root .stub-t { font: 600 10.5px var(--mono); fill: var(--cut); }
+#eqy-root .mem-div { stroke: var(--gold); stroke-width: 1.4; stroke-dasharray: 5 3; opacity: 0; transition: opacity 0.5s; }
+#eqy-root .lane-gate .mem-div { stroke: var(--gate); }
+#eqy-root .s-split .mem-div { opacity: 1; }
+#eqy-root .merged { opacity: 0; transition: opacity 0.7s; stroke-width: 1.6; }
+#eqy-root .lane-gold .merged { fill: var(--gold-fill); stroke: var(--gold); }
+#eqy-root .lane-gate .merged { fill: var(--gate-fill); stroke: var(--gate); }
+#eqy-root .s-bound .merged { opacity: 1; }
+#eqy-root .merged-t { font: 600 11.5px var(--mono); opacity: 0; transition: opacity 0.7s; }
+#eqy-root .lane-gold .merged-t { fill: var(--gold-ink); }
+#eqy-root .lane-gate .merged-t { fill: var(--gate-ink); }
+#eqy-root .s-bound .merged-t { opacity: 1; }
+#eqy-root .badge { opacity: 0; transition: opacity 0.35s; }
+#eqy-root .badge circle { stroke-width: 1.8; fill: var(--panel); }
+#eqy-root .badge.pass circle { stroke: var(--pass); }
+#eqy-root .badge.fail circle { stroke: var(--fail); }
+#eqy-root .badge text { font: 700 12px var(--sans); }
+#eqy-root .badge.pass text { fill: var(--pass); }
+#eqy-root .badge.fail text { fill: var(--fail); }
+#eqy-root .s-proved .badge.dflt, #eqy-root .s-reproved .badge.bnd { opacity: 1; }
+#eqy-root .s-focus .node:not([data-id="wr"]) { opacity: 0.22; }
+#eqy-root .note { opacity: 0; transition: opacity 0.5s; }
+#eqy-root .note-t { font: 600 13px var(--sans); fill: var(--cut); }
+#eqy-root .s-focus .note { opacity: 1; }
+#eqy-root .val { opacity: 0; transition: opacity 0.3s; font: 700 11.5px var(--mono); }
+#eqy-root .s-try .val { opacity: 1; }
+#eqy-root .val.in { fill: var(--cut); }
+#eqy-root .lane-gold .val.reg-v { fill: var(--gold-ink); }
+#eqy-root .lane-gate .val.reg-v { fill: var(--gate-ink); }
+#eqy-root .val.push { fill: var(--fg); }
+@media (prefers-reduced-motion: reduce) {
+  #eqy-root .node, #eqy-root .node-rect, #eqy-root .edge, #eqy-root .dot, #eqy-root .stub, #eqy-root .mem-div,
+  #eqy-root .merged, #eqy-root .merged-t, #eqy-root .badge, #eqy-root .note, #eqy-root .val, #eqy-root .title-chip { transition: none !important; }
+}
+</style>
+<div id="eqy-root">
+<div class="eqy-legend">
+<span><i class="eqy-sw gold"></i>RTL, called gold</span>
+<span><i class="eqy-sw gate"></i>netlist, called gate</span>
+<span><i class="eqy-sw match"></i>matched name</span>
+<span><b class="eqy-x">✕</b>cut point: a free input</span>
+</div>
+<div class="eqy-stage-box">
+<svg class="eqy-stage" id="eqy-stage" viewBox="0 0 1040 668" role="img" aria-label="The FIFO as RTL (gold, top) and netlist (gate, bottom), at the current step of the walk through EQY">
+<defs>
+<marker id="eqy-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+<path class="arrowhead" d="M0,0 L10,5 L0,10 z"></path>
+</marker>
+</defs>
+</svg>
+</div>
+<div class="eqy-card">
+<div class="eqy-nav">
+<button id="eqy-prev" type="button" aria-label="Previous step">← Back</button>
+<button id="eqy-next" type="button" class="primary" aria-label="Next step">Next →</button>
+<button id="eqy-play" type="button" aria-pressed="false">Play</button>
+<div class="eqy-dots" id="eqy-dots" role="group" aria-label="Steps"></div>
+</div>
+<div class="eqy-col" aria-live="polite">
+<p class="eqy-kicker" id="eqy-kicker">Step 1 of 10</p>
+<p class="eqy-h" id="eqy-title"></p>
+<div class="eqy-body" id="eqy-body"></div>
+</div>
+<div class="eqy-col">
+<pre class="eqy-term" id="eqy-term" aria-label="EQY output"></pre>
+<div class="eqy-solver" id="eqy-solver" hidden>
+<p class="eqy-solver-h">You are the solver</p>
+<p class="eqy-mode" id="eqy-mode"></p>
+<div class="eqy-ins">
+<div class="eqy-ctl"><span class="eqy-lbl">push_i</span><button type="button" class="eqy-bit" id="eqy-b-push" aria-pressed="false">0</button></div>
+<div class="eqy-ctl"><span class="eqy-lbl">full_o<em id="eqy-full-tag">free input</em></span><button type="button" class="eqy-bit" id="eqy-b-full" aria-pressed="false">0</button></div>
+<div class="eqy-ctl"><span class="eqy-lbl">rd_ptr_q<em>free input</em></span>
+<span class="eqy-bits"><button type="button" class="eqy-bit" id="eqy-b-rd2" aria-pressed="false" aria-label="rd_ptr_q bit 2">0</button><button type="button" class="eqy-bit" id="eqy-b-rd1" aria-pressed="false" aria-label="rd_ptr_q bit 1">0</button><button type="button" class="eqy-bit" id="eqy-b-rd0" aria-pressed="false" aria-label="rd_ptr_q bit 0">0</button></span>
+</div>
+</div>
+<div class="eqy-acts">
+<button type="button" id="eqy-clk">Clock edge</button>
+<button type="button" id="eqy-rst">Reset</button>
+<button type="button" id="eqy-demo">Play the counterexample</button>
+</div>
+<div class="eqy-regs">
+<div class="eqy-regv gold"><span>gold <code>wr_ptr_q</code></span><output id="eqy-o-gold">000</output></div>
+<div class="eqy-regv gate"><span>gate <code>wr_ptr_q</code></span><output id="eqy-o-gate">000</output></div>
+<div class="eqy-verdict" id="eqy-verdict">gold = gate</div>
+</div>
+<p class="eqy-why" id="eqy-why"></p>
+<div class="eqy-hist-box">
+<table class="eqy-hist" id="eqy-hist">
+<thead><tr><th>cycle</th><th>push_i</th><th>full_o</th><th>rd_ptr_q</th><th>gold</th><th>gate</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<noscript>This figure needs JavaScript.</noscript>
+</div>
+<script>
+(() => {
+  const NS = "http://www.w3.org/2000/svg";
+  const root = document.getElementById("eqy-root");
+  const svg = document.getElementById("eqy-stage");
+  const $ = id => document.getElementById("eqy-" + id);
+  const LANE_Y = { gold: 8, gate: 356 };
+  const LANE_H = 304;
+
+  function el(tag, attrs, parent) {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function txt(parent, x, y, s, cls, anchor) {
+    const t = el("text", { x, y, class: cls, "text-anchor": anchor || "start", "dominant-baseline": "central" }, parent);
+    t.textContent = s;
+    return t;
+  }
+  function wire(parent, d, cls, arrow) {
+    const p = el("path", { d, class: "wire " + (cls || "") }, parent);
+    if (arrow !== false) p.setAttribute("marker-end", "url(#eqy-arr)");
+    return p;
+  }
+  // points of a path made of M, H and V commands only
+  function points(d) {
+    const pts = [];
+    let x = 0, y = 0;
+    for (const m of d.matchAll(/([MHV])\s*([-\d.]+)(?:,([-\d.]+))?/g)) {
+      if (m[1] === "M") { x = +m[2]; y = +m[3]; }
+      else if (m[1] === "H") x = +m[2];
+      else y = +m[2];
+      pts.push([x, y]);
+    }
+    return pts;
+  }
+
+  // The blocks of the FIFO, at the same places in both lanes. Each block computes one matched signal.
+  const NODES = {
+    wr: { box: [110, 24, 220, 92], title: [122, 40, "wr_ptr_q"], logic: [122, 50, 96, 48],
+          text: { gold: ["push, +1"], gate: ["full again,", "push, +1"] }, reg: [246, 58, 40, 32],
+          inner: ["M218,74 H246", "M286,74 H330|n", "M300,74 V111 H170 V98"], loopDot: [300, 74],
+          pins: [["push_i", "M72,64 H122", 66, 64]], explode: [-12, -8], badge: [318, 104] },
+    rd: { box: [110, 184, 220, 92], title: [122, 268, "rd_ptr_q"], logic: [122, 210, 96, 48],
+          text: { gold: ["pop, +1"], gate: ["empty again,", "pop, +1"] }, reg: [246, 218, 40, 32],
+          inner: ["M218,234 H246", "M286,234 H330|n", "M300,234 V197 H170 V210"], loopDot: [300, 234],
+          pins: [["pop_i", "M72,246 H122", 66, 246]], explode: [-12, 8], badge: [318, 194] },
+    full: { box: [420, 30, 140, 64], title: [432, 41, "full_o"], logic: [432, 50, 80, 34],
+          text: { gold: ["full?"], gate: ["full?"] }, inner: ["M512,67 H560|n"], pins: [],
+          explode: [0, -10], badge: [550, 40] },
+    empty: { box: [420, 206, 140, 64], title: [432, 217, "empty_o"], logic: [432, 226, 80, 34],
+          text: { gold: ["empty?"], gate: ["empty?"] }, inner: ["M512,243 H560|n"], pins: [],
+          explode: [0, 10], badge: [550, 216] },
+    mem: { box: [630, 24, 170, 162], title: [642, 37, "mem_q[0..3]"], logic: [642, 48, 64, 128],
+          text: { gold: ["write", "enable"], gate: ["write", "enable"] }, inner: [], mem: true,
+          pins: [["data_i", "M606,150 H642", 602, 150], ["push_i", "M606,166 H642", 602, 166]],
+          explode: [8, -8] },
+    mux: { box: [870, 108, 140, 80], title: [882, 120, "data_o"], logic: [882, 130, 80, 46],
+          text: { gold: ["read mux"], gate: ["read mux"] }, inner: ["M962,153 H1022"], pins: [],
+          explode: [10, 4], badge: [1000, 118] },
+  };
+  const MEM_C = [62, 95, 128, 161];   // centers of the four words
+
+  // Matched signals that another block reads. bound: "int" when the edge lies inside one partition after bind.
+  const COMMON = [
+    { id: "wr-full", to: "full", sig: "wr_ptr_q", d: "M330,74 H432", bound: "int" },
+    { id: "wr-empty", to: "empty", sig: "wr_ptr_q", d: "M330,74 H350 V252 H432", bound: "cut" },
+    { id: "wr-mem", to: "mem", sig: "wr_ptr_q", d: "M330,74 H350 V110 H642", bound: "int" },
+    { id: "rd-empty", to: "empty", sig: "rd_ptr_q", d: "M330,234 H432", bound: "int" },
+    { id: "rd-full", to: "full", sig: "rd_ptr_q", d: "M330,234 H370 V56 H432", bound: "cut" },
+    { id: "rd-mux", to: "mux", sig: "rd_ptr_q", d: "M330,234 H370 V199 H860 V166 H882", bound: "cut" },
+    { id: "full-mem", to: "mem", sig: "full_o", d: "M560,67 H642", bound: "int" },
+    { id: "mem-mux", to: "mux", sig: "mem_q", d: "M800,112 H848 V140 H882", bound: "cut" },
+  ];
+  const EDGES = {
+    // the RTL reads its flags
+    gold: COMMON.concat([
+      { id: "full-wr", to: "wr", sig: "full_o", d: "M560,67 H590 V10 H205 V50", bound: "int" },
+      { id: "empty-rd", to: "rd", sig: "empty_o", d: "M560,243 H590 V292 H205 V258", bound: "int" },
+    ]),
+    // the netlist computes full and empty again from the pointers
+    gate: COMMON.concat([
+      { id: "rd-wr", to: "wr", sig: "rd_ptr_q", d: "M330,234 H370 V10 H205 V50", bound: "cut" },
+      { id: "rd-mem", to: "mem", sig: "rd_ptr_q", d: "M330,234 H370 V130 H642", bound: "cut" },
+      { id: "wr-rd", to: "rd", sig: "wr_ptr_q", d: "M330,74 H350 V292 H205 V258", bound: "cut" },
+    ]),
+  };
+  // A junction dot shows where one visible edge passes straight on and another branches off.
+  const DOTS = {
+    gold: [
+      { p: [350, 74], through: ["wr-full"], branch: ["wr-empty", "wr-mem"] },
+      { p: [350, 110], through: ["wr-empty"], branch: ["wr-mem"] },
+      { p: [370, 234], through: ["rd-empty"], branch: ["rd-full", "rd-mux"] },
+      { p: [370, 199], through: ["rd-full"], branch: ["rd-mux"] },
+      { p: [590, 67], through: ["full-mem"], branch: ["full-wr"] },
+    ],
+    gate: [
+      { p: [350, 74], through: ["wr-full"], branch: ["wr-empty", "wr-mem", "wr-rd"] },
+      { p: [350, 110], through: ["wr-empty", "wr-rd"], branch: ["wr-mem"] },
+      { p: [350, 252], through: ["wr-rd"], branch: ["wr-empty"] },
+      { p: [370, 234], through: ["rd-empty"], branch: ["rd-full", "rd-mux", "rd-wr", "rd-mem"] },
+      { p: [370, 199], through: ["rd-full", "rd-wr", "rd-mem"], branch: ["rd-mux"] },
+      { p: [370, 130], through: ["rd-full", "rd-wr"], branch: ["rd-mem"] },
+      { p: [370, 56], through: ["rd-wr"], branch: ["rd-full"] },
+    ],
+  };
+  // proof results without bind, as checked by scripts/check_synthesis_lib.sh
+  const RESULT = { wr: "fail", rd: "fail", full: "pass", empty: "pass", mux: "pass", mem: ["pass", "fail", "fail", "fail"] };
+
+  function addBadge(parent, x, y, r, kind, cls) {
+    const b = el("g", { class: `badge ${kind} ${cls}` }, parent);
+    el("circle", { cx: x, cy: y, r }, b);
+    const t = txt(b, x, y + 0.5, kind === "pass" ? "✓" : "✕", "", "middle");
+    if (r < 9) t.setAttribute("style", "font-size:9.5px");
+    return b;
+  }
+
+  const lanes = {};
+  const titles = [];
+  for (const key of ["gold", "gate"]) {
+    const g = el("g", { class: "lane lane-" + key, transform: `translate(0 ${LANE_Y[key]})` }, svg);
+    el("rect", { class: "band", x: 0, y: 0, width: 1040, height: LANE_H, rx: 14 }, g);
+    txt(g, 14, 20, key === "gold" ? "RTL (gold)" : "netlist (gate)", "lane-label");
+    const partLayer = el("g", {}, g);
+    const wireLayer = el("g", {}, g);
+    const dotLayer = el("g", {}, g);
+    const nodeLayer = el("g", {}, g);
+    const lane = { g, nodes: {}, edges: {}, dots: [], vals: {} };
+    lanes[key] = lane;
+
+    // the three partitions after bind
+    el("path", { class: "merged", d: "M102,3 H828 V194 H622 V124 H102 Z" }, partLayer);
+    el("path", { class: "merged", d: "M102,176 H338 V203 H568 V300 H102 Z" }, partLayer);
+    el("rect", { class: "merged", x: 862, y: 100, width: 156, height: 96, rx: 10 }, partLayer);
+    txt(partLayer, 820, 13, "partition full_o", "merged-t", "end");
+    txt(partLayer, 562, 284, "partition empty_o", "merged-t", "end");
+    txt(partLayer, 1012, 206, "partition data_o", "merged-t", "end");
+
+    for (const [id, n] of Object.entries(NODES)) {
+      const ng = el("g", { class: "node", "data-id": id }, nodeLayer);
+      lane.nodes[id] = ng;
+      const [bx, by, bw, bh] = n.box;
+      el("rect", { class: "node-rect", x: bx, y: by, width: bw, height: bh, rx: 9 }, ng);
+      const [tx, ty, ts] = n.title;
+      const chip = el("rect", { class: "title-chip", x: tx - 4, y: ty - 8.5, width: ts.length * 7.55 + 8, height: 17, rx: 4 }, ng);
+      titles.push([chip, txt(ng, tx, ty, ts, "title")]);
+      const [lx, ly, lw, lh] = n.logic;
+      el("rect", { class: "logic", x: lx, y: ly, width: lw, height: lh, rx: 6 }, ng);
+      const lines = n.text[key];
+      lines.forEach((s, i) => txt(ng, lx + lw / 2, ly + lh / 2 + (i - (lines.length - 1) / 2) * 13.5, s, "logic-t", "middle"));
+      if (n.reg) {
+        const [rx, ry, rw, rh] = n.reg;
+        el("rect", { class: "reg", x: rx, y: ry, width: rw, height: rh, rx: 2 }, ng);
+        el("path", { class: "wire", d: `M${rx + rw / 2 - 6},${ry + rh} L${rx + rw / 2},${ry + rh - 7} L${rx + rw / 2 + 6},${ry + rh}` }, ng);
+      }
+      if (n.mem) {
+        MEM_C.forEach((c, i) => {
+          wire(ng, `M706,${c} H728`);
+          el("rect", { class: "reg", x: 728, y: c - 12, width: 34, height: 24, rx: 2 }, ng);
+          txt(ng, 745, c, `[${i}]`, "reg-t", "middle");
+          wire(ng, `M762,${c} H774`, "", false);
+        });
+        wire(ng, "M774,62 V161", "", false);
+        wire(ng, "M774,112 H800", "", false);
+        el("circle", { class: "dot", cx: 774, cy: 112, r: 2.6 }, ng);
+        [78.5, 111.5, 144.5].forEach(y => el("line", { class: "mem-div", x1: 632, y1: y, x2: 798, y2: y }, ng));
+      }
+      for (const s of n.inner) {
+        const [d, flag] = s.split("|");
+        wire(ng, d, "", flag !== "n");
+      }
+      // the loop through the register leaves its Q output at a junction
+      if (n.loopDot) el("circle", { class: "dot", cx: n.loopDot[0], cy: n.loopDot[1], r: 2.6 }, ng);
+      for (const [name, d, x, y] of n.pins) {
+        wire(ng, d);
+        txt(ng, x, y, name, "pin-t", "end");
+      }
+      if (n.badge) addBadge(ng, n.badge[0], n.badge[1], 11, RESULT[id], "dflt");
+      else if (n.mem) MEM_C.forEach((c, i) => addBadge(ng, 788, c, 7.5, RESULT.mem[i], "dflt"));
+    }
+
+    // edges, and their stubs with the cut mark at the reading block
+    for (const e of EDGES[key]) {
+      const path = wire(wireLayer, e.d, "edge e-" + e.bound);
+      const pts = points(e.d);
+      const [ex, ey] = pts[pts.length - 1];
+      const [px, py] = pts[pts.length - 2];
+      const len = Math.hypot(ex - px, ey - py);
+      const ux = (ex - px) / len, uy = (ey - py) / len;
+      const sg = el("g", { class: "stub e-" + e.bound }, lane.nodes[e.to]);
+      wire(sg, `M${ex - 30 * ux},${ey - 30 * uy} L${ex},${ey}`);
+      const cx = ex - 21 * ux, cy = ey - 21 * uy;
+      el("path", { class: "x", d: `M${cx - 4},${cy - 4} L${cx + 4},${cy + 4} M${cx - 4},${cy + 4} L${cx + 4},${cy - 4}` }, sg);
+      if (ux !== 0) txt(sg, cx - 7, cy - 9, e.sig, "stub-t", "end");
+      else txt(sg, cx + 8, cy, e.sig, "stub-t");
+      lane.edges[e.id] = { ...e, path, stub: sg };
+    }
+    for (const dd of DOTS[key]) {
+      const c = el("circle", { class: "dot", cx: dd.p[0], cy: dd.p[1], r: 3 }, dotLayer);
+      lane.dots.push({ ...dd, c });
+    }
+    addBadge(nodeLayer, 812, 30, 11, "pass", "bnd");
+    addBadge(nodeLayer, 552, 216, 11, "pass", "bnd");
+    addBadge(nodeLayer, 1000, 118, 11, "pass", "bnd");
+
+    // live values of the solver panel at the write pointer
+    const wrn = lane.nodes.wr;
+    lane.vals.push = txt(wrn, 96, 54, "0", "val push", "middle");
+    lane.vals.reg = txt(wrn, 266, 50, "000", "val reg-v", "middle");
+    lane.vals.flag = txt(wrn, key === "gold" ? 258 : 272, 29, "= 0", "val in");
+  }
+  const note = el("g", { class: "note" }, svg);
+  txt(note, 520, 334, "gold reads the free input full_o, gate reads the free input rd_ptr_q: nothing ties them together", "note-t", "middle");
+
+  // size the name chips to the monospaced font the page really uses
+  function sizeChips() {
+    for (const [chip, t] of titles) {
+      const w = t.getComputedTextLength ? t.getComputedTextLength() : 0;
+      if (w > 0) chip.setAttribute("width", w + 8);
+    }
+  }
+  sizeChips();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(sizeChips);
+
+  // ---------------- the steps ----------------
+  const RUN0 = '<span class="d"># fifo.eqy without [collect *]</span>\n<span class="d">$</span> eqy -f -d nc nocollect.eqy';
+  const STEPS = [
+    { t: "Two designs, one question",
+      b: `<p>Synthesis turned the FIFO into a netlist of standard cells. EQY reads both: the RTL, called <span class="gold-t">gold</span>, and the netlist, called <span class="gate-t">gate</span>. It must show that the netlist computes the same values as the RTL, in every clock cycle after reset.</p>
+          <p>Look closely: the RTL reads its flags <code>full_o</code> and <code>empty_o</code>. The netlist computes "full" and "empty" a second time, from the two pointers, inside the pointer logic. Both are correct. Remember this difference.</p>`,
+      term: RUN0 },
+    { t: "Match the names",
+      b: `<p>First, EQY looks for signals with the same name on both sides. It finds 14: the 5 inputs, and the 9 signals that the design computes, i.e., the registers <code>wr_ptr_q</code>, <code>rd_ptr_q</code>, <code>mem_q[0]</code> to <code>mem_q[3]</code> and the outputs <code>full_o</code>, <code>empty_o</code> and <code>data_o</code>.</p>
+          <p>These 9 computed signals are the anchors of the comparison. If gold and gate agree at all of them in every cycle, the designs are equivalent.</p>`,
+      term: RUN0 + `\n<span class="d"># nc/matched.ids: 5 inputs, 6 registers, 3 outputs</span>
+fifo wr_ptr_q wr_ptr_q
+fifo rd_ptr_q rd_ptr_q
+fifo mem_q[0] mem_q[0]   <span class="d">... mem_q[3]</span>
+fifo full_o full_o
+fifo empty_o empty_o
+fifo data_o data_o
+fifo push_i push_i       <span class="d">... and the other inputs</span>` },
+    { t: "Cut at every matched signal",
+      b: `<p>Wherever a block reads a matched signal that another block computes, EQY cuts the wire <span class="cut-t">✕</span>. The cut end becomes a <b>free input</b>: the solver may give it any value, but the same value on the gold and on the gate side.</p>
+          <p>Primary inputs such as <code>push_i</code> are free anyway. They are not cut points.</p>`,
+      term: RUN0 },
+    { t: "Nine small partitions",
+      b: `<p>The cuts break each design into small pieces, the <b>partitions</b>, one per matched signal. A partition holds the logic that computes its signal and the register that stores it, together with the loop through that register.</p>
+          <p>This is the difference from a cone of the classic checker: a cone stops at the register, so the classic checker looks at a single clock cycle. A partition keeps its register, so EQY must look at many cycles.</p>`,
+      term: RUN0 + `\n<span class="d"># nc/partition.list</span>
+fifo fifo.wr_ptr_q xbits : wr_ptr_q[2:0]
+fifo fifo.rd_ptr_q xbits : rd_ptr_q[2:0]
+fifo fifo.mem_q.3 xbits : mem_q[3][7:0]
+fifo fifo.mem_q.2 xbits : mem_q[2][7:0]
+fifo fifo.mem_q.1 xbits : mem_q[1][7:0]
+fifo fifo.mem_q.0 xbits : mem_q[0][7:0]
+fifo fifo.full_o : full_o[0]
+fifo fifo.empty_o : empty_o[0]
+fifo fifo.data_o : data_o[7:0]` },
+    { t: "Prove each partition",
+      b: `<p>For each partition, the formal tool SymbiYosys answers one question: starting after reset, is there any sequence of inputs, over any number of cycles, for which gold and gate differ at a matched signal?</p>
+          <p>4 partitions pass. 5 fail: <code>wr_ptr_q</code>, <code>rd_ptr_q</code>, <code>mem_q[1]</code>, <code>mem_q[2]</code> and <code>mem_q[3]</code>. Is the netlist broken? The FIFO passed all its tests in chapter 4.</p>`,
+      term: RUN0 + `
+<span class="bad">Failed to prove equivalence of partition fifo.mem_q.1</span>
+<span class="bad">Failed to prove equivalence of partition fifo.mem_q.2</span>
+<span class="bad">Failed to prove equivalence of partition fifo.mem_q.3</span>
+<span class="bad">Failed to prove equivalence of partition fifo.rd_ptr_q</span>
+<span class="bad">Failed to prove equivalence of partition fifo.wr_ptr_q</span>
+<span class="d">$ echo $?</span>
+2` },
+    { t: "Look at the partition wr_ptr_q",
+      b: `<p>Compare the inputs of the two <code>wr_ptr_q</code> partitions. The RTL decides with the flag <code>full_o</code>, which is now a free input. The netlist computes "full" again from the pointers, so it reads the free input <code>rd_ptr_q</code> instead.</p>
+          <p>Nothing tells the solver that <code>full_o</code> and the pointers belong together. So it may choose values that a real FIFO can never have.</p>`,
+      term: `<span class="d"># the counterexample of the failed partition</span>
+nc/strategies/fifo.wr_ptr_q/sby/fifo.wr_ptr_q/engine_0/trace.vcd` },
+    { t: "The counterexample",
+      b: `<p>After reset, the solver sets <code>push_i</code> = 1, <code>full_o</code> = 0 and <code>rd_ptr_q</code> = 100. With the write pointer at 000, the FIFO is full: same lower bits, different top bit. But <code>full_o</code> says "not full".</p>
+          <p>Gold sees "not full" and accepts the push: 000 → 001. Gate computes "full" from the pointers and refuses: it keeps 000. The partitions differ, the designs do not. Try it in the solver panel.</p>`,
+      term: `<span class="d"># open it in Surfer</span>
+surfer nc/strategies/fifo.wr_ptr_q/sby/fifo.wr_ptr_q/engine_0/trace.vcd`, solver: "default" },
+    { t: "bind full_o and bind empty_o",
+      b: `<p>The fix is two lines in the <code>[collect *]</code> section. <code>bind full_o</code> puts the blocks that read <code>full_o</code>, the write pointer and the storage, into the partition of <code>full_o</code>. <code>bind empty_o</code> does the same with the read pointer and <code>empty_o</code>.</p>
+          <p>The cuts at the two flags disappear, and 9 partitions become 3. A flag is now computed in the same partition that reads it.</p>`,
+      term: `<span class="d">[collect *]</span>
+bind full_o
+bind empty_o
+<span class="d">$</span> eqy -f -d fifo_eqy fifo.eqy
+<span class="d"># fifo_eqy/partition.list</span>
+fifo fifo.empty_o xbits : empty_o[0] rd_ptr_q[2:0]
+fifo fifo.full_o xbits : full_o[0] wr_ptr_q[2:0] mem_q[0][7:0] mem_q[1][7:0] mem_q[2][7:0] mem_q[3][7:0]
+fifo fifo.data_o : data_o[7:0]`, solver: "bound" },
+    { t: "Prove again",
+      b: `<p>In the partition <code>full_o</code>, gold and gate now read the same free input <code>rd_ptr_q</code>, and both compute "full" from it. The solver cannot choose an impossible flag any more. All 3 partitions pass, after about 3 s.</p>
+          <p>Try the solver panel again: whatever you choose, gold and gate stay equal.</p>`,
+      term: `<span class="d">$</span> eqy -f -d fifo_eqy fifo.eqy
+<span class="ok">Successfully proved designs equivalent</span>
+<span class="ok">DONE (PASS, rc=0)</span>`, solver: "bound" },
+    { t: "Two lessons",
+      b: `<p><b>A failing partition is not yet a bug.</b> Read the counterexample and ask whether a real circuit can ever be in that state. Here it cannot: pointers 000 and 100 with <code>full_o</code> = 0 never happen.</p>
+          <p><b>A check must be able to fail.</b> A check that is set up wrongly passes for any netlist. So break the RTL on purpose: with mutant M3 of chapter 4, which accepts a push into a full FIFO during a pop, the same configuration fails in the partition <code>full_o</code>, as it must.</p>`,
+      term: `<span class="d">$</span> eqy -f -d m3_eqy m3.eqy   <span class="d"># the RTL with mutant M3</span>
+<span class="bad">Failed to prove equivalence of partition fifo.full_o</span>` },
+  ];
+  const N = STEPS.length;
+
+  const dotsBox = $("dots");
+  STEPS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = i + 1;
+    b.setAttribute("aria-label", `Step ${i + 1}: ${s.t}`);
+    b.addEventListener("click", () => { stopPlay(); go(i + 1); });
+    dotsBox.appendChild(b);
+  });
+
+  let step = 0;
+  let mode = "default";
+  function go(n) {
+    n = Math.max(1, Math.min(N, n));
+    if (n === step) return;
+    const prevStep = step;
+    step = n;
+    const s = STEPS[n - 1];
+    $("kicker").textContent = `Step ${n} of ${N}`;
+    $("title").textContent = s.t;
+    $("body").innerHTML = s.b;
+    $("term").innerHTML = s.term;
+    [...dotsBox.children].forEach((b, i) => { if (i === n - 1) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current"); });
+    $("prev").disabled = n === 1;
+    $("next").disabled = n === N;
+    const cls = svg.classList;
+    cls.toggle("s-matched", n >= 2);
+    cls.toggle("s-cut", n === 3);
+    cls.toggle("s-split", n >= 4 && n <= 7);
+    cls.toggle("s-proved", n >= 5 && n <= 7);
+    cls.toggle("s-focus", n === 6 || n === 7);
+    cls.toggle("s-bound", n >= 8);
+    cls.toggle("s-reproved", n >= 9);
+    cls.toggle("s-try", n >= 7 && n <= 9);
+    for (const key of ["gold", "gate"]) {
+      const lane = lanes[key];
+      for (const [id, ng] of Object.entries(lane.nodes)) {
+        const [dx, dy] = NODES[id].explode;
+        ng.style.transform = n >= 4 && n <= 7 ? `translate(${dx}px, ${dy}px)` : "translate(0px, 0px)";
+      }
+      // staggered entrances when the step is reached from the one before
+      lane.g.querySelectorAll(".badge.dflt").forEach((b, i) => { b.style.transitionDelay = n === 5 && prevStep === 4 ? `${0.25 + i * 0.22}s` : "0s"; });
+      Object.values(lane.edges).forEach((e, i) => { e.stub.style.transitionDelay = n === 3 && prevStep === 2 ? `${0.2 + i * 0.12}s` : "0s"; });
+      const visible = id => n <= 2 || (n >= 8 && lane.edges[id] && lane.edges[id].bound === "int");
+      for (const d of lane.dots) d.c.classList.toggle("off", !(d.through.some(visible) && d.branch.some(visible)));
+      lane.vals.flag.style.visibility = n === 7 ? "visible" : "hidden";
+      lane.vals.push.style.visibility = n === 7 ? "visible" : "hidden";
+    }
+    const sv = $("solver");
+    if (s.solver) {
+      const changed = sv.hidden || mode !== s.solver;
+      sv.hidden = false;
+      if (changed) { mode = s.solver; reset(); }
+    } else {
+      sv.hidden = true;
+    }
+  }
+
+  // ---------------- the solver panel ----------------
+  const st = { push: 0, full: 0, rd: 0, gwr: 0, twr: 0, cyc: 0, rows: [] };
+  const bin = v => v.toString(2).padStart(3, "0");
+  const fullOf = (wr, rd) => (wr === (rd ^ 4) ? 1 : 0);   // wr == {~rd[2], rd[1:0]}
+
+  function setBit(btn, v) { btn.textContent = v; btn.setAttribute("aria-pressed", v ? "true" : "false"); }
+  function render() {
+    const bound = mode === "bound";
+    setBit($("b-push"), st.push);
+    setBit($("b-full"), bound ? fullOf(st.gwr, st.rd) : st.full);
+    $("b-full").disabled = bound;
+    $("full-tag").textContent = bound ? "computed inside" : "free input";
+    setBit($("b-rd2"), (st.rd >> 2) & 1);
+    setBit($("b-rd1"), (st.rd >> 1) & 1);
+    setBit($("b-rd0"), st.rd & 1);
+    $("o-gold").textContent = bin(st.gwr);
+    $("o-gate").textContent = bin(st.twr);
+    const same = st.gwr === st.twr;
+    const v = $("verdict");
+    v.textContent = same ? "gold = gate" : "gold ≠ gate: the partition fails";
+    v.classList.toggle("bad", !same);
+    $("mode").textContent = bound
+      ? "The partition full_o after bind: full_o is computed inside from wr_ptr_q and the free rd_ptr_q, on both sides."
+      : "The default partition wr_ptr_q: full_o and rd_ptr_q are two free inputs. Choose values, then apply a clock edge.";
+    const tfull = fullOf(st.twr, st.rd);
+    $("why").innerHTML = bound
+      ? `Both sides compute full = ${fullOf(st.gwr, st.rd)} from their own <code>wr_ptr_q</code> and the same <code>rd_ptr_q</code> ${bin(st.rd)}.`
+      : `Gold reads <code>full_o</code> = ${st.full}. Gate computes full = ${tfull} from <code>wr_ptr_q</code> ${bin(st.twr)} and <code>rd_ptr_q</code> ${bin(st.rd)}.` +
+        (st.full !== tfull ? ' <b class="cut-t">These disagree.</b>' : "");
+    $("hist").tBodies[0].innerHTML = st.rows.slice(-6).map(r =>
+      `<tr class="${r.g !== r.t ? "bad" : ""}"><td>${r.c}</td><td>${r.p}</td><td>${r.f}</td><td>${r.r}</td><td>${r.g}</td><td>${r.t}</td></tr>`).join("");
+    for (const key of ["gold", "gate"]) {
+      const L = lanes[key];
+      L.vals.push.textContent = st.push;
+      L.vals.reg.textContent = bin(key === "gold" ? st.gwr : st.twr);
+      L.vals.flag.textContent = "= " + (key === "gold" ? st.full : bin(st.rd));
+    }
+  }
+  function reset() {
+    Object.assign(st, { gwr: 0, twr: 0, cyc: 0, push: 0, full: 0, rd: 0 });
+    st.rows = [{ c: "reset", p: "-", f: "-", r: "-", g: "000", t: "000" }];
+    render();
+  }
+  function clock() {
+    const gfull = mode === "bound" ? fullOf(st.gwr, st.rd) : st.full;
+    const tfull = fullOf(st.twr, st.rd);
+    const gn = st.push && !gfull ? (st.gwr + 1) & 7 : st.gwr;
+    const tn = st.push && !tfull ? (st.twr + 1) & 7 : st.twr;
+    st.cyc += 1;
+    st.rows.push({ c: st.cyc, p: st.push, f: gfull, r: bin(st.rd), g: bin(gn), t: bin(tn) });
+    st.gwr = gn;
+    st.twr = tn;
+    render();
+  }
+  let demoTimer = null;
+  function demo() {
+    clearTimeout(demoTimer);
+    reset();
+    const seq = [() => { st.push = 1; render(); }, () => { st.full = 0; render(); }, () => { st.rd = 4; render(); }, () => clock()];
+    let i = 0;
+    const tick = () => { seq[i++](); if (i < seq.length) demoTimer = setTimeout(tick, 650); };
+    demoTimer = setTimeout(tick, 400);
+  }
+  $("b-push").addEventListener("click", () => { st.push ^= 1; render(); });
+  $("b-full").addEventListener("click", () => { if (mode === "default") { st.full ^= 1; render(); } });
+  $("b-rd2").addEventListener("click", () => { st.rd ^= 4; render(); });
+  $("b-rd1").addEventListener("click", () => { st.rd ^= 2; render(); });
+  $("b-rd0").addEventListener("click", () => { st.rd ^= 1; render(); });
+  $("clk").addEventListener("click", clock);
+  $("rst").addEventListener("click", reset);
+  $("demo").addEventListener("click", demo);
+
+  // ---------------- navigation ----------------
+  let playTimer = null;
+  function stopPlay() {
+    clearInterval(playTimer);
+    playTimer = null;
+    $("play").textContent = "Play";
+    $("play").setAttribute("aria-pressed", "false");
+  }
+  $("play").addEventListener("click", () => {
+    if (playTimer) { stopPlay(); return; }
+    if (step === N) go(1);
+    $("play").textContent = "Pause";
+    $("play").setAttribute("aria-pressed", "true");
+    playTimer = setInterval(() => { if (step >= N) stopPlay(); else go(step + 1); }, 9000);
+  });
+  $("prev").addEventListener("click", () => { stopPlay(); go(step - 1); });
+  $("next").addEventListener("click", () => { stopPlay(); go(step + 1); });
+  // arrow keys only while the figure has the focus, so the book page keeps its own keys
+  root.addEventListener("keydown", ev => {
+    if (ev.target.closest(".eqy-solver")) return;
+    if (ev.key === "ArrowRight") { stopPlay(); go(step + 1); ev.preventDefault(); }
+    else if (ev.key === "ArrowLeft") { stopPlay(); go(step - 1); ev.preventDefault(); }
+  });
+  reset();
+  go(1);
+})();
+</script>
+```
+
+Interactive walk through EQY on the FIFO of @sec-verification, with the RTL (gold) on top and the netlist (gate) below, drawn as blocks, with clock and reset left out. Step through the check with the buttons, or with the arrow keys once a button has the focus. EQY matches the names, cuts every matched signal that another block reads, proves each partition, and fails on `wr_ptr_q`, `rd_ptr_q`, `mem_q[1]`, `mem_q[2]`, and `mem_q[3]`. In the solver panel of step 7, choose the free inputs yourself and apply a clock edge to reproduce the counterexample of @sec-synthesis-lib-false-fail. The two `bind` commands then merge the 9 partitions into 3, and the check passes. The four words of `mem_q` are four partitions, drawn as one block. Partitions, results, counterexample, and console lines are those of image 2026.10 used in this book. A newer image synthesizes a slightly different netlist, so the counterexample and the number of failing partitions can differ, but the reason stays the same.
+:::
+:::
+
+::: {.content-visible unless-format="html"}
+::: {#fig-synthesis-lib-eqy-steps}
+The interactive walk through EQY is part of the HTML version of this book: <https://iic-jku.github.io/vlsi-design/vlsi.html#fig-synthesis-lib-eqy-steps>.
+
+Interactive walk through EQY on the FIFO of @sec-verification: matching the names, cutting at the matched signals, proving each partition, the counterexample of `wr_ptr_q` in a solver panel, and the fix with `bind`.
+:::
+:::

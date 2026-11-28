@@ -430,6 +430,10 @@ The reason is a cut point, shown in @fig-synthesis-lib-eqy-partitions (a). In th
 
 The two `bind` commands in `[collect *]` fix this, as @fig-synthesis-lib-eqy-partitions (b) shows. `bind full_o` puts the registers that read `full_o`, the write pointer and the storage, into the partition of `full_o`, and `bind empty_o` puts the read pointer into the partition of `empty_o`. The logic that computes a flag then stays in the same partition as the logic that reads it, EQY no longer cuts at the flag, and the check passes. Two lessons follow. First, a failing partition is not yet a bug: read the counterexample and ask whether a real circuit can ever be in that state. Second, a check that passes must also be able to fail. A check that is set up wrongly, e.g., with a skipped cell model or a black box, would pass for any netlist. So change the RTL after synthesis on purpose, e.g., to accept a push into a full FIFO during a pop (mutant M3 of @sec-verification-mutation). The same configuration then fails in the partition `full_o`, as it must.
 
+@fig-synthesis-lib-eqy-steps walks through the whole check step by step, interactively in the HTML version of this book: how EQY matches and cuts the FIFO, which partitions fail and why, and how `bind` fixes them. In its solver panel, you choose the free inputs yourself and reproduce the counterexample of `wr_ptr_q`.
+
+{{< include /content/synthesis_lib/_fig_eqy_steps.qmd >}}
+
 Other equivalence checkers exist. kepler-formal, also in the image, compares two designs either combinationally (LEC) or sequentially from reset (SEC). The commercial tools Cadence Conformal and Synopsys Formality are the standard in industry. LibreLane has an equivalence step with EQY as well, but it prepares the cell models only for the sky130 PDK, so we run EQY ourselves.
 
 ::: {.callout-tip title="Exercise: Prove It, Break It"}
