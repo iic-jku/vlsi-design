@@ -275,6 +275,10 @@ Delay = 0.2775
 
 The output slew comes from `rise_transition` in the same way, and it becomes the input slew of the next cell. A path delay is therefore computed stage by stage, from the inputs to the outputs: a slow edge makes the next cell slow as well.
 
+@fig-synthesis-lib-nldm-lookup repeats this lookup for any input slew and load, interactively in the HTML version of this book. It highlights the four entries of `cell_rise` and `rise_transition` that the tool uses, writes out the interpolation, and draws the input and output edges with the delay and the output slew that the next cell sees.
+
+{{< include /content/synthesis_lib/_fig_nldm_lookup.qmd >}}
+
 The load includes the capacitance of the wires, which is unknown before the layout. The SG13CMOS5L libraries contain 12 **wire-load models**, which estimate a wire's capacitance from the number of loads it drives (its fanout) and the size of the design. OpenSTA uses them only when you select one with `set_wire_load_model`. The model `1k`, for example, estimates 0.0182 pF for a net with eight loads, as much as the inputs of six `inv_1` cells. Without it, as in all timing analyses of this book so far, the pre-layout delays include no wires. In the LibreLane flow, the wire capacitances are estimated from the placement and later extracted from the routed layout (@sec-digital-flow).
 
 ::: {.callout-tip title="Exercise: Interpolate a Delay Table"}
