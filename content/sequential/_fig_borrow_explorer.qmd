@@ -1,0 +1,261 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+::: {.content-visible when-format="html"}
+::: {#fig-sequential-borrow-explorer}
+
+```{=html}
+<style>
+#tbw-root { text-align: left; container-type: inline-size; }
+#tbw-root .tbw-controls { display: grid; grid-template-columns: max-content minmax(8em, 16em) 5.5em; gap: 0.25em 0.8em; align-items: center; margin-bottom: 0.5em; font-size: 0.9em; }
+#tbw-root .tbw-controls label { margin: 0; }
+#tbw-root .tbw-controls input[type=number] { padding: 0.1em 0.3em; }
+@container (max-width: 520px) {
+  #tbw-root .tbw-controls { grid-template-columns: 1fr 5.5em; }
+  #tbw-root .tbw-controls label { grid-column: 1 / -1; margin-top: 0.3em; }
+}
+#tbw-root .tbw-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 6px; font-size: 0.85em; }
+#tbw-root .tbw-legend span { display: inline-flex; align-items: center; gap: 6px; }
+#tbw-root .tbw-sw { width: 16px; height: 12px; border: 1.2px solid; display: inline-block; }
+#tbw-root svg text { font-family: Arial, Helvetica, sans-serif; }
+#tbw-root .tbw-readout { font-size: 0.9em; margin-top: 0.5em; }
+#tbw-root .tbw-diagram { overflow-x: auto; }
+#tbw-root .tbw-diagram svg { min-width: 560px; }
+#tbw-root .tbw-met { color: #4a7a2c; }
+#tbw-root .tbw-viol { color: #b85450; }
+#tbw-root .tbw-borrow { color: #3c5f92; }
+body.quarto-dark #tbw-root .tbw-met { color: #93c572; }
+body.quarto-dark #tbw-root .tbw-viol { color: #f08a80; }
+body.quarto-dark #tbw-root .tbw-borrow { color: #9dbbe8; }
+</style>
+<div id="tbw-root">
+<div class="tbw-controls"></div>
+<div class="tbw-legend" aria-hidden="true">
+<span><i class="tbw-sw" style="background: #ececec; border-color: #a6a6a6;"></i>cell delay</span>
+<span><i class="tbw-sw" style="background: #dae8fc; border-color: #6c8ebf;"></i>logic 1</span>
+<span><i class="tbw-sw" style="background: #d5e8d4; border-color: #82b366;"></i>logic 2</span>
+<span><i class="tbw-sw" style="background: #fdf1c7; border-color: #fdf1c7;"></i>latch transparent</span>
+<span><i class="tbw-sw" style="background: #cfdff5; border-color: #cfdff5;"></i>setup time before the capturing edge</span>
+<span><i class="tbw-sw" style="background: repeating-linear-gradient(135deg, #dae8fc 0 3px, #3c5f92 3px 4.5px); border-color: #6c8ebf;"></i>borrowed</span>
+</div>
+<div class="tbw-diagram"></div>
+<div class="tbw-readout"></div>
+<p class="tbw-live visually-hidden" aria-live="polite"></p>
+<noscript>This figure needs JavaScript.</noscript>
+</div>
+<script>
+(() => {
+  // Typical corner, D and Q rising, slews of 0.1 ns, 5 fF
+  const tcq = 0.207, tsu = 0.127;               // dfrbpq_1, tbl-sequential-params
+  const tdq = 0.233, tgq = 0.259, tsuL = 0.081; // dllrq_1, borrow/latch.tcl
+  const root = document.getElementById("tbw-root");
+  // T is rounded to 2 ps, so T/2 and every other time are whole ps, and the verdicts always match the printed numbers.
+  const ps = v => Math.round(v * 1000) / 1000;
+  const met = s => ps(s) >= 0;
+  const fmt = v => (ps(v) < 0 ? "−" : "") + Math.abs(ps(v)).toFixed(3);
+  const verdictText = s => met(s) ? "met" : "violated";
+  const sub = s => `<i>t</i><sub>${s}</sub>`;
+  const desc = "Two groups of bars over a time axis below the clock. The upper group shows the path with the latch in the middle, the lower group the same path with a flip-flop on the falling edge. " +
+               "Each group has one bar per stage, made of the cell delays and the logic, and an arrow below each bar for the borrowed time or the slack.";
+  const controls = [
+    ["fMHz", "Clock frequency (MHz)", 200, 800, 10, 250],
+    ["d1", `Logic 1 delay ${sub("logic1")} (ns)`, 0, 4, 0.01, 2.15],
+    ["d2", `Logic 2 delay ${sub("logic2")} (ns)`, 0, 3, 0.01, 0.7]
+  ];
+
+  function check(p) {
+    const T = Math.round(1000 / p.fMHz * 500) / 500, H = T / 2;
+    const a1 = tcq + p.d1, close = T - tsuL, maxB = H - tsuL, req2 = T - tsu;
+    // Latch: as OpenSTA reports it, slack to the opening edge, 0 while borrowing, negative beyond the largest borrow.
+    let kind, borrow, s1L;
+    if (ps(a1) <= ps(H)) { kind = "wait"; borrow = 0; s1L = H - a1; }
+    else if (ps(a1) <= ps(close)) { kind = "borrow"; borrow = a1 - H; s1L = 0; }
+    else { kind = "late"; borrow = maxB; s1L = close - a1; }
+    // Q of the latch changes t_GQ after the opening edge at the earliest
+    const qGate = H + tgq, qData = H + borrow + tdq, qL = Math.max(qGate, qData);
+    const arr2L = qL + p.d2, arr2F = H + tcq + p.d2;
+    return {T, H, a1, close, maxB, req2, kind, borrow, s1L, qGate, qData, qL, arr2L,
+            s2L: req2 - arr2L, reqF: H - tsu, s1F: H - tsu - a1, arr2F, s2F: req2 - arr2F,
+            TminL: Math.max(a1 + tsuL, a1 + tdq + p.d2 + tsu, 2 * (tgq + p.d2 + tsu)),
+            TminF: Math.max(2 * (a1 + tsu), 2 * (tcq + p.d2 + tsu))};
+  }
+
+  function stage1Text(c) {
+    if (c.kind === "wait") return `${fmt(c.s1L)} ns, met`;
+    if (c.kind === "borrow") return `borrows ${fmt(c.borrow)} ns`;
+    return `${fmt(c.s1L)} ns, violated`;
+  }
+
+  function draw(p, c) {
+    const {T, H, a1} = c;
+    const A = -0.25, B = 6.25, W = 760, X0 = 104, X1 = 748, HB = 18, HC = 22;
+    const xs = t => X0 + (Math.min(Math.max(t, A), B) - A) / (B - A) * (X1 - X0);
+    const INK = "#3c5f92", RED = "#b85450", GREEN = "#4a7a2c", GRAY = "#a6a6a6";
+    const yClk = 12, yH1 = 58, yL1 = 70, yL2 = 126, yH2 = 198, yF1 = 210, yF2 = 266, yAxis = 330, HT = 358;
+    const pts = q => q.map(v => v[0].toFixed(1) + "," + v[1].toFixed(1)).join(" ");
+    const line = (xa, ya, xb, yb, col, dash, w) =>
+      `<line x1="${xa.toFixed(1)}" y1="${ya}" x2="${xb.toFixed(1)}" y2="${yb}" stroke="${col}" stroke-width="${w || 1}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+    const text = (x, y, s, anchor, col, size, bold) =>
+      `<text x="${x.toFixed(1)}" y="${y}" text-anchor="${anchor || "middle"}" fill="${col || "black"}" font-size="${size || 12}"${bold ? ` font-weight="bold"` : ""}>${s}</text>`;
+    // A rectangle that runs past the right end of the axis ends outside the view box, so it stays open there
+    const rect = (t0, t1, ya, h, fill, extra) => {
+      if (t1 <= A || t0 >= B || t1 - t0 < 1e-9) return "";
+      const xa = xs(t0), xb = t1 > B ? W + 2 : xs(t1);
+      return `<rect x="${xa.toFixed(1)}" y="${ya}" width="${(xb - xa).toFixed(1)}" height="${h}" fill="${fill}"${extra || ""}/>`;
+    };
+    const seg = (t0, t1, y0, fill, stroke, dashed) =>
+      rect(t0, t1, y0, HB, fill, ` stroke="${stroke}" stroke-width="1.2"${dashed ? ` stroke-dasharray="4 3"` : ""}`);
+    // Bar labels come last, with a halo, so a hatch never covers them
+    function barLabel(t0, t1, y0, label) {
+      const xa = xs(t0), xb = xs(t1);
+      return t1 > A && t0 < B && xb - xa > 6.5 * label.length + 10 ?
+        text((xa + xb) / 2, y0 + 13, label, "middle", "black", 11).replace("<text ", `<text stroke="white" stroke-width="3" paint-order="stroke" `) : "";
+    }
+
+    function arrow(ta, tb, y, col, label) {
+      const lo = Math.min(ta, tb), hi = Math.max(ta, tb), xa = xs(lo), xb = xs(hi);
+      let s = line(xa, y, xb, y, col, "", 1.4);
+      if (xb - xa > 12) {
+        if (lo >= A) s += `<polygon points="${pts([[xa, y], [xa + 7, y - 3.5], [xa + 7, y + 3.5]])}" fill="${col}"/>`;
+        if (hi <= B) s += `<polygon points="${pts([[xb, y], [xb - 7, y - 3.5], [xb - 7, y + 3.5]])}" fill="${col}"/>`;
+      }
+      const xl = Math.min(Math.max((xa + xb) / 2, X0 + 70), X1 - 70);
+      return s + text(xl, y + 16, label, "middle", col).replace("<text ", `<text stroke="white" stroke-width="4" paint-order="stroke" `);
+    }
+
+    // Dotted guides from the bar down to the ends of its arrow, none for an end beyond the axis
+    const guides = (ta, tb, y0, col) => [ta, tb].filter(t => t >= A && t <= B).map(t => line(xs(t), y0 + HB, xs(t), y0 + 30, col, "2 2")).join("");
+
+    function clock(yt) {
+      const ph = t => ((t % T) + T) % T;
+      let lvl = ph(A) < H ? yt : yt + HC;
+      const q = [[xs(A), lvl]];
+      for (let k = Math.floor(A / T); k * T < B; k++) {
+        for (const te of [k * T, k * T + H]) {
+          if (te <= A || te >= B) continue;
+          const nl = ph(te + 1e-9) < H ? yt : yt + HC;
+          q.push([xs(te) - 1.5, lvl], [xs(te) + 1.5, nl]);
+          lvl = nl;
+        }
+      }
+      q.push([xs(B), lvl]);
+      return `<polyline points="${pts(q)}" fill="none" stroke="black" stroke-width="1.2"/>`;
+    }
+
+    let s = `<defs><pattern id="tbw-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">` +
+            `<line x1="0" y1="0" x2="0" y2="6" stroke="${INK}" stroke-width="1.5"/></pattern>` +
+            `<pattern id="tbw-late" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">` +
+            `<line x1="0" y1="0" x2="0" y2="6" stroke="${RED}" stroke-width="1.5"/></pattern></defs>`;
+    s += `<rect x="0" y="0" width="${W}" height="${HT}" fill="white"/>`;
+    // The latch is transparent while the clock is low
+    for (let k = Math.floor(A / T) - 1; k * T + H < B; k++) s += rect(k * T + H, Math.min((k + 1) * T, B), yL1 - 6, yL2 + 52 - (yL1 - 6), "#fdf1c7");
+    // Setup times before the capturing edges: latch closing, middle flip-flop, ff2
+    for (const [t, su, y0] of [[T, tsuL, yL1], [T, tsu, yL2], [H, tsu, yF1], [T, tsu, yF2]]) s += rect(t - su, t, y0 - 3, HB + 6, "#cfdff5");
+    for (let k = Math.ceil(A / H); k * H < B; k++) s += line(xs(k * H), yClk - 4, xs(k * H), yF2 + 50, GRAY, "4 3");
+
+    s += clock(yClk);
+    s += text(10, yH1, "With the latch dllrq_1 in the middle", "start", "black", 12, true);
+    s += text(10, yH2, "With a flip-flop on the falling edge in the middle", "start", "black", 12, true);
+
+    // Latch, stage 1
+    const late = c.kind === "late";
+    s += seg(0, tcq, yL1, "#ececec", GRAY) + seg(tcq, a1, yL1, "#dae8fc", "#6c8ebf");
+    if (c.kind !== "wait") s += rect(H, Math.min(a1, c.close), yL1, HB, "url(#tbw-hatch)");
+    if (late) s += rect(c.close, a1, yL1, HB, "url(#tbw-late)");
+    s += barLabel(tcq, a1, yL1, "logic 1");
+    const l1 = c.kind === "wait" ? [a1, H, GREEN] : c.kind === "borrow" ? [H, a1, INK] : [c.close, a1, RED];
+    s += guides(l1[0], l1[1], yL1, l1[2]) + arrow(l1[0], l1[1], yL1 + 30, l1[2], stage1Text(c));
+    // Latch, stage 2: dashed when the data misses the latch and OpenSTA assumes the largest borrow
+    s += seg(Math.max(H, Math.min(a1, c.close)), c.qL, yL2, "#ececec", GRAY, late) + seg(c.qL, c.arr2L, yL2, "#d5e8d4", "#82b366", late);
+    s += barLabel(c.qL, c.arr2L, yL2, "logic 2");
+    const s2Lc = met(c.s2L) ? GREEN : RED;
+    s += guides(c.arr2L, c.req2, yL2, s2Lc) + arrow(c.arr2L, c.req2, yL2 + 30, s2Lc, `${fmt(c.s2L)} ns, ${verdictText(c.s2L)}`);
+    // Flip-flop, stage 1 and 2
+    const s1Fc = met(c.s1F) ? GREEN : RED, s2Fc = met(c.s2F) ? GREEN : RED;
+    s += seg(0, tcq, yF1, "#ececec", GRAY) + seg(tcq, a1, yF1, "#dae8fc", "#6c8ebf") + barLabel(tcq, a1, yF1, "logic 1");
+    s += guides(a1, c.reqF, yF1, s1Fc) + arrow(a1, c.reqF, yF1 + 30, s1Fc, `${fmt(c.s1F)} ns, ${verdictText(c.s1F)}`);
+    s += seg(H, H + tcq, yF2, "#ececec", GRAY) + seg(H + tcq, c.arr2F, yF2, "#d5e8d4", "#82b366") + barLabel(H + tcq, c.arr2F, yF2, "logic 2");
+    s += guides(c.arr2F, c.req2, yF2, s2Fc) + arrow(c.arr2F, c.req2, yF2 + 30, s2Fc, `${fmt(c.s2F)} ns, ${verdictText(c.s2F)}`);
+
+    for (const [name, y] of [["clk", yClk + HC / 2 + 4], ["stage 1", yL1 + 13], ["stage 2", yL2 + 13], ["stage 1", yF1 + 13], ["stage 2", yF2 + 13]])
+      s += text(X0 - 10, y, name, "end", "black", 13);
+    s += line(X0, yAxis, X1, yAxis, "black", "", 1);
+    for (let t = 0; t <= B + 1e-9; t += 0.5) {
+      s += line(xs(t), yAxis, xs(t), yAxis + 4, "black", "", 1);
+      s += text(xs(t), yAxis + 17, fmt(t).replace(/\.?0+$/, "") || "0", "middle", "black", 11);
+    }
+    s += text(X0 - 26, yAxis + 17, "time (ns)", "end", "black", 12);
+    const aria = `Paths at ${p.fMHz} MHz. With the latch, stage 1 ${c.kind === "borrow" ? stage1Text(c) : "has a slack of " + stage1Text(c)} and stage 2 has a slack of ${fmt(c.s2L)} ns. ` +
+                 `With the flip-flop, stage 1 has a slack of ${fmt(c.s1F)} ns and stage 2 of ${fmt(c.s2F)} ns.`;
+    return `<svg viewBox="0 0 ${W} ${HT}" role="img" aria-label="${aria}" style="width: 100%; height: auto; max-width: ${W}px;"><desc>${desc}</desc>${s}</svg>`;
+  }
+
+  function readout(p, c) {
+    const verdict = v => `<span class="${met(v) ? "tbw-met" : "tbw-viol"}"><b>${fmt(v)} ns</b>, ${verdictText(v)}</span>`;
+    const half = `<i>T</i>/2`, suL = sub("su,latch");
+    let l1;
+    if (c.kind === "wait") l1 = `arrives before the latch opens at ${half} = ${fmt(c.H)} ns, slack ${verdict(c.s1L)}`;
+    else if (c.kind === "borrow") l1 = `<span class="tbw-borrow">borrows <b>${fmt(c.borrow)} ns</b></span> of at most ${half} &minus; ${suL} = ${fmt(c.maxB)} ns, slack ${verdict(c.s1L)}`;
+    else l1 = `arrives after <i>T</i> &minus; ${suL} = ${fmt(c.close)} ns, slack ${verdict(c.s1L)}`;
+    let a2;
+    if (c.kind === "wait" || c.qGate >= c.qData) a2 = `${half} + ${sub("GQ")} + ${sub("logic2")}`;
+    else if (c.kind === "borrow") a2 = `${sub("cq")} + ${sub("logic1")} + ${sub("DQ")} + ${sub("logic2")}`;
+    else a2 = `<i>T</i> &minus; ${suL} + ${sub("DQ")} + ${sub("logic2")}`;
+    const fm = Tm => `${fmt(Tm)} ns, i.e., <i>f</i><sub>max</sub> = ${(1000 / Tm).toFixed(1)} MHz`;
+    return `<table class="table table-sm">
+      <thead><tr><th></th><th>With the latch</th><th>With a flip-flop on the falling edge</th></tr></thead>
+      <tbody>
+        <tr><td>Stage 1, arrival</td><td colspan="2">${sub("cq")} + ${sub("logic1")} = ${fmt(c.a1)} ns</td></tr>
+        <tr><td>Stage 1, check</td><td>${l1}</td><td>required ${half} &minus; ${sub("su")} = ${fmt(c.reqF)} ns, slack ${verdict(c.s1F)}</td></tr>
+        <tr><td>Stage 2, arrival</td><td>${a2} = ${fmt(c.arr2L)} ns</td><td>${half} + ${sub("cq")} + ${sub("logic2")} = ${fmt(c.arr2F)} ns</td></tr>
+        <tr><td>Stage 2, slack to <i>T</i> &minus; ${sub("su")} = ${fmt(c.req2)} ns</td><td>${verdict(c.s2L)}</td><td>${verdict(c.s2F)}</td></tr>
+        <tr><td>Minimum period</td><td>${fm(c.TminL)}</td><td>${fm(c.TminF)}</td></tr>
+      </tbody>
+    </table><p>Clock period <i>T</i> = ${fmt(c.T)} ns. ` +
+      (c.kind === "late" ? `The data misses the latch in this period. OpenSTA checks stage 2 anyway, as if the latch had borrowed its maximum of ${fmt(c.maxB)} ns. ` : "") +
+      `Fixed by the flip-flop <code>dfrbpq_1</code>: ${sub("cq")} = ${fmt(tcq)} ns, ${sub("su")} = ${fmt(tsu)} ns. ` +
+      `Fixed by the latch <code>dllrq_1</code>: ${sub("DQ")} = ${fmt(tdq)} ns, ${sub("GQ")} = ${fmt(tgq)} ns, ${suL} = ${fmt(tsuL)} ns.</p>`;
+  }
+
+  // The range inputs hold the values, each number input mirrors its range input.
+  const box = root.querySelector(".tbw-controls");
+  box.innerHTML = controls.map(([k, label, lo, hi, step, v]) =>
+    `<label for="tbw-${k}">${label}</label>` +
+    `<input type="range" class="form-range" id="tbw-${k}" data-k="${k}" min="${lo}" max="${hi}" step="${step}" value="${v}">` +
+    `<input type="number" class="form-control form-control-sm" data-k="${k}" min="${lo}" max="${hi}" step="${step}" value="${v}" aria-label="${label.replace(/<[^>]+>/g, "")}">`).join("");
+  const range = k => box.querySelector(`input[type=range][data-k="${k}"]`);
+  function update(ev) {
+    const src = ev && ev.target;
+    if (src && src.dataset.k) {
+      if (!Number.isFinite(parseFloat(src.value))) return;
+      for (const el of box.querySelectorAll(`input[data-k="${src.dataset.k}"]`)) if (el !== src) el.value = src.value;
+    }
+    const p = {};
+    for (const [k] of controls) p[k] = parseFloat(range(k).value);
+    const c = check(p);
+    root.querySelector(".tbw-diagram").innerHTML = draw(p, c);
+    root.querySelector(".tbw-readout").innerHTML = readout(p, c);
+    root.querySelector(".tbw-live").textContent =
+      `With the latch, stage 1 ${c.kind === "borrow" ? stage1Text(c) : "slack " + stage1Text(c)}, stage 2 slack ${fmt(c.s2L)} ns, ${verdictText(c.s2L)}. ` +
+      `With the flip-flop, stage 1 slack ${fmt(c.s1F)} ns, ${verdictText(c.s1F)}, stage 2 slack ${fmt(c.s2F)} ns, ${verdictText(c.s2F)}.`;
+  }
+  box.addEventListener("input", update);
+  box.addEventListener("change", ev => { if (ev.target.type === "number") ev.target.value = range(ev.target.dataset.k).value; });
+  update();
+})();
+</script>
+```
+
+Interactive comparison of the path of `borrow/borrow_latch.v` with the latch `dllrq_1` in the middle (top) and of `borrow/borrow_ff.v` with a flip-flop on the falling clock edge in its place (bottom), with an ideal clock of duty cycle 50 %. Each bar is one stage: the delays of the cells in gray (the clock-to-output delay of `ff1` and of the middle flip-flop, the delay of the latch), the logic in front of the middle element in blue, and the logic behind it in green. The latch is transparent while the clock is low (yellow). Data that arrives while the latch is transparent reaches `Q` after the delay $t_\text{DQ}$ of the latch from `D` to `Q`, and the time from the opening edge to the arrival is borrowed (hatched in blue). Data that arrives earlier waits, and `Q` changes the delay $t_\text{GQ}$ from the gate to `Q` after the opening edge. The light blue windows mark the setup time before the capturing edge: the closing edge of the latch, the falling edge of the middle flip-flop, and the rising edge of `ff2`. The arrows show the slacks, green when met and red when violated, and the blue arrow the borrowed time, for which OpenSTA reports a slack of 0. If the data reaches the latch after the start of its setup time, the late part of the bar is hatched in red, and stage 2 is drawn dashed and checked as OpenSTA does, as if the latch had borrowed as much as it can. The figure leaves out the hold checks. The values of the cells are those for a rising `D` and `Q` with slews of 0.1 ns and a load of 5 fF, as in @tbl-sequential-params, for `dllrq_1` from `borrow/latch.tcl`. By default, the figure is set close to the example above: 250 MHz and about the delays of the six and the two delay cells. OpenSTA takes the edge, the slew, and the load at every pin of the path instead, so at the default setting, the borrowed time and the slacks of the figure differ from those above by less than 0.04 ns.
+:::
+:::
+
+::: {.content-visible unless-format="html"}
+::: {#fig-sequential-borrow-explorer}
+The interactive comparison is part of the HTML version of this book: <https://iic-jku.github.io/vlsi-design/vlsi.html#fig-sequential-borrow-explorer>.
+
+Interactive comparison of the path of `borrow/borrow_latch.v` with the latch in the middle and of `borrow/borrow_ff.v` with a flip-flop on the falling clock edge in its place, with sliders for the clock frequency and the two logic delays, and the resulting borrowed time and slacks.
+:::
+:::

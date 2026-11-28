@@ -351,6 +351,10 @@ TOP=borrow_latch sta -no_init -exit borrow.tcl
 
 With the flip-flop, the first stage has half a period and fails with a slack of -0.474 ns, while the second stage has 1.001 ns to spare. With the latch, OpenSTA reports that the first stage borrows 0.354 ns, and it reports a slack of 0 for the borrowing stage. The second stage starts 0.354 ns later, and the latch passes the data from `D` to `Q` a little more slowly than the flip-flop from its clock to `Q`, so the second stage keeps 0.620 ns of slack. The most a stage can borrow is the transparent phase minus the setup time of the latch.
 
+@fig-sequential-borrow-explorer compares the two paths interactively in the HTML version of this book. Make the logic in front of the middle element longer or the clock faster: the flip-flop fails as soon as the first stage needs more than half a period, while the latch borrows until the data reaches the setup time before its closing edge.
+
+{{< include /content/sequential/_fig_borrow_explorer.qmd >}}
+
 Time borrowing lets latch-based designs balance their stages automatically, which is why some high-performance processors use latches. The price is a more complex timing analysis, harder hold checks, because a latch launches data already at its opening edge while the next latch holds its data until its closing edge, and a more difficult scan test (@sec-dft). The designs of this course use flip-flops only.
 
 ## Summary {#sec-sequential-summary}

@@ -294,5 +294,16 @@ check "latch: given to the second stage" "$(grep 'time given to startpoint' latc
 check "dllrq_1: hold of D against the closing (rising) edge of GATE_N" \
   "$(sed -n '/cell (sg13cmos5l_dllrq_1)/,/cell (sg13cmos5l_dlygate4sd1_1)/p' "$LIBT" | grep -B2 'timing_type : hold' | grep -o 'related_pin : "[A-Z_]*"\|timing_type : [a-z_]*' | tr '\n' ' ')" \
   'related_pin : "GATE_N" timing_type : hold_rising '
+sta -no_init -exit latch.tcl > latch_params.log 2>&1
+must "latch.tcl: OpenSTA exit status" "$?" "0"
+tgq=$(dc latch_params.log 'Latch En to Q' 1)
+tdq=$(dc latch_params.log 'Latch D to Q' 1)
+tsul=$(dc latch_params.log setup 1)
+check "dllrq_1: GATE_N to Q, D to Q, setup, D and Q rising" "$tgq $tdq $tsul" "0.259 0.233 0.081"
+# The interactive figure computes with copies of the cell values
+fig=$W/content/sequential/_fig_borrow_explorer.qmd
+check "borrow figure: values of dfrbpq_1 and dllrq_1" \
+  "$(grep -c "const tcq = $(dc "$S/ff/ff.log" 'Reg Clk to Q' 1), tsu = $(dc "$S/ff/ff.log" setup 1);" "$fig") $(grep -c "const tdq = $tdq, tgq = $tgq, tsuL = $tsul;" "$fig")" \
+  "1 1"
 
 finish
