@@ -150,6 +150,10 @@ In @fig-dft-sensitize, the stuck-at-0 at the inverter output gets $D$, and $c = 
 
 The D-algorithm decides on internal nets, so it may find out only many steps later that a decision cannot be justified from the inputs. **PODEM** [@Goel_PODEM] decides on the primary inputs only. It takes an objective, e.g., a 1 at the fault site, traces it back along a path to an input that has no value yet (the **backtrace**), assigns that input, and simulates the circuit forward. When the fault can no longer be excited, or no path of unassigned nets leads from the D-frontier to an output, it flips the last input decision, and when both values of that input have failed, it goes back to the decision before. Only the $n$ inputs are decided, so the search tree has at most $2^n$ leaves, and all values inside the circuit follow from the inputs by simulation, so they never conflict. Later ATPG algorithms refined this search.
 
+@fig-dft-podem runs PODEM on the circuit of @fig-dft-sensitize, step by step and interactively in the HTML version of this book: each objective, its backtrace to an input, each decision, and the five values on every net after each simulation. In its last step, you decide the inputs yourself and see when PODEM would have to go back.
+
+{{< include /content/dft/_fig_podem.qmd >}}
+
 ### SAT Solvers and Random Vectors {#sec-dft-sat}
 
 Modern tools often hand this search to a SAT solver, the same kind of solver as in the equivalence check of @sec-synthesis-lib-lec. There, a miter compared two cones (@fig-synthesis-lib-lec-cones), and here it joins the good and the faulty netlist: both get the same inputs, an XOR compares each pair of outputs, and the solver searches for an input that sets one of the XORs to 1. Every solution is a test, and if there is none, the fault is proven untestable. The script `sat_test.tcl` does this with Yosys for one fault: it ties the listed cell pins to the stuck value in a copy of the netlist, builds the miter, and lets the command `sat` search:
