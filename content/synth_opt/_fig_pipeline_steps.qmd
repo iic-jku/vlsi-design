@@ -1,0 +1,444 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+::: {.content-visible when-format="html"}
+::: {#fig-synth-opt-pipeline-steps}
+
+```{=html}
+<style>
+#rtm-root {
+  --fg: #1b2330; --muted: #566174; --rule: #d6dce5; --soft: #f3f5f8;
+  --ok: #4a7a2c; --bad: #b85450; --crit: #a65c00;
+  text-align: left; container-type: inline-size; color: var(--fg);
+}
+body.quarto-dark #rtm-root {
+  --fg: #e3e8ef; --muted: #9ba6b6; --rule: #3a4656; --soft: #10141a;
+  --ok: #93c572; --bad: #f08a80; --crit: #f0b445;
+}
+#rtm-root * { box-sizing: border-box; }
+#rtm-root .rtm-stage-box { background: #ffffff; border: 1px solid var(--rule); border-radius: 10px; overflow-x: auto; }
+#rtm-root .rtm-stage { display: block; width: 100%; min-width: 560px; height: auto; }
+#rtm-root .rtm-stage text { font-family: Arial, Helvetica, sans-serif; }
+#rtm-root .rtm-node { transition: transform 0.8s cubic-bezier(.3,.7,.3,1), opacity 0.5s; }
+#rtm-root .rtm-instant .rtm-node, #rtm-root .rtm-instant .rtm-layer { transition: none !important; }
+#rtm-root .rtm-layer { transition: opacity 0.3s; }
+#rtm-root .rtm-layer.rtm-off { opacity: 0; }
+#rtm-root .rtm-crit rect { stroke: #a65c00; stroke-width: 2.6px; }
+#rtm-root .rtm-card { margin-top: 10px; border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); }
+#rtm-root .rtm-card > * { min-width: 0; }
+#rtm-root .rtm-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#rtm-root button { font: 600 0.9rem var(--bs-body-font-family, system-ui, sans-serif); color: var(--fg); background: var(--soft); border: 1px solid var(--rule); border-radius: 7px; padding: 5px 12px; cursor: pointer; line-height: 1.4; }
+#rtm-root button.rtm-primary { background: var(--fg); color: var(--soft); border-color: var(--fg); }
+#rtm-root button:focus-visible { outline: 2px solid var(--crit); outline-offset: 2px; }
+#rtm-root button:disabled { opacity: 0.4; cursor: default; }
+#rtm-root .rtm-dots { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+#rtm-root .rtm-dots button { width: 26px; height: 26px; padding: 0; border-radius: 50%; font-size: 0.75rem; }
+#rtm-root .rtm-dots button[aria-current="step"] { background: var(--fg); color: var(--soft); border-color: var(--fg); }
+#rtm-root .rtm-kicker { margin: 0; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+#rtm-root .rtm-h { margin: 0; font-size: 1.15rem; font-weight: 700; line-height: 1.25; }
+#rtm-root .rtm-body p { margin: 0; }
+#rtm-root .rtm-metrics { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+#rtm-root .rtm-metrics div { display: grid; }
+#rtm-root .rtm-metrics span { font-size: 0.78rem; color: var(--muted); }
+#rtm-root .rtm-metrics b { font-variant-numeric: tabular-nums; }
+#rtm-root .rtm-trace-box { overflow-x: auto; }
+#rtm-root .rtm-trace { border-collapse: collapse; font-size: 0.82rem; margin: 0; }
+#rtm-root .rtm-trace th, #rtm-root .rtm-trace td { padding: 2px 8px; border-bottom: 1px solid var(--rule); text-align: left; white-space: nowrap; }
+#rtm-root .rtm-trace th { font-weight: 600; color: var(--muted); }
+#rtm-root .rtm-trace td { font-family: var(--bs-font-monospace, ui-monospace, Consolas, monospace); font-variant-numeric: tabular-nums; }
+#rtm-root .rtm-trace td.rtm-rst { color: var(--muted); font-style: italic; }
+#rtm-root .rtm-trace td.rtm-wrong { color: var(--bad); font-weight: 700; }
+#rtm-root .rtm-verdict { margin: 0; font-weight: 600; }
+#rtm-root .rtm-ok { color: var(--ok); }
+#rtm-root .rtm-bad { color: var(--bad); }
+@container (min-width: 700px) {
+  #rtm-root .rtm-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 22px; }
+  #rtm-root .rtm-nav, #rtm-root .rtm-wide { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #rtm-root .rtm-node, #rtm-root .rtm-layer { transition: none !important; }
+}
+</style>
+<div id="rtm-root">
+<div class="rtm-stage-box">
+<svg class="rtm-stage" viewBox="0 0 660 240" role="img" aria-label="Pipelining and retiming, step 1">
+<desc>Block diagram of a path from the input on the left to the output on the right. Registers are narrow boxes, blue for the registers of the design and red for added pipeline registers. Logic blocks are green boxes whose width is proportional to their delay. The operand x enters block B from below. Brackets above the registers give the logic delay of each stage, and the longest path is highlighted in orange.</desc>
+<defs><marker id="rtm-arr" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="black"></path></marker></defs>
+<rect x="0" y="0" width="660" height="240" fill="white"></rect>
+<g class="rtm-layer rtm-under"></g>
+<g class="rtm-nodes"></g>
+<g class="rtm-layer rtm-over"></g>
+</svg>
+</div>
+<div class="rtm-card">
+<div class="rtm-nav">
+<button type="button" class="rtm-prev" aria-label="Previous step">← Back</button>
+<button type="button" class="rtm-next rtm-primary" aria-label="Next step">Next →</button>
+<button type="button" class="rtm-play" aria-pressed="false">Play</button>
+<div class="rtm-dots" role="group" aria-label="Steps"></div>
+</div>
+<div>
+<p class="rtm-kicker"></p>
+<p class="rtm-h"></p>
+<div class="rtm-body"></div>
+</div>
+<div class="rtm-metrics"></div>
+<div class="rtm-wide">
+<div class="rtm-trace-box"></div>
+<p class="rtm-verdict"></p>
+</div>
+</div>
+<p class="rtm-live visually-hidden" aria-live="polite"></p>
+<noscript>This figure needs JavaScript.</noscript>
+</div>
+<script>
+(() => {
+  const root = document.getElementById("rtm-root");
+  const NS = "http://www.w3.org/2000/svg";
+  const $ = c => root.querySelector(".rtm-" + c);
+  const svg = $("stage");
+  const PXNS = 80, RW = 18, RH = 60, LH = 44, GAP = 36, X0 = 56, YM = 112, YX = 196;
+  const COL = {reg: ["#6c8ebf", "#dae8fc"], pipe: ["#b85450", "#f8cecc"], logic: ["#82b366", "#d5e8d4"]};
+  const CRIT = "#a65c00", BAND = "#fcd58f", GRAY = "#666666";
+  const RST = "reset", EDGES = 6;
+  const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Blocks of panel (a) and (b) of the static figure, with its example delays in ns.
+  const NODES = {
+    aR1: {kind: "reg", name: "R1"}, aRx: {kind: "reg", name: "Rx"},
+    aA: {kind: "logic", name: "A", d: 2}, aB: {kind: "logic", name: "B", d: 2},
+    aP: {kind: "pipe", name: "P"}, aPx: {kind: "pipe", name: "Px"}, aR2: {kind: "reg", name: "R2"},
+    bR1: {kind: "reg", name: "R1"}, bA: {kind: "logic", name: "A", d: 2}, bB: {kind: "logic", name: "B", d: 1},
+    bR2: {kind: "reg", name: "R2"}, bC: {kind: "logic", name: "C", d: 1}, bR3: {kind: "reg", name: "R3"}
+  };
+  const code = s => `<code>${s}</code>`;
+  const sub = s => `<i>t</i><sub>${s}</sub>`;
+  const figA = `<a href="#fig-synth-opt-pipeline">panel (a) of the static figure</a>`;
+  const figB = `<a href="#fig-synth-opt-pipeline">panel (b) of the static figure</a>`;
+  // main: the row of i from left to right. xrow: [register, block of the main row it sits under].
+  // nets: [driver, load, port], port "x" enters B from below. ref: step whose outputs this step must reproduce.
+  // from: step whose layout is shown first when this step is reached from another panel or from an earlier step.
+  const STEPS = [
+    {panel: "a", main: ["aR1", "aA", "aB", "aR2"], xrow: [["aRx", "aR1"]], out: "aR2", ref: 0,
+     nets: [["i", "aR1"], ["aR1", "aA"], ["aA", "aB"], ["x", "aRx"], ["aRx", "aB", "x"], ["aB", "aR2"]],
+     title: "Without a pipeline",
+     body: `This is the path of ${figA}. R1 and Rx launch the operands ${code("i")} and ${code("x")} of an operation at every clock edge, A and B compute its result, and R2 captures it at the next edge. The longest path runs from R1 through A and B and takes 4 ns, so the clock period cannot be shorter.`},
+    {panel: "a", main: ["aR1", "aA", "aP", "aB", "aR2"], xrow: [["aRx", "aR1"]], out: "aR2", ref: 1, from: 1,
+     nets: [["i", "aR1"], ["aR1", "aA"], ["aA", "aP"], ["aP", "aB"], ["x", "aRx"], ["aRx", "aB", "x"], ["aB", "aR2"]],
+     title: "A pipeline register after A only",
+     body: `The pipeline register P splits the longest path into two stages of 2 ns, so the clock could run twice as fast. But ${code("x")} reaches B one cycle after Rx captured it, while ${code("A(i)")} of the same operation reaches B only after two cycles. B now combines the result of A for one operation with the ${code("x")} of the next one, and the outputs are wrong.`},
+    {panel: "a", main: ["aR1", "aA", "aP", "aB", "aR2"], xrow: [["aRx", "aR1"], ["aPx", "aP"]], out: "aR2", ref: 1, from: 2,
+     nets: [["i", "aR1"], ["aR1", "aA"], ["aA", "aP"], ["aP", "aB"], ["x", "aRx"], ["aRx", "aPx"], ["aPx", "aB", "x"], ["aB", "aR2"]],
+     title: "x needs a pipeline register too",
+     body: `Px delays ${code("x")} by one cycle, so both operands of an operation pass the same number of registers. Both stages take 2 ns, the clock period halves, and the throughput doubles. Every result appears one clock cycle later than in step 1. In nanoseconds, the latency stays at 4 ns only because these delays leave out ${sub("cq")} and ${sub("su")}. A real stage adds its overhead ${sub("cq")} + ${sub("su")} + ${sub("unc")}, about 0.43 ns in this course, so the latency in nanoseconds grows with every stage.`},
+    {panel: "b", main: ["bR1", "bA", "bB", "bR2", "bC", "bR3"], xrow: [], out: "bR3", ref: 0,
+     nets: [["i", "bR1"], ["bR1", "bA"], ["bA", "bB"], ["bB", "bR2"], ["bR2", "bC"], ["bC", "bR3"]],
+     title: "A pipeline cut at the wrong place",
+     body: `This is the path of ${figB}. A and B (3 ns) sit in the first stage, C (1 ns) alone in the second. The first stage sets the clock period to 3 ns, while the result of C waits 2 ns for the clock edge in every cycle.`},
+    {panel: "b", main: ["bR1", "bA", "bR2", "bB", "bC", "bR3"], xrow: [], out: "bR3", ref: 4, from: 4,
+     nets: [["i", "bR1"], ["bR1", "bA"], ["bA", "bR2"], ["bR2", "bB"], ["bB", "bC"], ["bC", "bR3"]],
+     title: "Retiming moves R2 backwards across B",
+     body: `R2 now sits between A and B, and both stages take 2 ns. The clock period drops from 3 to 2 ns, with the same latency, the same number of registers, and the same outputs in the same cycles. But R2 holds another signal now, ${code("A(i)")} instead of ${code("B(A(i))")}. Retiming must therefore compute a new reset value for R2, one that B turns into the old one, and an equivalence checker can no longer match R2 by its name (<a href="#sec-synthesis-lib-lec">logic equivalence checking</a>).`},
+    {panel: "a", main: ["aR1", "aA", "aB", "aP", "aR2"], xrow: [["aRx", "aR1"]], merge: {aPx: "aP"}, out: "aR2", ref: 3, from: 3,
+     nets: [["i", "aR1"], ["aR1", "aA"], ["aA", "aB"], ["x", "aRx"], ["aRx", "aB", "x"], ["aB", "aP"], ["aP", "aR2"]],
+     title: "Retiming for fewer registers",
+     body: `Back to the pipeline of step 3. Retiming can also move registers forward: P and Px cross B and merge into one register P after B, while R1 and Rx stay at the inputs. This saves a register and keeps the outputs in the same cycles as step 3. But B is back in the first stage, and the longest path is 4 ns again. A retiming for minimum area, as ${code("dretime")} runs it in the default scripts of ABC, counts registers, not delay. ABC moves only flip-flops without a reset, and only with ${code("abc -dff")}, so the pipeline registers of this course, with their asynchronous reset, stay where the RTL puts them.`}
+  ];
+  const isReg = id => !!NODES[id] && NODES[id].kind !== "logic";
+  const width = id => NODES[id].kind === "logic" ? NODES[id].d * PXNS : RW;
+
+  function el(tag, attrs, parent) {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function txt(parent, x, y, s, attrs) {
+    const t = el("text", Object.assign({x, y, "text-anchor": "middle", "font-size": 12, fill: "black"}, attrs || {}), parent);
+    t.textContent = s;
+    return t;
+  }
+
+  // Inputs of every block, the main input first, then x.
+  function inputs(st) {
+    const ins = {};
+    for (const [d, l, port] of st.nets) (ins[l] = ins[l] || {m: [], x: []})[port === "x" ? "x" : "m"].push(d);
+    for (const l of Object.keys(ins)) ins[l] = ins[l].m.concat(ins[l].x);
+    return ins;
+  }
+
+  // Longest register-to-register path, its blocks and nets, latency per input, register count.
+  function analyze(st) {
+    const ins = inputs(st), arr = {};
+    const at = id => {
+      if (!NODES[id] || isReg(id)) return 0;
+      if (arr[id] === undefined) arr[id] = NODES[id].d + Math.max(...ins[id].map(at));
+      return arr[id];
+    };
+    const regs = Object.keys(ins).filter(isReg);
+    let longest = 0;
+    for (const r of regs) longest = Math.max(longest, ...ins[r].map(at));
+    const critNodes = new Set(), critNets = new Set();
+    const mark = (load, need) => {
+      for (const d of ins[load]) {
+        if (Math.abs(at(d) - need) > 1e-9) continue;
+        critNets.add(d + ">" + load);
+        if (NODES[d] && !isReg(d)) { critNodes.add(d); mark(d, need - NODES[d].d); }
+      }
+    };
+    for (const r of regs) mark(r, longest);
+    const paths = id => !NODES[id] ? [{src: id, n: 0}] : ins[id].flatMap(paths).map(p => ({src: p.src, n: p.n + (isReg(id) ? 1 : 0)}));
+    const lat = {};
+    for (const p of paths(st.out)) (lat[p.src] = lat[p.src] || new Set()).add(p.n - 1);
+    return {longest, critNodes, critNets, lat, regs: regs.length};
+  }
+
+  // Symbolic simulation: R1 captures i<n> and Rx captures x<n> at edge n. Returns the output register after each edge.
+  function simulate(st) {
+    const ins = inputs(st), regs = Object.keys(ins).filter(isReg), q = {}, outs = [];
+    for (const r of regs) q[r] = RST;
+    for (let n = 1; n <= EDGES; n++) {
+      const memo = {};
+      const val = id => {
+        if (id === "i" || id === "x") return id + n;
+        if (isReg(id)) return q[id];
+        if (memo[id] === undefined) {
+          const v = ins[id].map(val);
+          memo[id] = v.includes(RST) ? RST : `${NODES[id].name}(${v.join(",")})`;
+        }
+        return memo[id];
+      };
+      const next = {};
+      for (const r of regs) next[r] = val(ins[r][0]);
+      Object.assign(q, next);
+      outs.push(q[st.out]);
+    }
+    return outs;
+  }
+
+  // Shift in cycles that maps the reference outputs onto these outputs, or -1.
+  function shiftOf(cur, ref) {
+    for (let s = 0; s < EDGES; s++) if (cur.every((v, k) => v === (k - s >= 0 ? ref[k - s] : RST))) return s;
+    return -1;
+  }
+
+  function layout(st) {
+    const pos = {};
+    let x = X0;
+    for (const id of st.main) { pos[id] = {x, y: YM}; x += width(id) + GAP; }
+    for (const [id, under] of st.xrow) pos[id] = {x: pos[under].x, y: YX};
+    for (const [id, onto] of Object.entries(st.merge || {})) pos[id] = {x: pos[onto].x, y: YM, hide: true};
+    return pos;
+  }
+
+  // The blocks are drawn once and move between the steps.
+  const nodeG = {};
+  const nodesLayer = $("nodes");
+  for (const [id, n] of Object.entries(NODES)) {
+    const g = el("g", {class: "rtm-node", "data-id": id}, nodesLayer);
+    const [stroke, fill] = COL[n.kind];
+    if (n.kind === "logic") {
+      const w = width(id);
+      el("rect", {x: 0, y: -LH / 2, width: w, height: LH, fill, stroke, "stroke-width": 1.5}, g);
+      txt(g, w / 2, -3, n.name, {"font-size": 14, "font-weight": "bold"});
+      txt(g, w / 2, 14, `${n.d} ns`);
+    } else {
+      el("rect", {x: 0, y: -RH / 2, width: RW, height: RH, fill, stroke, "stroke-width": 1.5}, g);
+      el("polyline", {points: "0,7 7,11.5 0,16", fill: "none", stroke: "black", "stroke-width": 1}, g);
+      txt(g, RW / 2, -RH / 2 - 7, n.name);
+    }
+    g.style.opacity = 0;
+    nodeG[id] = g;
+  }
+
+  function place(st, instant) {
+    const pos = layout(st);
+    if (instant) svg.classList.add("rtm-instant");
+    for (const [id, g] of Object.entries(nodeG)) {
+      const p = pos[id];
+      if (p) g.style.transform = `translate(${p.x}px, ${p.y}px)`;
+      g.style.opacity = p && !p.hide ? 1 : 0;
+    }
+    if (instant) { svg.getBoundingClientRect(); svg.classList.remove("rtm-instant"); }
+  }
+
+  // Wires, highlight of the longest path, stage brackets, and input labels.
+  function overlay(st) {
+    const pos = layout(st), a = analyze(st);
+    const under = $("under"), over = $("over");
+    under.innerHTML = "";
+    over.innerHTML = "";
+    const wires = [];
+    for (const [d, l, port] of st.nets) {
+      let pts;
+      if (d === "i" || d === "x") pts = [[18, pos[l].y], [pos[l].x, pos[l].y]];
+      else {
+        const x1 = pos[d].x + width(d), y1 = pos[d].y;
+        if (port === "x") { const bx = pos[l].x + width(l) / 2; pts = [[x1, y1], [bx, y1], [bx, YM + LH / 2]]; }
+        else pts = [[x1, y1], [pos[l].x, pos[l].y]];
+      }
+      wires.push({pts, crit: a.critNets.has(d + ">" + l)});
+    }
+    const outX = pos[st.out].x + RW;
+    wires.push({pts: [[outX, YM], [outX + 34, YM]], crit: false});
+    const ptsStr = p => p.map(q => q.join(",")).join(" ");
+    for (const w of wires) if (w.crit) el("polyline", {points: ptsStr(w.pts), fill: "none", stroke: BAND, "stroke-width": 10}, under);
+    for (const w of wires) el("polyline", {points: ptsStr(w.pts), fill: "none", stroke: "black", "stroke-width": 1.5, "marker-end": "url(#rtm-arr)"}, under);
+    txt(over, 10, YM + 4, "i", {"font-size": 13, "font-style": "italic"});
+    if (st.panel === "a") txt(over, 10, YX + 4, "x", {"font-size": 13, "font-style": "italic"});
+    txt(over, 8, 18, `(${st.panel})`, {"text-anchor": "start", "font-size": 13});
+    // one bracket per stage between two registers of the main row
+    const regsMain = st.main.filter(isReg);
+    for (let k = 0; k + 1 < regsMain.length; k++) {
+      const r0 = regsMain[k], r1 = regsMain[k + 1];
+      const span = st.main.slice(st.main.indexOf(r0) + 1, st.main.indexOf(r1));
+      const d = span.reduce((s, id) => s + NODES[id].d, 0);
+      const xa = pos[r0].x + RW + 2, xb = pos[r1].x - 2, y = YM - RH / 2 - 26;
+      const col = Math.abs(d - a.longest) < 1e-9 ? CRIT : GRAY;
+      el("polyline", {points: `${xa},${y + 6} ${xa},${y} ${xb},${y} ${xb},${y + 6}`, fill: "none", stroke: col, "stroke-width": 1.3}, over);
+      txt(over, (xa + xb) / 2, y - 6, `${d} ns`, {fill: col, "font-weight": col === CRIT ? "bold" : "normal"});
+    }
+    for (const [id, g] of Object.entries(nodeG)) g.classList.toggle("rtm-crit", a.critNodes.has(id) && !!pos[id]);
+    under.classList.remove("rtm-off");
+    over.classList.remove("rtm-off");
+  }
+
+  function describe(st, a) {
+    const name = id => NODES[id].kind === "logic" ? `${NODES[id].name} ${NODES[id].d} ns` : NODES[id].name;
+    let s = `Panel (${st.panel}): ${st.main.map(name).join(", ")}`;
+    if (st.xrow.length) s += `, with x through ${st.xrow.map(r => NODES[r[0]].name).join(" and ")} into B`;
+    return s + `. Longest path ${a.longest} ns.`;
+  }
+
+  function texts(n) {
+    const st = STEPS[n - 1], a = analyze(st), T = a.longest;
+    $("kicker").textContent = `Step ${n} of ${STEPS.length}`;
+    $("h").textContent = st.title;
+    $("body").innerHTML = `<p>${st.body}</p>`;
+    const lats = Object.entries(a.lat).map(([src, s]) => [src, [...s]]);
+    const one = lats.every(([, s]) => s.length === 1 && s[0] === lats[0][1][0]);
+    const c = lats[0][1][0];
+    const cyc = k => `${k} cycle${k === 1 ? "" : "s"}`;
+    const latency = one ? `${cyc(c)} = ${c * T} ns` : lats.map(([src, s]) => `${src}: ${s.map(cyc).join(", ")}`).join(", ");
+    const m = [["Longest path", `${T} ns`], ["Clock period", `${T} ns`], ["Latency", latency],
+               ["Throughput", `${Math.round(1000 / T)} million results/s`], ["Registers", `${a.regs}`]];
+    $("metrics").innerHTML = m.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+    const out = simulate(st), outName = NODES[st.out].name;
+    const ref = st.ref ? simulate(STEPS[st.ref - 1]) : null;
+    const cell = (v, wrong) => `<td class="${v === RST ? "rtm-rst" : wrong ? "rtm-wrong" : ""}">${v}</td>`;
+    const cols = [...Array(EDGES).keys()];
+    let rows = `<tr><th>clock edge</th>${cols.map(k => `<th>${k + 1}</th>`).join("")}</tr>`;
+    rows += `<tr><th>i into R1</th>${cols.map(k => cell("i" + (k + 1))).join("")}</tr>`;
+    if (st.panel === "a") rows += `<tr><th>x into Rx</th>${cols.map(k => cell("x" + (k + 1))).join("")}</tr>`;
+    const known = new Set(ref || []);
+    rows += `<tr><th>${outName}, this step</th>${out.map(v => cell(v, ref && v !== RST && !known.has(v))).join("")}</tr>`;
+    if (ref) rows += `<tr><th>${outName}, step ${st.ref}</th>${ref.map(v => cell(v)).join("")}</tr>`;
+    // built as an element, since Quarto tries to parse every table tag in a raw HTML block
+    const tbl = document.createElement("table");
+    tbl.className = "rtm-trace";
+    tbl.innerHTML = rows;
+    $("trace-box").replaceChildren(tbl);
+    let verdict, ok = true;
+    if (!ref) verdict = `These outputs are the reference for the next steps.`;
+    else {
+      const s = shiftOf(out, ref);
+      if (s === 0) verdict = `Same outputs as step ${st.ref}, in the same clock cycles.`;
+      else if (s === 1) verdict = `Same outputs as step ${st.ref}, one clock cycle later.`;
+      else if (s > 1) verdict = `Same outputs as step ${st.ref}, ${s} clock cycles later.`;
+      else {
+        ok = false;
+        const k = out.findIndex(v => v !== RST && !known.has(v));
+        verdict = `Wrong outputs: after edge ${k + 1}, ${outName} holds ${out[k]}, which step ${st.ref} never computes.`;
+      }
+    }
+    $("verdict").className = "rtm-verdict " + (ok ? "rtm-ok" : "rtm-bad");
+    $("verdict").textContent = verdict;
+    svg.setAttribute("aria-label", `Pipelining and retiming, step ${n} of ${STEPS.length}. ${describe(st, a)}`);
+    $("live").textContent = `Step ${n}: ${st.title}. Longest path ${T} ns. ${verdict}`;
+    $("prev").disabled = n === 1;
+    $("next").disabled = n === STEPS.length;
+    for (const b of dots.children) {
+      if (+b.dataset.n === n) b.setAttribute("aria-current", "step");
+      else b.removeAttribute("aria-current");
+    }
+  }
+
+  const dots = $("dots");
+  STEPS.forEach((st, k) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = k + 1;
+    b.dataset.n = k + 1;
+    b.setAttribute("aria-label", `Step ${k + 1}: ${st.title}`);
+    b.addEventListener("click", () => { stopPlay(); go(k + 1); });
+    dots.appendChild(b);
+  });
+
+  let cur = 0, timers = [];
+  const later = (f, ms) => timers.push(setTimeout(f, ms));
+  function go(n) {
+    n = Math.max(1, Math.min(STEPS.length, n));
+    if (n === cur) return;
+    const st = STEPS[n - 1], prev = cur;
+    cur = n;
+    for (const t of timers) clearTimeout(t);
+    timers = [];
+    texts(n);
+    if (prev === 0 || reduced) { place(st, true); overlay(st); return; }
+    $("under").classList.add("rtm-off");
+    $("over").classList.add("rtm-off");
+    const otherPanel = STEPS[prev - 1].panel !== st.panel;
+    if (st.from && (otherPanel || prev < st.from)) {
+      // show the circuit this step starts from, then move
+      const from = STEPS[st.from - 1];
+      later(() => { place(from, true); overlay(from); }, 300);
+      later(() => { $("under").classList.add("rtm-off"); $("over").classList.add("rtm-off"); }, 1300);
+      later(() => place(st, false), 1600);
+      later(() => overlay(st), 2450);
+    } else if (otherPanel) {
+      later(() => { place(st, true); overlay(st); }, 300);
+    } else {
+      place(st, false);
+      later(() => overlay(st), 850);
+    }
+  }
+
+  let playTimer = null;
+  function stopPlay() {
+    if (playTimer) clearInterval(playTimer);
+    playTimer = null;
+    $("play").textContent = "Play";
+    $("play").setAttribute("aria-pressed", "false");
+  }
+  $("play").addEventListener("click", () => {
+    if (playTimer) { stopPlay(); return; }
+    if (cur === STEPS.length) go(1);
+    $("play").textContent = "Pause";
+    $("play").setAttribute("aria-pressed", "true");
+    playTimer = setInterval(() => { if (cur >= STEPS.length) stopPlay(); else go(cur + 1); }, 9000);
+  });
+  $("prev").addEventListener("click", () => { stopPlay(); go(cur - 1); });
+  $("next").addEventListener("click", () => { stopPlay(); go(cur + 1); });
+  // arrow keys only while the figure has the focus, so the book page keeps its own keys
+  root.addEventListener("keydown", ev => {
+    if (ev.key === "ArrowRight") { stopPlay(); go(cur + 1); ev.preventDefault(); }
+    else if (ev.key === "ArrowLeft") { stopPlay(); go(cur - 1); ev.preventDefault(); }
+  });
+  go(1);
+})();
+</script>
+```
+
+Interactive walk through pipelining and retiming with the two examples of @fig-synth-opt-pipeline. Registers are blue, added pipeline registers red, and logic blocks green, with a width proportional to their delay. Step through it with the buttons, or with the arrow keys once a button has the focus. Steps 1 to 3 pipeline the path of panel (a), steps 4 and 5 retime the path of panel (b), and step 6 retimes the pipeline of step 3 for fewer registers. The brackets above the registers give the logic delay of each stage, and the longest path is highlighted in orange. As in @fig-synth-opt-pipeline, the delays are examples without the clock-to-output delay and the setup time, so the clock period equals the longest path. The latency counts the clock cycles from the input registers to the output register, and the throughput is one result per clock period. The table applies the inputs `i1` to `i6` and `x1` to `x6` at the clock edges 1 to 6 and computes the value of the output register after each edge as an expression of the blocks, e.g., `B(A(i1),x1)`, or `reset` while the value still comes from the reset values of the registers. It compares these outputs with those of an earlier step and marks every value in red that the earlier step never computes.
+:::
+:::
+
+::: {.content-visible unless-format="html"}
+::: {#fig-synth-opt-pipeline-steps}
+The interactive walk through pipelining and retiming is part of the HTML version of this book: <https://iic-jku.github.io/vlsi-design/vlsi.html#fig-synth-opt-pipeline-steps>.
+
+Interactive walk through pipelining and retiming with the two examples of @fig-synth-opt-pipeline: the longest path, clock period, latency, throughput, and number of registers of every step, and the outputs for a short input sequence.
+:::
+:::
