@@ -121,6 +121,10 @@ Before continuing, please finish the previous exercise. Once you are done, compa
 4. No, in the slow corner, each synchronizer fails on average every 9 hours. Even the bare schematic, whose $\tau$ is too small, gives only 8.5 years. A third flip-flop gives the second one the same resolution time of 3.487 ns and multiplies the MTBF by $e^{3487/158.7} = 3.5 \cdot 10^{9}$, to $3.5 \cdot 10^{6}$ years. Two flip-flops reach 100 years only at a period of 5.767 ns, i.e., at 173 MHz instead of 250 MHz. Design synchronizers for the slow corner, where $\tau$ is largest, and for the largest $\tau$ the parasitics allow.
 :::
 
+With @fig-cdc-mtbf-explorer, you can change the clock frequency, the data change rate, and the number of flip-flops of the synchronizer in the typical corner and watch the MTBF. A lower clock frequency lengthens the period, and the whole gain goes to the resolution time. Every 198 ps more of it raises the MTBF tenfold, while the data change rate scales the MTBF only in proportion.
+
+{{< include /content/cdc/_fig_mtbf_explorer.qmd >}}
+
 ## Crossing with Several Bits {#sec-cdc-multibit}
 
 A bus whose bits can change at the same time cannot cross through one synchronizer per bit. Each bit resolves on its own, so when several bits change at the same time, the destination can see a mix of old and new bits for a cycle, a value that the source never sent. A binary counter that steps from 7 to 8, i.e., from `0111` to `1000`, changes all four bits and may arrive as any value from 0 to 15. There are three ways out:

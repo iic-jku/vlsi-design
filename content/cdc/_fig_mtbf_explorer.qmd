@@ -1,0 +1,228 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+::: {.content-visible when-format="html"}
+::: {#fig-cdc-mtbf-explorer}
+
+```{=html}
+<style>
+#mtbf-root { text-align: left; container-type: inline-size; }
+#mtbf-root .mtbf-controls { display: grid; grid-template-columns: max-content minmax(8em, 16em) 5.5em; gap: 0.25em 0.8em; align-items: center; margin-bottom: 0.5em; font-size: 0.9em; }
+#mtbf-root .mtbf-controls label, #mtbf-root .mtbf-ff-l { margin: 0; }
+#mtbf-root .mtbf-controls input[type=number] { padding: 0.1em 0.3em; }
+#mtbf-root .mtbf-ffs { grid-column: 2 / -1; display: flex; gap: 0.4em; }
+#mtbf-root .mtbf-ffs button { min-width: 2.6em; padding: 0.1em 0.6em; border: 1px solid #6c8ebf; border-radius: 0.3em; background: transparent; color: inherit; font: inherit; }
+#mtbf-root .mtbf-ffs button[aria-pressed="true"] { background: #3c5f92; border-color: #3c5f92; color: #fff; font-weight: 600; }
+#mtbf-root .mtbf-ffs button:focus-visible { outline: 2px solid #6c8ebf; outline-offset: 2px; }
+@container (max-width: 575.98px) {
+  #mtbf-root .mtbf-controls { grid-template-columns: 1fr 5.5em; }
+  #mtbf-root .mtbf-controls label, #mtbf-root .mtbf-ff-l { grid-column: 1 / -1; margin-top: 0.3em; }
+  #mtbf-root .mtbf-ffs { grid-column: 1 / -1; }
+}
+#mtbf-root svg text { font-family: Arial, Helvetica, sans-serif; }
+#mtbf-root .mtbf-diagram { overflow-x: auto; }
+#mtbf-root .mtbf-diagram svg { min-width: 560px; }
+#mtbf-root .mtbf-readout { font-size: 0.9em; margin-top: 0.5em; }
+#mtbf-root .mtbf-note { color: #b85450; }
+body.quarto-dark #mtbf-root .mtbf-note { color: #f08a80; }
+</style>
+<div id="mtbf-root">
+<div class="mtbf-controls"></div>
+<div class="mtbf-diagram"></div>
+<div class="mtbf-readout"></div>
+<p class="mtbf-live visually-hidden" aria-live="polite"></p>
+<noscript>This figure needs JavaScript.</noscript>
+</div>
+<script>
+(() => {
+  // Typical corner: tau and T0 from the measurement of fig-cdc-meta, t_cq0 and t_su of dfrbpq_1 from the library (tbl-sequential-params)
+  const tau = 0.0859, T0ps = 23.5, tcq = 0.207, tsu = 0.127;   // ns, ps, ns, ns
+  const YEAR = 365.25 * 86400, AGE = 13.8e9 * YEAR;             // s
+  const LMIN = -6, LMAX = 42;                                    // MTBF axis, log10 of seconds
+  const root = document.getElementById("mtbf-root");
+  const sub = s => `<i>t</i><sub>${s}</sub>`;
+  const minus = s => String(s).replace("-", "−");
+  const desc = "Top: one bar per pair of synchronizer flip-flops, spanning one clock period from the edge at which the first flip-flop samples to the edge at which the second one samples, " +
+               "split into the clock-to-output delay, the resolution time, and the setup time. Bottom: the MTBF on a logarithmic axis in seconds, with marks at 1 second, 1 day, 1 year, and the age of the universe, " +
+               "a blue marker for the selected synchronizer and a gray marker for the same synchronizer with one flip-flop more or less.";
+  const controls = [
+    ["fMHz", `Clock frequency <i>f</i><sub>clk</sub> (MHz)`, 100, 2000, 10, 250],
+    ["fdata", `Data change rate <i>f</i><sub>data</sub> (MHz)`, 0.1, 100, 0.1, 10]
+  ];
+  let nff = 2;
+
+  // log10 of the MTBF in seconds, with (n - 1) resolution times of one period each (sec-cdc-sync)
+  function calc(p, n) {
+    const T = 1000 / p.fMHz, tr = T - tcq - tsu;
+    const Lrate = Math.log10(T0ps * 1e-12 * p.fMHz * 1e6 * p.fdata * 1e6);
+    const Lgain = (n - 1) * tr / tau / Math.LN10;
+    return {T, tr, Lrate, Lgain, L: Lgain - Lrate};
+  }
+
+  // Mantissa with 3 significant digits and exponent of 10^L
+  function sci(L) {
+    let e = Math.floor(L), m = Math.round(Math.pow(10, L - e) * 100) / 100;
+    if (m >= 10) { m /= 10; e += 1; }
+    return [m.toFixed(2), e];
+  }
+  // From 1 to 999, a plain number reads better than a power of ten
+  const plain = (m, e) => e >= 0 && e <= 2 ? String(Number((Number(m) * Math.pow(10, e)).toPrecision(3))) : null;
+  const sciHtml = L => { const [m, e] = sci(L); return plain(m, e) || `${m} · 10<sup>${minus(e)}</sup>`; };
+  const sciSvg = L => { const [m, e] = sci(L); const p = plain(m, e);
+    return p ? `${p} s` : `${m} · 10<tspan dy="-5" font-size="9">${minus(e)}</tspan><tspan dy="5"> s</tspan>`; };
+  const sciSpeech = L => { const [m, e] = sci(L); return plain(m, e) || `${m} times 10 to the power ${e}`; };
+
+  // The MTBF in the largest unit it fills, e.g. "38.3 min" or "1.85 million years"
+  const UNITS = [[1e-6, "µs"], [1e-3, "ms"], [1, "s"], [60, "min"], [3600, "hours", "hour"], [86400, "days", "day"],
+                 [YEAR, "years", "year"], [1e3 * YEAR, "thousand years"], [1e6 * YEAR, "million years"], [1e9 * YEAR, "billion years"]];
+  function human(L) {
+    if (L >= Math.log10(1e12 * YEAR)) return `${sciHtml(L - Math.log10(YEAR))} years`;
+    const s = Math.pow(10, L);
+    let i = 0;
+    while (i + 1 < UNITS.length && s >= UNITS[i + 1][0]) i++;
+    let r = Number((s / UNITS[i][0]).toPrecision(3));
+    if (i + 1 < UNITS.length && r * UNITS[i][0] >= UNITS[i + 1][0]) { i++; r = Number((s / UNITS[i][0]).toPrecision(3)); }
+    const u = UNITS[i];
+    return `${r} ${r === 1 && u[2] ? u[2] : u[1]}`;
+  }
+
+  function draw(c, g, n) {
+    const W = 760, X0 = 116, X1 = 744, HT = 268;
+    const xt = t => X0 + t / 10 * (X1 - X0);
+    const xl = L => X0 + (Math.min(Math.max(L, LMIN), LMAX) - LMIN) / (LMAX - LMIN) * (X1 - X0);
+    const BLUE = "#6c8ebf", BLUE_L = "#dae8fc", INK = "#3c5f92", GRAY = "#a6a6a6", GRAY_L = "#e6e6e6", DARK = "#595959";
+    const line = (xa, ya, xb, yb, col, dash, w) =>
+      `<line x1="${xa.toFixed(1)}" y1="${ya}" x2="${xb.toFixed(1)}" y2="${yb}" stroke="${col}" stroke-width="${w || 1}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+    const text = (x, y, s, anchor, col, size, halo) =>
+      `<text x="${x.toFixed(1)}" y="${y}" text-anchor="${anchor || "middle"}" fill="${col || "black"}" font-size="${size || 12}"` +
+      (halo ? ` stroke="white" stroke-width="4" paint-order="stroke"` : "") + `>${s}</text>`;
+    const rect = (xa, y, xb, h, fill, stroke) =>
+      `<rect x="${xa.toFixed(1)}" y="${y}" width="${Math.max(xb - xa, 0).toFixed(1)}" height="${h}" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`;
+    // t with a subscript, then the rest of the text back on the baseline (dy applies only to characters)
+    const tSym = (s, rest) => `<tspan font-style="italic">t</tspan><tspan dy="3" font-size="9">${s}</tspan><tspan dy="-3">${rest || "​"}</tspan>`;
+
+    let s = `<rect x="0" y="0" width="${W}" height="${HT}" fill="white"/>`;
+    // One period of clk_b per flip-flop pair: t_cq0 of the first, the resolution time, t_su of the second
+    const yBar = [14, 46], hBar = 22;
+    for (let i = 0; i < n - 1; i++) {
+      const y = yBar[i];
+      s += rect(xt(0), y, xt(tcq), hBar, GRAY_L, GRAY);
+      s += rect(xt(tcq), y, xt(tcq + c.tr), hBar, BLUE_L, BLUE);
+      s += rect(xt(c.T - tsu), y, xt(c.T), hBar, GRAY_L, GRAY);
+      s += line(xt(0), y - 4, xt(0), y + hBar + 4, "black", "", 1.5) + line(xt(c.T), y - 4, xt(c.T), y + hBar + 4, "black", "", 1.5);
+      const lab = tSym("r", ` = ${c.tr.toFixed(3)} ns`), wTr = xt(tcq + c.tr) - xt(tcq);
+      s += wTr > 110 ? text((xt(tcq) + xt(tcq + c.tr)) / 2, y + 15, lab, "middle", "black", 12)
+                     : text(xt(c.T) + 6, y + 15, lab, "start", "black", 12);
+      s += text(X0 - 10, y + 15, `FF${i + 1} → FF${i + 2}`, "end", "black", 13);
+    }
+    if (n === 2) {
+      s += `<rect x="${xt(0).toFixed(1)}" y="${yBar[1]}" width="${(xt(c.T) - xt(0)).toFixed(1)}" height="${hBar}" fill="none" stroke="${GRAY}" stroke-dasharray="4 3"/>`;
+      const wide = xt(c.T) - xt(0) > 140;
+      s += text(X0 - 10, yBar[1] + 15, "FF2 → FF3", "end", DARK, 13) +
+           text(wide ? (xt(0) + xt(c.T)) / 2 : xt(c.T) + 6, yBar[1] + 15, "no third flip-flop", wide ? "middle" : "start", DARK, 12);
+    }
+    const yT = 84;
+    s += line(X0, yT, X1, yT, "black");
+    for (let t = 0; t <= 10; t++) s += line(xt(t), yT, xt(t), yT + 4, "black") + text(xt(t), yT + 16, String(t), "middle", "black", 11);
+    s += text(X0 - 10, yT + 16, "time (ns)", "end", "black", 12);
+    const yLeg = 122;
+    s += rect(X0, yLeg - 10, X0 + 14, 12, GRAY_L, GRAY) + text(X0 + 20, yLeg, `clock-to-output delay ${tSym("cq0", " and setup time ")}${tSym("su")}`, "start", "black", 12);
+    s += rect(X0 + 330, yLeg - 10, X0 + 344, 12, BLUE_L, BLUE) + text(X0 + 350, yLeg, `resolution time ${tSym("r")}`, "start", "black", 12);
+
+    // MTBF on a logarithmic axis
+    const yA = 236;
+    const refs = [[0, "1 s", 0], [Math.log10(86400), "1 day", 1], [Math.log10(YEAR), "1 year", 0], [Math.log10(AGE), "age of the universe", 1]];
+    for (const [L, name, row] of refs) {
+      const y = 156 + 12 * row;
+      s += line(xl(L), y + 4, xl(L), yA, GRAY, "4 3") + text(xl(L), y, name, "middle", DARK, 11, true);
+    }
+    s += line(X0, yA, X1, yA, "black");
+    for (let L = LMIN; L <= LMAX; L++) {
+      const major = L % 6 === 0;
+      s += line(xl(L), yA, xl(L), yA + (major ? 6 : 3), "black");
+      if (major) s += text(xl(L), yA + 19, `10<tspan dy="-5" font-size="9">${minus(L)}</tspan>`, "middle", "black", 11);
+    }
+    s += text(X0 - 10, yA + 4, "MTBF (s)", "end", "black", 12);
+    // A label starts at its marker near the left end of the axis and ends at it near the right end
+    const marker = (L, col, yLab, label, ink) => {
+      const x = xl(L), off = L > LMAX ? " →" : "";
+      const [xLab, anchor] = x < X0 + 90 ? [x - 6, "start"] : x > X1 - 90 ? [x + 6, "end"] : [x, "middle"];
+      let m = `<polygon points="${(x - 6).toFixed(1)},${yA - 12} ${(x + 6).toFixed(1)},${yA - 12} ${x.toFixed(1)},${yA}" fill="${col}"/>`;
+      if (yLab < yA - 24) m += line(x, yLab + 4, x, yA - 12, col, "", 1);
+      return m + text(xLab, yLab, label + off, anchor, ink, 12, true);
+    };
+    s += marker(g.L, GRAY, yA - 44, `${3 - (n - 2)} flip-flops: ${sciSvg(g.L)}`, DARK);
+    s += marker(c.L, BLUE, yA - 18, `<tspan font-weight="bold">${n} flip-flops: ${sciSvg(c.L)}</tspan>`, INK);
+    const aria = `MTBF of the synchronizer with ${n} flip-flops: ${sciSpeech(c.L)} seconds`;
+    return `<svg viewBox="0 0 ${W} ${HT}" role="img" aria-label="${aria}" style="width: 100%; height: auto; max-width: ${W}px;"><desc>${desc}</desc>${s}</svg>`;
+  }
+
+  function readout(p, c, n) {
+    const gainExp = n === 2 ? `${c.tr.toFixed(3)}/${tau}` : `2 · ${c.tr.toFixed(3)}/${tau}`;
+    const third = n === 2 ? "A third flip-flop would multiply it by about" : "The third flip-flop multiplies the MTBF of two by about";
+    const level = p.fdata > p.fMHz / 1.5
+      ? `<span class="mtbf-note">The data changes more often than once per 1.5 clock periods, so the synchronizer misses some levels (see the rules of the synchronizer above).</span> ` : "";
+    return `<table class="table table-sm">
+      <tbody>
+        <tr><td>Clock period</td><td><i>T</i> = 1/<i>f</i><sub>clk</sub> = ${c.T.toFixed(3)} ns</td></tr>
+        <tr><td>Resolution time per flip-flop pair</td><td>${sub("r")} = <i>T</i> &minus; ${sub("cq0")} &minus; ${sub("su")} = ${c.T.toFixed(3)} &minus; ${tcq} &minus; ${tsu} = ${c.tr.toFixed(3)} ns</td></tr>
+        <tr><td>Growth through the resolution time</td><td><i>e</i><sup>${gainExp}</sup> = ${sciHtml(c.Lgain)}</td></tr>
+        <tr><td>Denominator</td><td><i>T</i><sub>0</sub> <i>f</i><sub>clk</sub> <i>f</i><sub>data</sub> = ${T0ps} ps · ${p.fMHz} MHz · ${p.fdata.toFixed(1)} MHz = ${sciHtml(c.Lrate)} per second</td></tr>
+        <tr><td>MTBF with ${n} flip-flops</td><td><b>${sciHtml(c.L)} s</b>, about ${human(c.L)}</td></tr>
+      </tbody>
+    </table><p>${level}Every ${(tau * 1000).toFixed(1)} ps more of ${sub("r")} multiplies the MTBF by <i>e</i>, every ${(tau * Math.LN10 * 1000).toFixed(0)} ps by 10. ` +
+      `${third} <i>e</i><sup>${sub("r")}/<i>τ</i></sup> = ${sciHtml(c.tr / tau / Math.LN10)}. ` +
+      `Fixed by the flip-flop in the typical corner: ${sub("cq0")} = ${tcq} ns, ${sub("su")} = ${tsu} ns, <i>τ</i> = ${(tau * 1000).toFixed(1)} ps, <i>T</i><sub>0</sub> = ${T0ps} ps.</p>`;
+  }
+
+  // The range inputs hold the values, each number input mirrors its range input.
+  const box = root.querySelector(".mtbf-controls");
+  box.innerHTML = controls.map(([k, label, lo, hi, step, v]) =>
+    `<label for="mtbf-${k}">${label}</label>` +
+    `<input type="range" class="form-range" id="mtbf-${k}" data-k="${k}" min="${lo}" max="${hi}" step="${step}" value="${v}">` +
+    `<input type="number" class="form-control form-control-sm" data-k="${k}" min="${lo}" max="${hi}" step="${step}" value="${v}" aria-label="${label.replace(/<[^>]+>/g, "")}">`).join("") +
+    `<span class="mtbf-ff-l" id="mtbf-ff-l">Flip-flops in the synchronizer</span>` +
+    `<div class="mtbf-ffs" role="group" aria-labelledby="mtbf-ff-l">` +
+    [2, 3].map(n => `<button type="button" data-n="${n}" aria-pressed="${n === nff}">${n}</button>`).join("") + `</div>`;
+  const range = k => box.querySelector(`input[type=range][data-k="${k}"]`);
+  function update(ev) {
+    const src = ev && ev.target;
+    if (src && src.dataset.k) {
+      if (!Number.isFinite(parseFloat(src.value))) return;
+      for (const el of box.querySelectorAll(`input[data-k="${src.dataset.k}"]`)) if (el !== src) el.value = src.value;
+    }
+    const p = {};
+    for (const [k] of controls) p[k] = parseFloat(range(k).value);
+    const c = calc(p, nff), g = calc(p, 5 - nff);
+    root.querySelector(".mtbf-diagram").innerHTML = draw(c, g, nff);
+    root.querySelector(".mtbf-readout").innerHTML = readout(p, c, nff);
+    root.querySelector(".mtbf-live").textContent =
+      `MTBF with ${nff} flip-flops: ${sciSpeech(c.L)} seconds, about ${human(c.L).replace(/<[^>]+>/g, "")}.`;
+  }
+  box.addEventListener("input", update);
+  box.addEventListener("change", ev => { if (ev.target.type === "number") ev.target.value = range(ev.target.dataset.k).value; });
+  box.addEventListener("click", ev => {
+    const b = ev.target.closest("button[data-n]");
+    if (!b) return;
+    nff = parseInt(b.dataset.n, 10);
+    for (const x of box.querySelectorAll("button[data-n]")) x.setAttribute("aria-pressed", String(x === b));
+    update();
+  });
+  update();
+})();
+</script>
+```
+
+Interactive mean time between failures of the two-flip-flop synchronizer of @fig-cdc-sync and of its extension by a third flip-flop, in the typical corner, with $\tau$ = 85.9 ps and $T_0$ = 23.5 ps from the measurement of @fig-cdc-meta and, as STA takes them, the clock-to-output delay $t_\text{cq0}$ = 0.207 ns and the setup time $t_\text{su}$ = 0.127 ns of `dfrbpq_1` from the library (@tbl-sequential-params). Each bar spans one period of `clk_b`, from the edge at which the first flip-flop of a pair samples to the edge at which the second one samples (black lines), and splits it into the clock-to-output delay (gray, left), the resolution time $t_r$ (blue), and the setup time (gray, right). With two flip-flops, a dashed outline stands for the missing third one. The axis below shows the MTBF on a logarithmic scale from 1 µs to $10^{42}$ s, with marks at 1 s, 1 day, 1 year, and the age of the universe (13.8 billion years). The blue marker is the selected synchronizer, the gray marker the same synchronizer with one flip-flop more or less. A marker at the right end of the axis with an arrow stands for a larger value, which its label prints. With three flip-flops, the MTBF is the estimate of @sec-cdc-sync, i.e., the value of two flip-flops multiplied by $e^{t_r/\tau}$. The clock stops at 2000 MHz, below the limit that the minimum `CLK` low pulse of `dfrbpq_1` sets at a duty cycle of 50 %.
+:::
+:::
+
+::: {.content-visible unless-format="html"}
+::: {#fig-cdc-mtbf-explorer}
+The interactive MTBF calculator is part of the HTML version of this book: <https://iic-jku.github.io/vlsi-design/vlsi.html#fig-cdc-mtbf-explorer>.
+
+Interactive mean time between failures of a synchronizer with two or three flip-flops in the typical corner, with sliders for the clock frequency and the data change rate, and the resolution time and the MTBF on a logarithmic axis.
+:::
+:::
