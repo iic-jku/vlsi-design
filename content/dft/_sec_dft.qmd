@@ -220,6 +220,10 @@ SG13CMOS5L has five scan flip-flops (@sec-synthesis-lib-cells): `sdfrbpq_1` and 
 
 For $N$ patterns and a chain of $L$ flip-flops, the test takes $(N + 1) L + N$ clock cycles: $N + 1$ shift phases of $L$ cycles, because the last response must come out as well, and $N$ captures. The shifts dominate, so designs split their flip-flops into several chains that shift in parallel, each with its own pins. When the pins run out, on-chip **test compression** feeds hundreds of short chains from a few pins through a decompressor and compacts their outputs. The shift clock is often slower than the functional clock, because shifting random patterns toggles many more flip-flops at once than normal operation, which draws a high current.
 
+@fig-dft-scan-steps runs such a test clock by clock in the HTML version of this book, with the logic of @fig-dft-sensitize between three scan flip-flops. Step through the 11 cycles of two patterns, follow each bit along the chain, and inject a stuck-at fault at the inverter output to see which pattern detects it at `scan_out`.
+
+{{< include /content/dft/_fig_scan_steps.qmd >}}
+
 In the open-source flow, OpenROAD [@OpenROAD] inserts the chains. `scan_replace` replaces every flip-flop by a scan flip-flop with the same function, and `execute_dft_plan` stitches the chains and adds the ports `scan_enable_0`, `scan_in_0`, `scan_out_0`, and so on. In a complete flow, `scan_replace` runs before the placement, because it changes the cell areas, and `execute_dft_plan` after it, so that each chain connects neighbors on the die. The script `dft.tcl` runs both on a netlist without placement:
 
 ```{.tcl filename="scan/dft.tcl"}

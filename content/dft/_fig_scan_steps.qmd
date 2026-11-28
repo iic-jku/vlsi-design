@@ -1,0 +1,404 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+::: {.content-visible when-format="html"}
+::: {#fig-dft-scan-steps}
+
+```{=html}
+<style>
+#scn-root {
+  --fg: #1b2330; --muted: #566174; --rule: #d6dce5; --soft: #f3f5f8; --panel: #ffffff; --cur: #fbf0d2;
+  --ok: #4a7a2c; --bad: #b85450; --focus: #3c5f92;
+  --sans: var(--bs-body-font-family, system-ui, sans-serif);
+  --mono: var(--bs-font-monospace, ui-monospace, Consolas, monospace);
+  text-align: left; container-type: inline-size; color: var(--fg); font-family: var(--sans);
+}
+body.quarto-dark #scn-root {
+  --fg: #e3e8ef; --muted: #9ba6b6; --rule: #2b3441; --soft: #10141a; --panel: #19202a; --cur: #3a3317;
+  --ok: #93c572; --bad: #f08a80; --focus: #9dbbe8;
+}
+#scn-root * { box-sizing: border-box; }
+#scn-root .scn-stage-box { background: #ffffff; border: 1px solid var(--rule); border-radius: 10px; overflow-x: auto; }
+#scn-root .scn-stage { display: block; width: 100%; min-width: 620px; height: auto; }
+#scn-root .scn-card { margin-top: 10px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; display: grid; gap: 12px; }
+#scn-root .scn-nav, #scn-root .scn-fault { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#scn-root .scn-fault > span { color: var(--muted); font-size: 0.9em; }
+#scn-root button { font: 600 0.9rem var(--sans); color: var(--fg); background: var(--soft); border: 1px solid var(--rule); border-radius: 7px; padding: 5px 12px; cursor: pointer; line-height: 1.4; }
+#scn-root button:hover { border-color: var(--muted); }
+#scn-root button.scn-primary, #scn-root .scn-fault button[aria-pressed="true"] { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+#scn-root button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+#scn-root button:disabled { opacity: 0.4; cursor: default; }
+#scn-root .scn-dots { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+#scn-root .scn-dots button { width: 26px; height: 26px; padding: 0; border-radius: 50%; font: 600 0.72rem var(--mono); }
+#scn-root .scn-dots button[aria-current="step"] { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+#scn-root .scn-col { display: grid; gap: 8px; min-width: 0; }
+#scn-root .scn-kicker { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+#scn-root .scn-h { margin: 0; font-size: 1.15rem; font-weight: 700; line-height: 1.25; }
+#scn-root .scn-body p { margin: 0 0 6px; }
+#scn-root .scn-card code { color: inherit; background: transparent; padding: 0; font-size: 0.92em; }
+#scn-root .scn-eq { color: var(--ok); font-weight: 600; }
+#scn-root .scn-ne { color: var(--bad); font-weight: 700; }
+#scn-root .scn-tbl-box { overflow-x: auto; }
+#scn-root .scn-tbl-h { margin: 0 0 4px; font-size: 0.85em; color: var(--muted); }
+#scn-root table { width: 100%; border-collapse: collapse; font: 400 0.82rem var(--mono); font-variant-numeric: tabular-nums; margin: 0; color: var(--fg); }
+#scn-root th { font: 600 0.75rem var(--sans); color: var(--muted); text-align: left; border-bottom: 1px solid var(--rule); padding: 2px 6px; vertical-align: bottom; white-space: nowrap; }
+#scn-root td { padding: 2px 6px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+#scn-root tr.scn-cur td { background: var(--cur); }
+#scn-root svg text { font-family: Arial, Helvetica, sans-serif; }
+#scn-root .scn-w { fill: none; stroke: #000000; stroke-width: 1.5; transition: opacity 0.3s; }
+#scn-root .scn-chain, #scn-root .scn-se { stroke: #d79b00; }
+#scn-root .scn-clk { stroke: #b85450; }
+#scn-root .scn-se1 .scn-func, #scn-root .scn-se0 .scn-chain { opacity: 0.25; }
+#scn-root .scn-gate { fill: #ffffff; stroke: #000000; stroke-width: 1.5; }
+#scn-root .scn-mux { fill: #ffffff; stroke: #82b366; stroke-width: 1.5; }
+#scn-root .scn-sel0, #scn-root .scn-sel1 { stroke: #000000; stroke-width: 1.5; }
+#scn-root .scn-se1 .scn-sel0, #scn-root .scn-se0 .scn-sel1 { opacity: 0; }
+#scn-root .scn-ffbox { fill: #dae8fc; stroke: #6c8ebf; stroke-width: 1.5; }
+#scn-root .scn-ffbox.scn-flash { animation: scn-pulse 0.7s ease-out; }
+@keyframes scn-pulse { from { fill: #ffe7a8; stroke: #d79b00; stroke-width: 3; } to { fill: #dae8fc; stroke: #6c8ebf; stroke-width: 1.5; } }
+#scn-root .scn-t { font-size: 12px; fill: #000000; }
+#scn-root .scn-pin { font-size: 10px; fill: #000000; }
+#scn-root .scn-name { font-size: 11px; fill: #555555; }
+#scn-root .scn-port { font-size: 12px; fill: #000000; }
+#scn-root .scn-port-o { font-size: 12px; fill: #8f5f00; }
+#scn-root .scn-gray { font-size: 11px; fill: #555555; }
+#scn-root .scn-v { font-size: 12px; font-weight: 700; fill: #000000; }
+#scn-root .scn-q { font-size: 20px; font-weight: 700; fill: #000000; }
+#scn-root .scn-v.scn-diff, #scn-root .scn-q.scn-diff { fill: #b85450; }
+#scn-root .scn-fx line { stroke: #b85450; stroke-width: 2.2; stroke-linecap: round; }
+#scn-root .scn-fx text { font-size: 11px; font-weight: 700; fill: #b85450; }
+@media (prefers-reduced-motion: reduce) {
+  #scn-root .scn-ffbox.scn-flash { animation: none; }
+  #scn-root .scn-w { transition: none; }
+}
+</style>
+<div id="scn-root">
+<div class="scn-stage-box">
+<svg class="scn-stage scn-se1" id="scn-stage" viewBox="-30 12 910 376" role="img" aria-label="Scan chain of three flip-flops">
+<desc>Three scan flip-flops FF1, FF2 and FF3 in a row, each with a multiplexer in front that selects the functional input D at 0 or the scan input SCD at 1. The scan chain (orange) runs from scan_in through FF1, FF2 and FF3 to scan_out. Above them, the combinational logic: the output c of FF1 drives an inverter, whose output and the output d of FF2 drive a NAND gate. The primary inputs a_i and b_i drive an OR gate. The NAND and OR outputs drive a NOR gate with the output y, which goes to the functional input of FF3. FF1 and FF2 load the primary inputs c_i and d_i. The lines scan_enable and clk run along the bottom to all three flip-flops. Every net carries its current value, and a value such as 1/0 is 1 in the good and 0 in the faulty circuit.</desc>
+<g id="scn-g"></g>
+</svg>
+</div>
+<div class="scn-card">
+<div class="scn-nav">
+<button id="scn-prev" type="button" aria-label="Previous step">← Back</button>
+<button id="scn-next" type="button" class="scn-primary" aria-label="Next step, gives the clock edge">Next →</button>
+<button id="scn-play" type="button" aria-pressed="false">Play</button>
+<div class="scn-dots" id="scn-dots" role="group" aria-label="Steps"></div>
+</div>
+<div class="scn-fault" role="group" aria-label="Fault at the inverter output">
+<span>Fault at the inverter output:</span>
+<button type="button" data-f="none" aria-pressed="true">none</button>
+<button type="button" data-f="0" aria-pressed="false">stuck-at-0</button>
+<button type="button" data-f="1" aria-pressed="false">stuck-at-1</button>
+</div>
+<div class="scn-col">
+<p class="scn-kicker" id="scn-kicker">Step 1</p>
+<p class="scn-h" id="scn-title"></p>
+<div class="scn-body" id="scn-body"></div>
+<p class="visually-hidden" id="scn-live" aria-live="polite"></p>
+</div>
+<div class="scn-tbl-box">
+<p class="scn-tbl-h">Test program with the expected bits at <code>scan_out</code>, and what the tester observes</p>
+<table id="scn-tbl">
+<thead><tr><th>Cycle</th><th>Phase</th><th><code>scan_enable</code></th><th><code>scan_in</code></th><th><code>a_i</code>, <code>b_i</code>, <code>c_i</code>, <code>d_i</code></th><th>Expected</th><th>Observed</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+<noscript>This figure needs JavaScript.</noscript>
+</div>
+<script>
+(() => {
+  const root = document.getElementById("scn-root");
+  const $ = id => document.getElementById("scn-" + id);
+  const X = "x";
+
+  // The logic of fig-dft-sensitize, three-valued, with an optional stuck value at the inverter output n1.
+  const not = v => v === X ? X : 1 - v;
+  const nand = (p, q) => p === 0 || q === 0 ? 1 : p === 1 && q === 1 ? 0 : X;
+  const or = (p, q) => p === 1 || q === 1 ? 1 : p === 0 && q === 0 ? 0 : X;
+  function logic(a, b, c, d, stuck) {
+    const n1 = stuck === null ? not(c) : stuck;
+    const n2 = nand(n1, d), n3 = or(a, b);
+    return {a, b, c, d, n1, n2, n3, y: not(or(n2, n3))};
+  }
+
+  // Test program: per pattern the values of FF1, FF2, FF3 and the primary inputs at the capture.
+  // c_i and d_i matter for neither target fault, so they carry arbitrary fill values.
+  const L = 3;
+  const PATTERNS = [
+    {chain: [0, 1, 0], pi: {a: 0, b: 0, ci: 1, di: 0}, target: 0},
+    {chain: [1, 1, 0], pi: {a: 0, b: 0, ci: 0, di: 1}, target: 1}
+  ];
+  const N = PATTERNS.length;
+  const NONE = {a: X, b: X, ci: X, di: X};
+  // Clock cycles: L shifts per pattern (the bit for FF3 first), a capture, and L shifts for the last response.
+  const CYC = [];
+  PATTERNS.forEach((p, k) => {
+    for (let i = 0; i < L; i++) CYC.push({se: 1, si: p.chain[L - 1 - i], pi: NONE, pat: k, unload: k > 0, bit: i});
+    CYC.push({se: 0, si: X, pi: p.pi, pat: k});
+  });
+  for (let i = 0; i < L; i++) CYC.push({se: 1, si: X, pi: NONE, pat: N, unload: true, bit: i});
+  const STEPS = CYC.length + 1;
+
+  // Good and faulty circuit side by side. Entry i is the state during cycle i + 1, before its edge.
+  function run(stuck) {
+    let g = [X, X, X], f = [X, X, X];
+    const out = [];
+    for (const c of CYC) {
+      const lg = logic(c.pi.a, c.pi.b, g[0], g[1], null), lf = logic(c.pi.a, c.pi.b, f[0], f[1], stuck);
+      out.push({c, g, f, lg, lf, exp: c.unload ? g[2] : X, obs: f[2]});
+      const next = (q, l) => c.se ? [c.si, q[0], q[1]] : [c.pi.ci, c.pi.di, l.y];
+      g = next(g, lg);
+      f = next(f, lf);
+    }
+    out.push({c: null, g, f, lg: logic(X, X, g[0], g[1], null), lf: logic(X, X, f[0], f[1], stuck), exp: X, obs: f[2]});
+    return out;
+  }
+
+  const sym = v => v === X ? "x" : String(v);
+  const pair = (g, f) => g === f ? sym(g) : sym(g) + "/" + sym(f);
+  const code = s => `<code>${s}</code>`;
+  const list = a => a.length < 3 ? a.join(" and ") : a.slice(0, -1).join(", ") + ", and " + a[a.length - 1];
+  const differs = t => t.exp !== X && t.obs !== t.exp;
+
+  // Static drawing. Coordinates: flip-flop k has its multiplexer at MX[k], its box 40 to 110 right of it.
+  const MX = [96, 380, 664];
+  const pts = p => p.map(q => q.join(",")).join(" ");
+  const W = (p, cls) => `<polyline class="scn-w ${cls || ""}" points="${pts(p)}"/>`;
+  const T = (x, y, s, cls, anchor, id) =>
+    `<text x="${x}" y="${y}" text-anchor="${anchor || "middle"}" class="${cls}"${id ? ` id="scn-${id}"` : ""}>${s}</text>`;
+  const dot = (x, y, col) => `<circle cx="${x}" cy="${y}" r="3" fill="${col}"/>`;
+  const orGate = (x0, yc) =>
+    `<path class="scn-gate" d="M${x0},${yc - 26} Q${x0 + 14},${yc} ${x0},${yc + 26} Q${x0 + 34},${yc + 26} ${x0 + 50},${yc} Q${x0 + 34},${yc - 26} ${x0},${yc - 26} Z"/>`;
+  function flop(mx, k) {
+    return `<polygon class="scn-mux" points="${mx},238 ${mx + 24},250 ${mx + 24},296 ${mx},308"/>` +
+      T(mx + 5, 259, "0", "scn-pin") + T(mx + 5, 295, "1", "scn-pin") +
+      `<line class="scn-sel0" x1="${mx + 11}" y1="255" x2="${mx + 21}" y2="273"/>` +
+      `<line class="scn-sel1" x1="${mx + 11}" y1="291" x2="${mx + 21}" y2="273"/>` +
+      W([[mx + 24, 273], [mx + 40, 273]]) +
+      `<rect class="scn-ffbox" id="scn-ff${k}" x="${mx + 40}" y="240" width="70" height="80" rx="2"/>` +
+      T(mx + 75, 254, `FF${k}`, "scn-name") + T(mx + 44, 277, "D", "scn-pin", "start") +
+      T(mx + 106, 260, "Q", "scn-pin", "end") +
+      `<polyline class="scn-w" points="${mx + 40},298 ${mx + 48},304 ${mx + 40},310"/>` +
+      T(mx + 75, 302, "x", "scn-q", "middle", `q${k}`);
+  }
+  let s = `<rect x="-30" y="12" width="910" height="376" fill="#ffffff"/>`;
+  s += `<rect x="250" y="22" width="376" height="192" rx="6" fill="#eaf3e8" stroke="#82b366" stroke-width="1.2"/>`;
+  s += T(618, 40, "combinational logic", "scn-gray", "end");
+  // wires
+  s += W([[60, 255], [96, 255]], "scn-func") + W([[60, 291], [96, 291]], "scn-chain");
+  s += W([[206, 256], [226, 256], [226, 140], [296, 140]]) + W([[226, 256], [226, 291], [380, 291]], "scn-chain");
+  s += W([[340, 255], [380, 255]], "scn-func");
+  s += W([[490, 256], [510, 256], [510, 200], [390, 200], [390, 160], [414, 160]]) + W([[510, 256], [510, 291], [664, 291]], "scn-chain");
+  s += W([[250, 48], [414, 48]]) + W([[250, 72], [414, 72]]) + W([[330, 140], [414, 140]]);
+  s += W([[458, 150], [495, 150], [495, 115], [524, 115]]) + W([[456, 60], [485, 60], [485, 95], [524, 95]]);
+  s += W([[576, 105], [640, 105], [640, 214]]) + W([[640, 214], [640, 255], [664, 255]], "scn-func");
+  s += W([[774, 256], [806, 256]], "scn-chain-out");
+  s += W([[60, 350], [676, 350]], "scn-se");
+  for (const mx of MX) s += W([[mx + 12, 350], [mx + 12, 302]], "scn-se") + W([[mx + 30, 372], [mx + 30, 304], [mx + 40, 304]], "scn-clk");
+  s += W([[60, 372], [MX[2] + 30, 372]], "scn-clk");
+  s += dot(226, 256, "#000000") + dot(510, 256, "#000000") + dot(MX[0] + 12, 350, "#d79b00") + dot(MX[1] + 12, 350, "#d79b00") +
+       dot(MX[0] + 30, 372, "#b85450") + dot(MX[1] + 30, 372, "#b85450");
+  // gates, drawn over the ends of their input wires
+  s += orGate(406, 60);
+  s += `<polygon class="scn-gate" points="296,126 296,154 322,140"/><circle class="scn-gate" cx="326" cy="140" r="4"/>`;
+  s += `<path class="scn-gate" d="M410,128 H428 A22,22 0 0 1 428,172 H410 Z"/><circle class="scn-gate" cx="454" cy="150" r="4"/>`;
+  s += orGate(518, 105) + `<circle class="scn-gate" cx="572" cy="105" r="4"/>`;
+  s += MX.map((mx, i) => flop(mx, i + 1)).join("");
+  // fault marker on n1
+  s += `<g class="scn-fx" id="scn-fx" visibility="hidden"><line x1="355" y1="135" x2="365" y2="145"/><line x1="355" y1="145" x2="365" y2="135"/>` +
+       T(360, 160, "s-a-0", "", "middle", "fx-t") + `</g>`;
+  // port names
+  s += T(56, 259, "c_i", "scn-port", "end") + T(56, 295, "scan_in", "scn-port-o", "end") + T(336, 259, "d_i", "scn-port", "end");
+  s += T(244, 52, "a_i", "scn-port", "end") + T(244, 76, "b_i", "scn-port", "end");
+  s += T(56, 354, "scan_enable", "scn-port-o", "end") + T(56, 376, "clk", "scn-port", "end");
+  s += T(812, 260, "scan_out", "scn-port-o", "start") + T(812, 276, "= y_o", "scn-gray", "start");
+  // values
+  s += T(78, 249, "", "scn-v", "middle", "v-ci") + T(78, 285, "", "scn-v", "middle", "v-si") + T(78, 344, "", "scn-v", "middle", "v-se");
+  s += T(360, 249, "", "scn-v", "middle", "v-di") + T(300, 42, "", "scn-v", "middle", "v-a") + T(300, 66, "", "scn-v", "middle", "v-b");
+  s += T(232, 133, "", "scn-v", "start", "v-c") + T(390, 133, "", "scn-v", "middle", "v-n1") + T(476, 144, "", "scn-v", "middle", "v-n2");
+  s += T(470, 54, "", "scn-v", "middle", "v-n3") + T(450, 194, "", "scn-v", "middle", "v-d") + T(606, 99, "", "scn-v", "middle", "v-y");
+  s += T(790, 250, "", "scn-v", "middle", "v-so");
+  $("g").innerHTML = s;
+
+  const svg = $("stage");
+  let stuck = null, trace = run(stuck), step = 1, playTimer = null;
+
+  function setV(id, g, f, pre) {
+    const e = $(id);
+    e.textContent = (pre || "") + pair(g, f === undefined ? g : f);
+    e.classList.toggle("scn-diff", f !== undefined && g !== f);
+  }
+
+  function body(i) {
+    const t = trace[i], c = t.c, P = [];
+    if (!c) {
+      const ncmp = trace.filter(u => u.exp !== X).length;
+      const bad = trace.map((u, j) => differs(u) ? j + 1 : 0).filter(j => j);
+      P.push(`The test took (<i>N</i> + 1) <i>L</i> + <i>N</i> = (${N} + 1) · ${L} + ${N} = ${CYC.length} clock cycles: ${N + 1} shift phases of <i>L</i> = ${L} cycles, because the last response must come out as well, and <i>N</i> = ${N} captures. The tester compared ${ncmp} bits at ${code("scan_out")}.`);
+      if (stuck === null) {
+        P.push(`All of them are equal, so this die passes. Inject a fault with the buttons above and run the test again.`);
+        return P;
+      }
+      // a response that differs belongs to the pattern whose number the unloading shift carries
+      const det = new Set(bad.map(j => CYC[j - 1].pat));
+      const verdict = PATTERNS.map((p, k) => {
+        const cap = trace.find(u => u.c && !u.c.se && u.c.pat === k);
+        return `Pattern ${k + 1} ` + (det.has(k + 1) ? "detects it." : cap.lg.n1 === cap.lf.n1 ? "does not excite it." : "excites it, but the difference does not reach a flip-flop.");
+      });
+      P.push((bad.length ? `<span class="scn-ne">${bad.length} of them differ</span>, in cycle${bad.length > 1 ? "s" : ""} ${list(bad.map(String))}, so this die fails.`
+                         : `All of them are equal, so the test misses the stuck-at-${stuck}.`) + " " + verdict.join(" "));
+      return P;
+    }
+    if (c.se) {
+      if (i === 0) {
+        P.push(`Before the test, the flip-flops hold unknown values (x). ${code("scan_enable")} is 1, so every multiplexer passes its scan input ${code("SCD")}, and the three flip-flops form a shift register from ${code("scan_in")} to ${code("scan_out")} (orange). Pattern 1 sets FF1, FF2, and FF3 to ${list(PATTERNS[0].chain.map(String))}, so ${code("scan_in")} carries the bit for FF3 first.`);
+      } else if (i === 1) {
+        P.push(`The logic keeps computing with the values in the chain, but no flip-flop loads its output while ${code("scan_enable")} is 1.`);
+      } else if (c.bit === 0 && c.pat < N) {
+        P.push(`${code("scan_enable")} is 1 again. Pattern ${c.pat + 1} sets FF1, FF2, and FF3 to ${list(PATTERNS[c.pat].chain.map(String))} and enters the chain while response ${c.pat} leaves it.`);
+      } else if (c.bit === 0) {
+        P.push(`${code("scan_enable")} is 1 again. No pattern follows, so ${code("scan_in")} is x, and the chain only unloads response ${N}.`);
+      }
+      if (c.unload) {
+        const what = [`${code("y")} that FF3 captured`, `${code("d_i")} that FF2 captured`, `${code("c_i")} that FF1 captured`][c.bit];
+        P.push(`Before the edge, the tester compares ${code("scan_out")}, the output of FF3, with the expected bit, here the value of ${what}: expected ${sym(t.exp)}, observed ${sym(t.obs)}, ` +
+               (differs(t) ? `<span class="scn-ne">different</span>.` : `<span class="scn-eq">equal</span>.`));
+      } else {
+        P.push(`The tester ignores ${code("scan_out")}, because the chain holds no response yet.`);
+      }
+      let e = `The rising edge at the end of the cycle shifts ${code("scan_in")} = ${sym(c.si)} into FF1, FF1 into FF2, and FF2 into FF3.`;
+      if (c.bit === L - 1) e += c.pat < N ? ` After it, the chain holds pattern ${c.pat + 1}.` : ` After it, all of response ${N} has left the chain.`;
+      P.push(e);
+    } else {
+      const p = PATTERNS[c.pat], lg = t.lg, lf = t.lf;
+      P.push(`${code("scan_enable")} is 0, so every multiplexer passes its functional input ${code("D")}. The tester applies the primary inputs ${code("a_i")} = ${p.pi.a}, ${code("b_i")} = ${p.pi.b}, ${code("c_i")} = ${p.pi.ci}, and ${code("d_i")} = ${p.pi.di}.`);
+      P.push(`With ${code("c")} = ${pair(lg.c, lf.c)} and ${code("d")} = ${pair(lg.d, lf.d)} from the chain, the logic sees (<i>a</i>, <i>b</i>, <i>c</i>, <i>d</i>) = (${[lg.a, lg.b, lg.c, lg.d].join(", ")}), the test for the inverter output stuck-at-${p.target}. The good circuit gives ${code("y")} = ${lg.y}.`);
+      if (stuck === null) {
+        P.push(`No fault is injected. Choose one with the buttons above to see whether this pattern detects it.`);
+      } else if (lg.n1 !== lf.n1) {
+        P.push(`With the stuck-at-${stuck}, the inverter output is ${pair(lg.n1, lf.n1)}, i.e., ${lg.n1} in the good and ${lf.n1} in the faulty circuit, and ${code("y")} = ${pair(lg.y, lf.y)}. ` +
+               (lg.y !== lf.y ? `FF3 captures <span class="scn-ne">${lf.y} instead of ${lg.y}</span>.` : `The difference does not reach ${code("y")}.`));
+      } else {
+        P.push(`The inverter output is ${lg.n1} in the good circuit as well, so this pattern does not excite the stuck-at-${stuck}, and ${code("y")} is the same in both.`);
+      }
+      P.push(`The rising edge loads ${code("c_i")} into FF1, ${code("d_i")} into FF2, and ${code("y")} into FF3.`);
+    }
+    return P;
+  }
+
+  function title(i) {
+    const c = trace[i].c;
+    if (!c) return `Done after ${CYC.length} cycles`;
+    const head = `Cycle ${i + 1} of ${CYC.length}: `;
+    if (!c.se) return head + `capture pattern ${c.pat + 1}`;
+    if (!c.unload) return head + `shift pattern ${c.pat + 1} in`;
+    return head + (c.pat < N ? `shift response ${c.pat} out, pattern ${c.pat + 1} in` : `shift response ${N} out`);
+  }
+
+  // The table: planned inputs and expected bits for every cycle, observed bits up to the current one.
+  const tb = $("tbl").tBodies[0];
+  tb.innerHTML = CYC.map((c, i) => `<tr><td>${i + 1}</td><td>${c.se ? "shift" : "capture"}</td><td>${c.se}</td><td>${sym(c.si)}</td>` +
+    `<td>${c.se ? "x" : [c.pi.a, c.pi.b, c.pi.ci, c.pi.di].join(", ")}</td><td></td><td></td></tr>`).join("");
+  function table() {
+    [...tb.rows].forEach((r, i) => {
+      const t = trace[i], seen = i < step;
+      r.classList.toggle("scn-cur", i === step - 1);
+      r.cells[5].textContent = t.exp === X ? "–" : sym(t.exp);
+      r.cells[6].innerHTML = !seen ? "" : t.exp === X ? "–" :
+        differs(t) ? `<span class="scn-ne">${sym(t.obs)} ✗</span>` : `<span class="scn-eq">${sym(t.obs)} ✓</span>`;
+    });
+  }
+
+  function render() {
+    const i = step - 1, t = trace[i], c = t.c || {se: 1, si: X, pi: NONE};
+    svg.setAttribute("class", "scn-stage " + (c.se ? "scn-se1" : "scn-se0"));
+    setV("v-ci", c.pi.ci); setV("v-di", c.pi.di); setV("v-a", c.pi.a); setV("v-b", c.pi.b);
+    setV("v-si", c.si); setV("v-se", c.se);
+    setV("v-c", t.lg.c, t.lf.c, "c = "); setV("v-d", t.lg.d, t.lf.d, "d = "); setV("v-y", t.lg.y, t.lf.y, "y = ");
+    setV("v-n1", t.lg.n1, t.lf.n1); setV("v-n2", t.lg.n2, t.lf.n2); setV("v-n3", t.lg.n3, t.lf.n3);
+    for (let k = 0; k < 3; k++) setV(`q${k + 1}`, t.g[k], t.f[k]);
+    setV("v-so", t.g[2], t.f[2]);
+    $("fx").setAttribute("visibility", stuck === null ? "hidden" : "visible");
+    $("fx-t").textContent = `s-a-${stuck}`;
+    const ff = k => pair(t.g[k], t.f[k]);
+    svg.setAttribute("aria-label", (t.c ? `Scan chain in cycle ${step} of ${CYC.length}, ${c.se ? "shift" : "capture"}, scan_enable ${c.se}` : "Scan chain after the last cycle") +
+      `: FF1 ${ff(0)}, FF2 ${ff(1)}, FF3 and scan_out ${ff(2)}, y ${pair(t.lg.y, t.lf.y)}`);
+    $("kicker").textContent = `Step ${step} of ${STEPS}`;
+    $("title").textContent = title(i);
+    const P = body(i);
+    $("body").innerHTML = P.map(p => `<p>${p}</p>`).join("");
+    $("live").textContent = `${$("kicker").textContent}. ${title(i)}. ` + P.map(p => p.replace(/<[^>]+>/g, "")).join(" ");
+    table();
+    $("prev").disabled = step === 1;
+    $("next").disabled = step === STEPS;
+    [...$("dots").children].forEach((b, k) => { if (k + 1 === step) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current"); });
+  }
+
+  function go(n) {
+    n = Math.max(1, Math.min(STEPS, n));
+    const edge = n === step + 1;
+    step = n;
+    render();
+    if (edge) for (let k = 1; k <= 3; k++) {
+      const b = $(`ff${k}`);
+      b.classList.remove("scn-flash");
+      void b.getBBox();
+      b.classList.add("scn-flash");
+    }
+  }
+
+  for (let k = 1; k <= STEPS; k++) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = k;
+    b.setAttribute("aria-label", k < STEPS ? `Step ${k}, cycle ${k}` : `Step ${k}, after the last cycle`);
+    b.addEventListener("click", () => { stopPlay(); go(k); });
+    $("dots").appendChild(b);
+  }
+  root.querySelectorAll(".scn-fault button").forEach(b => b.addEventListener("click", () => {
+    stuck = b.dataset.f === "none" ? null : Number(b.dataset.f);
+    root.querySelectorAll(".scn-fault button").forEach(o => o.setAttribute("aria-pressed", o === b ? "true" : "false"));
+    trace = run(stuck);
+    render();
+  }));
+  function stopPlay() {
+    if (playTimer) clearInterval(playTimer);
+    playTimer = null;
+    $("play").textContent = "Play";
+    $("play").setAttribute("aria-pressed", "false");
+  }
+  $("play").addEventListener("click", () => {
+    if (playTimer) { stopPlay(); return; }
+    if (step === STEPS) go(1);
+    $("play").textContent = "Pause";
+    $("play").setAttribute("aria-pressed", "true");
+    playTimer = setInterval(() => { if (step >= STEPS) stopPlay(); else go(step + 1); }, 4000);
+  });
+  $("prev").addEventListener("click", () => { stopPlay(); go(step - 1); });
+  $("next").addEventListener("click", () => { stopPlay(); go(step + 1); });
+  // arrow keys only while the figure has the focus, so the book page keeps its own keys
+  root.addEventListener("keydown", ev => {
+    if (ev.key === "ArrowRight") { stopPlay(); go(step + 1); ev.preventDefault(); }
+    else if (ev.key === "ArrowLeft") { stopPlay(); go(step - 1); ev.preventDefault(); }
+  });
+  render();
+})();
+</script>
+```
+
+Interactive scan test, clock by clock, with the logic of @fig-dft-sensitize between three scan flip-flops as in @fig-dft-scan-chain. FF1 and FF2 drive the inputs `c` and `d` of the logic and load the primary inputs `c_i` and `d_i` in normal operation. The primary inputs `a_i` and `b_i` drive `a` and `b` directly, and FF3 loads `y` and drives the output `y_o`, which is also `scan_out`. Each step shows one clock cycle before its rising edge, and Next gives the edge. Two patterns test the inverter output: pattern 1 is the test (`a`, `b`, `c`, `d`) = (0, 0, 0, 1) for its stuck-at-0 from @fig-dft-sensitize, pattern 2 the test (0, 0, 1, 1) for its stuck-at-1. While `scan_enable` is 1, the multiplexers pass `SCD` and the chain (orange) shifts. While it is 0, they pass `D`. The inputs that the multiplexers do not select are drawn faint. A value such as 1/0 (red) is 1 in the good and 0 in the faulty circuit, and x is unknown. The table lists the test program with the expected bits at `scan_out`, which come from a simulation of the good circuit, and the bits that the tester observes. A dash marks a bit that the tester does not compare. For simplicity, the chain test before the first pattern is left out, and `c_i` and `d_i`, which neither target fault needs, carry arbitrary fill values, as in the patterns of an ATPG tool.
+:::
+:::
+
+::: {.content-visible unless-format="html"}
+::: {#fig-dft-scan-steps}
+The interactive scan test is part of the HTML version of this book: <https://iic-jku.github.io/vlsi-design/vlsi.html#fig-dft-scan-steps>.
+
+Interactive scan test, clock by clock: two patterns shift into a chain of three scan flip-flops around the logic of @fig-dft-sensitize, are captured, and shift out at `scan_out`, with a stuck-at fault at the inverter output to inject.
+:::
+:::
