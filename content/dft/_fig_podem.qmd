@@ -1,0 +1,460 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+::: {.content-visible when-format="html"}
+::: {#fig-dft-podem}
+
+```{=html}
+<style>
+#pdm-root {
+  --panel: #ffffff; --fg: #1b2330; --muted: #566174; --rule: #d6dce5; --soft: #f3f5f8; --wire: #2a3240;
+  --fault: #b85450; --fault-fill: #f8e1df; --obj: #a35200; --obj-fill: #fbe9c2;
+  --sans: var(--bs-body-font-family, system-ui, sans-serif);
+  --mono: var(--bs-font-monospace, ui-monospace, Consolas, monospace);
+  text-align: left; container-type: inline-size; color: var(--fg); font-family: var(--sans);
+}
+body.quarto-dark #pdm-root {
+  --panel: #19202a; --fg: #e3e8ef; --muted: #9ba6b6; --rule: #2b3441; --soft: #10141a; --wire: #c8d0db;
+  --fault: #ee8178; --fault-fill: #3b2321; --obj: #f0a45a; --obj-fill: #3b2f14;
+}
+#pdm-root * { box-sizing: border-box; }
+#pdm-root [hidden] { display: none !important; }
+#pdm-root .pdm-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 8px; font-size: 0.85em; color: var(--muted); }
+#pdm-root .pdm-legend b { font-weight: 700; }
+#pdm-root .pdm-d { color: var(--fault); font-weight: 700; font-style: italic; }
+#pdm-root .pdm-o { color: var(--obj); font-weight: 700; }
+#pdm-root .pdm-ov { text-decoration: overline; }
+#pdm-root .pdm-stage-box { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; overflow-x: auto; }
+#pdm-root .pdm-stage { display: block; width: 100%; min-width: 600px; height: auto; }
+#pdm-root .pdm-card { margin-top: 10px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; display: grid; gap: 12px; }
+@container (min-width: 700px) {
+  #pdm-root .pdm-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 20px; }
+  #pdm-root .pdm-nav { grid-column: 1 / -1; }
+}
+#pdm-root .pdm-col { display: grid; gap: 10px; align-content: start; min-width: 0; }
+#pdm-root .pdm-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#pdm-root button { font: 600 0.9rem var(--sans); color: var(--fg); background: var(--soft); border: 1px solid var(--rule); border-radius: 7px; padding: 5px 12px; cursor: pointer; line-height: 1.4; }
+#pdm-root button:hover { border-color: var(--muted); }
+#pdm-root button.primary { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+#pdm-root button:focus-visible { outline: 2px solid var(--obj); outline-offset: 2px; }
+#pdm-root button:disabled { opacity: 0.4; cursor: default; }
+#pdm-root .pdm-dots { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+#pdm-root .pdm-dots button { width: 26px; height: 26px; padding: 0; border-radius: 50%; font: 600 0.72rem var(--mono); }
+#pdm-root .pdm-dots button[aria-current="step"] { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+#pdm-root .pdm-kicker { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+#pdm-root .pdm-h { margin: 0; font-size: 1.2rem; font-weight: 700; line-height: 1.25; }
+#pdm-root .pdm-body { display: grid; gap: 8px; }
+#pdm-root .pdm-body p { margin: 0; }
+#pdm-root .pdm-status { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; font-size: 0.92em; }
+#pdm-root .pdm-status dt { font-weight: 600; color: var(--muted); }
+#pdm-root .pdm-status dd { margin: 0; }
+#pdm-root .pdm-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+#pdm-root .pdm-chip { font: 600 0.85rem var(--mono); border: 1px solid var(--rule); background: var(--soft); border-radius: 6px; padding: 0 6px; }
+#pdm-root .pdm-chip.fail { color: var(--fault); border-color: var(--fault); text-decoration: line-through; }
+#pdm-root .pdm-chip.flip { color: var(--obj); border-color: var(--obj); }
+#pdm-root .pdm-result { font-weight: 700; }
+#pdm-root .pdm-result.ok { color: var(--obj); }
+#pdm-root .pdm-result.bad { color: var(--fault); }
+#pdm-root .pdm-play { border-top: 1px solid var(--rule); padding-top: 10px; display: grid; gap: 8px; }
+#pdm-root .pdm-play p { margin: 0; }
+#pdm-root .pdm-ins { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+#pdm-root .pdm-ctl { display: grid; gap: 3px; justify-items: center; }
+#pdm-root .pdm-lbl { font: 600 0.85rem var(--mono); }
+#pdm-root .pdm-bit { width: 38px; padding: 4px 0; font: 600 0.95rem var(--mono); text-align: center; }
+#pdm-root .pdm-bit[data-v="X"] { color: var(--muted); border-style: dashed; }
+
+#pdm-root svg text { font-family: var(--sans); }
+#pdm-root .wire { fill: none; stroke: var(--wire); stroke-width: 1.6; }
+#pdm-root .gate { fill: var(--panel); stroke: var(--wire); stroke-width: 1.6; transition: fill 0.4s, stroke 0.4s; }
+#pdm-root .gate.df { fill: var(--fault-fill); stroke: var(--fault); stroke-width: 2.2; }
+#pdm-root .gate-t { font: 600 11px var(--sans); fill: var(--fg); }
+#pdm-root .pin-t { font: 600 15px var(--sans); font-style: italic; fill: var(--fg); }
+#pdm-root .pin-t.dec { fill: var(--obj); }
+#pdm-root .val { font: 700 13px var(--sans); fill: var(--fg); }
+#pdm-root .val.x { fill: var(--muted); font-weight: 400; }
+#pdm-root .val.d { fill: var(--fault); font-style: italic; }
+#pdm-root .val.ov { text-decoration: overline; }
+#pdm-root .fault-x { stroke: var(--fault); stroke-width: 2.4; stroke-linecap: round; }
+#pdm-root .fault-t { font: 600 11px var(--sans); fill: var(--fault); }
+#pdm-root .df-t { font: 600 10.5px var(--sans); fill: var(--fault); }
+#pdm-root .bt { fill: none; stroke: var(--obj); stroke-width: 3; stroke-dasharray: 7 5; animation: pdm-march 0.9s linear infinite; }
+#pdm-root .bt-head { fill: var(--obj); }
+#pdm-root .obj-box { fill: var(--obj-fill); stroke: var(--obj); stroke-width: 1.2; }
+#pdm-root .obj-t { font: 700 11px var(--sans); fill: var(--obj); }
+@keyframes pdm-march { to { stroke-dashoffset: -24; } }
+@media (prefers-reduced-motion: reduce) {
+  #pdm-root .bt { animation: none; }
+  #pdm-root .gate { transition: none; }
+}
+</style>
+<div id="pdm-root">
+<div class="pdm-legend">
+<span><b>0</b>, <b>1</b>: same value in the good and the faulty circuit</span>
+<span><span class="pdm-d">D</span> = 1/0, <span class="pdm-d pdm-ov">D</span> = 0/1 (good/faulty)</span>
+<span><b>X</b>: not assigned yet</span>
+<span><span class="pdm-o">orange</span>: objective, backtrace, decided inputs</span>
+</div>
+<div class="pdm-stage-box">
+<svg class="pdm-stage" id="pdm-stage" viewBox="0 0 700 290" role="img" aria-label="The circuit with the values of the current step">
+<desc>Gate-level circuit with the inputs d, c, b, and a on the left. Input c drives an inverter whose output, marked with the stuck-at-0 fault, drives one input of a NAND gate, and input d drives its other input. Inputs b and a drive an OR gate. The NAND and the OR output drive a NOR gate with the output y. Every wire carries its value in the five-valued logic of the D-algorithm.</desc>
+</svg>
+</div>
+<div class="pdm-card">
+<div class="pdm-nav">
+<button id="pdm-prev" type="button" aria-label="Previous step">← Back</button>
+<button id="pdm-next" type="button" class="primary" aria-label="Next step">Next →</button>
+<button id="pdm-play" type="button" aria-pressed="false">Play</button>
+<div class="pdm-dots" id="pdm-dots" role="group" aria-label="Steps"></div>
+</div>
+<div class="pdm-col" aria-live="polite">
+<p class="pdm-kicker" id="pdm-kicker">Step 1 of 10</p>
+<p class="pdm-h" id="pdm-title"></p>
+<div class="pdm-body" id="pdm-body"></div>
+</div>
+<div class="pdm-col">
+<div class="pdm-play" id="pdm-mine" hidden>
+<p><b>Your decisions</b> (each click cycles X, 0, 1)</p>
+<div class="pdm-ins" id="pdm-ins"></div>
+<div><button type="button" id="pdm-clear">All inputs X</button></div>
+</div>
+<dl class="pdm-status" id="pdm-status"></dl>
+</div>
+</div>
+<noscript>This figure needs JavaScript.</noscript>
+</div>
+<script>
+(() => {
+  const NS = "http://www.w3.org/2000/svg";
+  const $ = id => document.getElementById("pdm-" + id);
+  const root = $("root"), svg = $("stage");
+
+  // The circuit of fig-dft-sensitize, gates in topological order.
+  const PIS = ["a", "b", "c", "d"];
+  const GATES = [
+    { id: "inv", type: "NOT", ins: ["c"], out: "inv", name: "inverter" },
+    { id: "nand", type: "NAND", ins: ["d", "inv"], out: "nand", name: "NAND gate" },
+    { id: "or", type: "OR", ins: ["b", "a"], out: "or", name: "OR gate" },
+    { id: "nor", type: "NOR", ins: ["nand", "or"], out: "y", name: "NOR gate" }
+  ];
+  const POS = ["y"];
+  const FAULT = { net: "inv", sa: 0 };
+  const NETNAME = { inv: "the inverter output", nand: "the NAND output", or: "the OR output", y: "y" };
+
+  // A value is a pair [good, faulty], each 0, 1, or null (unknown). One unknown half makes the whole value X.
+  const X = [null, null];
+  const and3 = (p, q) => (p === 0 || q === 0) ? 0 : (p === 1 && q === 1) ? 1 : null;
+  const or3 = (p, q) => (p === 1 || q === 1) ? 1 : (p === 0 && q === 0) ? 0 : null;
+  const not3 = p => p === null ? null : 1 - p;
+  const FN = {
+    NOT: v => not3(v[0]), AND: v => v.reduce(and3), OR: v => v.reduce(or3),
+    NAND: v => not3(v.reduce(and3)), NOR: v => not3(v.reduce(or3))
+  };
+  const CONTROLLING = { AND: 0, NAND: 0, OR: 1, NOR: 1 };
+  const INVERTING = { NOT: true, NAND: true, NOR: true };
+  const isX = v => v[0] === null;
+  const isD = v => v[0] !== null && v[0] !== v[1];
+  const name = v => isX(v) ? "X" : v[0] === v[1] ? String(v[0]) : v[0] === 1 ? "D" : "D̄";
+
+  function simulate(assign) {
+    const val = {};
+    for (const p of PIS) val[p] = assign[p] === null ? X : [assign[p], assign[p]];
+    for (const g of GATES) {
+      const good = FN[g.type](g.ins.map(n => val[n][0]));
+      const faulty = g.out === FAULT.net ? FAULT.sa : FN[g.type](g.ins.map(n => val[n][1]));
+      val[g.out] = (good === null || faulty === null) ? X : [good, faulty];
+    }
+    return val;
+  }
+  const dFrontier = val => GATES.filter(g => isX(val[g.out]) && g.ins.some(n => isD(val[n])));
+  // a path of unassigned nets from the output of gate g to a primary output
+  function xPath(g, val) {
+    if (POS.includes(g.out)) return [g.out];
+    for (const h of GATES.filter(h => h.ins.includes(g.out) && isX(val[h.out]))) {
+      const p = xPath(h, val);
+      if (p) return [g.out].concat(p);
+    }
+    return null;
+  }
+  function objective(val) {
+    if (isX(val[FAULT.net])) return { net: FAULT.net, v: 1 - FAULT.sa, why: "excite" };
+    const g = dFrontier(val)[0];
+    const n = g.ins.find(m => isX(val[m]));
+    return { net: n, v: 1 - CONTROLLING[g.type], why: "propagate", gate: g };
+  }
+  // Follow the objective back to an unassigned input, through the first unassigned gate input.
+  // A tool would rank the inputs by controllability, which is the same for all inputs here.
+  function backtrace(obj, val) {
+    let net = obj.net, v = obj.v;
+    const path = [net];
+    while (!PIS.includes(net)) {
+      const g = GATES.find(h => h.out === net);
+      if (INVERTING[g.type]) v = 1 - v;
+      net = g.ins.find(m => isX(val[m]));
+      path.push(net);
+    }
+    return { pi: net, v, path };
+  }
+  // PODEM with a trace. flipFirst names inputs whose first try takes the other value, to show a backtrack.
+  function podem(assign, trace, stack, flipFirst) {
+    const val = simulate(assign);
+    if (POS.some(o => isD(val[o]))) { trace.push({ k: "test", assign: { ...assign }, stack: stack.slice() }); return true; }
+    const fs = val[FAULT.net], df = dFrontier(val);
+    const blocked = !isX(fs) && (!isD(fs) || !df.some(g => xPath(g, val)));
+    if (blocked) { trace.push({ k: "fail", assign: { ...assign }, stack: stack.slice() }); return false; }
+    const obj = objective(val), bt = backtrace(obj, val);
+    trace.push({ k: "objective", obj, bt, assign: { ...assign }, stack: stack.slice() });
+    const first = flipFirst.includes(bt.pi) ? 1 - bt.v : bt.v;
+    for (const v of [first, 1 - first]) {
+      assign[bt.pi] = v;
+      stack.push({ pi: bt.pi, v, flipped: v !== first });
+      trace.push({ k: "decide", pi: bt.pi, v, assign: { ...assign }, stack: stack.slice() });
+      if (podem(assign, trace, stack, flipFirst)) return true;
+      stack.pop();
+    }
+    assign[bt.pi] = null;
+    return false;
+  }
+  const none = () => ({ a: null, b: null, c: null, d: null });
+  const TRACE = [], BTRACE = [];
+  podem(none(), TRACE, [], []);
+  podem(none(), BTRACE, [], ["b"]);
+
+  // ---- drawing ----
+  function el(tag, attrs, parent) {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function txt(parent, x, y, s, cls, anchor) {
+    const t = el("text", { x, y, class: cls, "text-anchor": anchor || "middle" }, parent);
+    t.textContent = s;
+    return t;
+  }
+  const pts = p => p.map(q => q.join(",")).join(" ");
+  const WIRES = {
+    d: [[40, 60], [252, 60]], c: [[40, 110], [112, 110]], inv: [[152, 110], [252, 110]],
+    b: [[40, 200], [256, 200]], a: [[40, 250], [256, 250]],
+    nand: [[332, 85], [440, 85], [440, 130], [506, 130]], or: [[322, 225], [460, 225], [460, 180], [506, 180]],
+    y: [[582, 155], [650, 155]]
+  };
+  const VALPOS = { d: [80, 52], c: [80, 102], inv: [222, 102], b: [80, 192], a: [80, 242], nand: [388, 77], or: [388, 217], y: [618, 147] };
+  const OBJPOS = { d: [80, 80], inv: [234, 132], or: [388, 246], nand: [388, 104] };
+  const defs = el("defs", {}, svg);
+  const mk = el("marker", { id: "pdm-arr", viewBox: "0 0 10 10", refX: "8", refY: "5", markerWidth: "4", markerHeight: "4", orient: "auto" }, defs);
+  el("path", { d: "M0,0 L10,5 L0,10 z", class: "bt-head" }, mk);
+  const gWires = el("g", {}, svg), gGates = el("g", {}, svg), gOver = el("g", {}, svg), gVals = el("g", {}, svg);
+  for (const p of Object.values(WIRES)) el("polyline", { points: pts(p), class: "wire" }, gWires);
+  const gateEl = {};
+  const andPath = (x, yc) => `M${x},${yc - 35} H${x + 35} A35,35 0 0 1 ${x + 35},${yc + 35} H${x} Z`;
+  const orPath = (x, yc) => `M${x},${yc - 35} Q${x + 38},${yc - 35} ${x + 70},${yc} Q${x + 38},${yc + 35} ${x},${yc + 35} Q${x + 15},${yc} ${x},${yc - 35} Z`;
+  gateEl.inv = el("path", { d: "M112,94 L142,110 L112,126 Z", class: "gate" }, gGates);
+  el("circle", { cx: 147, cy: 110, r: 5, class: "gate" }, gGates);
+  gateEl.nand = el("path", { d: andPath(252, 85), class: "gate" }, gGates);
+  el("circle", { cx: 327, cy: 85, r: 5, class: "gate" }, gGates);
+  gateEl.or = el("path", { d: orPath(252, 225), class: "gate" }, gGates);
+  gateEl.nor = el("path", { d: orPath(502, 155), class: "gate" }, gGates);
+  el("circle", { cx: 577, cy: 155, r: 5, class: "gate" }, gGates);
+  txt(gGates, 282, 89, "NAND", "gate-t");
+  txt(gGates, 280, 229, "OR", "gate-t");
+  txt(gGates, 532, 159, "NOR", "gate-t");
+  const dfLabel = { nand: [287, 40], nor: [537, 110], or: [287, 180], inv: [130, 84] };
+  const pinEl = {};
+  for (const p of ["d", "c", "b", "a"]) pinEl[p] = txt(gVals, 30, WIRES[p][0][1] + 5, p, "pin-t", "end");
+  txt(gVals, 658, 160, "y", "pin-t", "start");
+  el("path", { d: "M166,104 L178,116 M178,104 L166,116", class: "fault-x" }, gVals);
+  txt(gVals, 172, 132, "s-a-0", "fault-t");
+  const valEl = {};
+  for (const [n, [x, y]] of Object.entries(VALPOS)) { valEl[n] = txt(gVals, x, y, "X", "val x"); valEl[n].dataset.net = n; }
+
+  function draw(st) {
+    const val = simulate(st.assign);
+    const df = dFrontier(val);
+    for (const [n, t] of Object.entries(valEl)) {
+      const s = name(val[n]);
+      t.textContent = s === "D̄" ? "D" : s;
+      t.setAttribute("class", "val" + (s === "X" ? " x" : "") + (s[0] === "D" ? " d" : "") + (s === "D̄" ? " ov" : ""));
+      t.dataset.v = s;
+    }
+    for (const p of PIS) pinEl[p].setAttribute("class", "pin-t" + (st.assign[p] !== null ? " dec" : ""));
+    for (const [id, e] of Object.entries(gateEl)) e.setAttribute("class", "gate" + (df.some(g => g.id === id) ? " df" : ""));
+    gOver.textContent = "";
+    for (const g of df) txt(gOver, dfLabel[g.id][0], dfLabel[g.id][1], "D-frontier", "df-t");
+    if (st.bt) {
+      // the backtrace runs from the objective net back through each gate to the decided input
+      const line = [];
+      for (const n of st.bt.path) line.push(...WIRES[n].slice().reverse());
+      el("polyline", { points: pts(line), class: "bt", "marker-end": "url(#pdm-arr)" }, gOver);
+      const [x, y] = OBJPOS[st.obj.net];
+      const s = `objective: ${st.obj.v}`;
+      el("rect", { x: x - 42, y: y - 10, width: 84, height: 15, rx: 4, class: "obj-box" }, gOver);
+      txt(gOver, x, y + 1.5, s, "obj-t");
+    }
+    const said = PIS.map(p => `${p} ${st.assign[p] === null ? "X" : st.assign[p]}`).join(", ");
+    const say = v => name(v) === "D̄" ? "D-bar" : name(v);
+    svg.setAttribute("aria-label", `Circuit at this step: inputs ${said}. Inverter output ${say(val.inv)}, NAND output ${say(val.nand)}, OR output ${say(val.or)}, y ${say(val.y)}.` +
+      (df.length ? ` D-frontier: ${df.map(g => g.name).join(", ")}.` : ""));
+    return { val, df };
+  }
+
+  // ---- text ----
+  const C = s => `<code>${s}</code>`;
+  const V = s => s === "D̄" ? `<i class="pdm-ov">D</i>` : s === "D" ? `<i>D</i>` : s;
+  const dec = (p, v) => `${C(p)} = ${v}`;
+  const chips = stack => stack.length ? `<span class="pdm-chips">${stack.map(s =>
+    `<span class="pdm-chip${s.fail ? " fail" : s.flipped ? " flip" : ""}">${s.pi} = ${s.v}</span>`).join("")}</span>` : "none yet";
+  const vec = a => "(" + ["a", "b", "c", "d"].map(p => a[p] === null ? "X" : a[p]).join(", ") + ")";
+
+  function status(st, val, df) {
+    const rows = [];
+    const objText = o => o.why === "excite" ? `${NETNAME[o.net]} = ${o.v}, to excite the fault`
+      : `${o.net in NETNAME ? NETNAME[o.net] : C(o.net)} = ${o.v}, the non-controlling value of the ${o.gate.name}`;
+    rows.push(["Objective", st.obj ? objText(st.obj) : "none"]);
+    rows.push(["Backtrace", !st.bt ? "none" : st.bt.path.length === 1 ? `${C(st.bt.pi)} is an input, so ${dec(st.bt.pi, st.bt.v)}`
+      : st.bt.path.map(n => n in NETNAME ? NETNAME[n] : C(n)).join(" → ") + `, so ${dec(st.bt.pi, st.bt.v)}`]);
+    rows.push(["Decisions", chips(st.stack)]);
+    rows.push(["D-frontier", df.length ? df.map(g => g.name).join(", ") : "empty"]);
+    const xp = df.map(g => xPath(g, val)).find(p => p);
+    rows.push(["Path of X nets", xp ? xp.map(n => NETNAME[n]).join(" → ") : "none"]);
+    if (st.result) rows.push(["Result", `<span class="pdm-result ${st.result[0]}">${st.result[1]}</span>`]);
+    $("status").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+  }
+
+  // ---- the steps, built from the PODEM trace ----
+  const T = TRACE, kinds = T.map(t => t.k).join(" ");
+  const failAt = BTRACE.findIndex(t => t.k === "fail");
+  const STEPS = [
+    { title: "The circuit and its fault", st: { assign: none(), stack: [] },
+      body: [`This is the circuit of the test example above, with the stuck-at-0 fault at the inverter output. PODEM decides only on the primary inputs ${C("a")}, ${C("b")}, ${C("c")}, and ${C("d")}. Every other net follows from them by simulation.`,
+             `The nets carry the five values 0, 1, X, ${V("D")}, and ${V("D̄")}. At the start, every net is X.`] },
+    { title: "Objective: excite the fault", st: { assign: T[0].assign, stack: T[0].stack, obj: T[0].obj, bt: T[0].bt },
+      body: [`The fault is not excited yet, so the first objective is the opposite of the stuck value at the fault site: a ${T[0].obj.v} at the inverter output.`,
+             `The backtrace follows this objective back to an unassigned input. The inverter inverts the value, so the backtrace ends at ${dec(T[0].bt.pi, T[0].bt.v)}.`] },
+    { title: `Decide ${T[1].pi} = ${T[1].v} and simulate`, st: { assign: T[1].assign, stack: T[1].stack },
+      body: [`PODEM sets ${dec(T[1].pi, T[1].v)}, its first decision, and simulates the circuit forward. The inverter output is 1 in the good and 0 in the faulty circuit, i.e., ${V("D")}: the fault is excited.`,
+             `The NAND gate has ${V("D")} at an input and X at its output, so it forms the D-frontier. Its output still reaches ${C("y")} through nets that are X, so the search goes on.`] },
+    { title: "Objective: pass the NAND gate", st: { assign: T[2].assign, stack: T[2].stack, obj: T[2].obj, bt: T[2].bt },
+      body: [`The next objective moves the fault effect through the gate of the D-frontier. Its other input needs the non-controlling value ${T[2].obj.v} of a NAND gate.`,
+             `That input is the primary input ${C(T[2].bt.pi)}, so the backtrace ends at once: ${dec(T[2].bt.pi, T[2].bt.v)}.`] },
+    { title: `Decide ${T[3].pi} = ${T[3].v} and simulate`, st: { assign: T[3].assign, stack: T[3].stack },
+      body: [`With ${dec(T[3].pi, T[3].v)}, the NAND gate inverts ${V("D")} to ${V("D̄")} at its output.`,
+             `Now the NOR gate has ${V("D̄")} at an input and X at its output, so the D-frontier moves on to the NOR gate.`] },
+    { title: "Objective: pass the NOR gate", st: { assign: T[4].assign, stack: T[4].stack, obj: T[4].obj, bt: T[4].bt },
+      body: [`The NOR gate needs its non-controlling value ${T[4].obj.v} at the other input, the output of the OR gate.`,
+             `A 0 at the output of an OR gate needs a 0 at every input, so the backtrace may take either input. It takes the upper one and asks for ${dec(T[4].bt.pi, T[4].bt.v)}. A real tool takes the input that is harder to control, because it has to be set anyway.`] },
+    { title: `Decide ${T[5].pi} = ${T[5].v} and simulate`, st: { assign: T[5].assign, stack: T[5].stack },
+      body: [`With ${dec(T[5].pi, T[5].v)} and ${C("a")} still X, the OR output stays X. Nothing new follows from this decision.`,
+             `The D-frontier still holds the NOR gate, and the objective, a 0 at the OR output, is still open.`] },
+    { title: `Decide ${T[7].pi} = ${T[7].v}: a test`, st: { assign: T[8].assign, stack: T[8].stack, obj: T[6].obj, bt: T[6].bt, result: ["ok", `test ${vec(T[8].assign)}`] },
+      body: [`The same objective now backtraces to ${C(T[6].bt.pi)}, the only unassigned input of the OR gate, and PODEM decides ${dec(T[7].pi, T[7].v)}.`,
+             `The OR output becomes 0, the NOR gate passes the fault effect, and ${C("y")} = ${V("D")}: 1 in the good and 0 in the faulty circuit. The test is (${C("a")}, ${C("b")}, ${C("c")}, ${C("d")}) = ${vec(T[8].assign)}, as in the example above, after ${T[8].stack.length} decisions and no backtrack.`] },
+    { title: "What a backtrack does", st: { assign: BTRACE[failAt].assign, stack: BTRACE[failAt].stack.map((s, i, a) => i === a.length - 1 ? { ...s, fail: true } : s).concat([{ pi: "b", v: 1 - BTRACE[failAt].assign.b, flipped: true }]), result: ["bad", "D-frontier empty: flip the last decision"] },
+      body: [`No decision of this example fails, because every backtrace led to a value that works. In larger circuits, with paths that split and meet again, a decision can turn out wrong only after a later simulation. To show what PODEM does then, this step decides ${dec("b", BTRACE[failAt].assign.b)} instead.`,
+             `The OR output becomes 1, so the NOR output is 0 in both circuits, and the D-frontier is empty: the fault effect cannot reach ${C("y")} any more. PODEM flips the last decision to ${dec("b", 1 - BTRACE[failAt].assign.b)} and goes on as before. Had that failed as well, it would remove ${C("b")} and flip ${C("d")}, the decision before.`] },
+    { title: "Your turn", mine: true,
+      body: [`Set the inputs yourself, in any order. The figure simulates the circuit after each click and tells you what PODEM would do next.`,
+             `Try ${dec("c", 1)} or ${dec("d", 0)} and watch the D-frontier. Only ${C("a")}, ${C("b")}, ${C("c")}, and ${C("d")} are decided, so PODEM's search has at most 2<sup>4</sup> = 16 leaves.`] }
+  ];
+  const N = STEPS.length;
+  if (kinds !== "objective decide objective decide objective decide objective decide test" || failAt < 0)
+    STEPS[0].body.push("<b>The PODEM trace differs from the steps of this figure.</b>");
+
+  // ---- your turn ----
+  const mine = { assign: none(), order: [] };
+  $("ins").innerHTML = PIS.map(p => `<div class="pdm-ctl"><span class="pdm-lbl">${p}</span>` +
+    `<button type="button" class="pdm-bit" id="pdm-in-${p}" data-p="${p}" data-v="X" aria-label="input ${p}, X">X</button></div>`).join("");
+  function mineState() {
+    const a = mine.assign, val = simulate(a), fs = val[FAULT.net];
+    const stack = mine.order.map(p => ({ pi: p, v: a[p] }));
+    const st = { assign: a, stack };
+    const last = stack.length ? ` the last decision, ${dec(stack[stack.length - 1].pi, stack[stack.length - 1].v)}` : "";
+    if (POS.some(o => isD(val[o]))) st.result = ["ok", `test ${vec(a)}: ${C("y")} = ${V(name(val.y))}` + (PIS.some(p => a[p] === null) ? ", an input at X is not needed" : "")];
+    else if (!isX(fs) && !isD(fs)) st.result = ["bad", `not excited: the fault site is ${name(fs)}, the stuck value. PODEM would flip${last}`];
+    else if (isD(fs) && !dFrontier(val).some(g => xPath(g, val))) st.result = ["bad", `blocked: ${dFrontier(val).length ? `no path of X nets leads from the D-frontier to ${C("y")}` : "the D-frontier is empty"}. PODEM would flip${last}`];
+    else {
+      st.obj = objective(val);
+      st.bt = backtrace(st.obj, val);
+      st.result = ["ok", `PODEM would decide ${dec(st.bt.pi, st.bt.v)} next`];
+    }
+    return st;
+  }
+  function showMine() {
+    for (const p of PIS) {
+      const b = $("in-" + p), v = mine.assign[p] === null ? "X" : String(mine.assign[p]);
+      b.textContent = v; b.dataset.v = v; b.setAttribute("aria-label", `input ${p}, ${v}`);
+    }
+    const st = mineState(), r = draw(st);
+    status(st, r.val, r.df);
+  }
+  $("ins").addEventListener("click", ev => {
+    const b = ev.target.closest(".pdm-bit");
+    if (!b) return;
+    const p = b.dataset.p, v = mine.assign[p];
+    mine.assign[p] = v === null ? 0 : v === 0 ? 1 : null;
+    mine.order = mine.order.filter(q => q !== p);
+    if (mine.assign[p] !== null) mine.order.push(p);
+    showMine();
+  });
+  $("clear").addEventListener("click", () => { mine.assign = none(); mine.order = []; showMine(); });
+
+  // ---- navigation ----
+  let step = 1, playTimer = null;
+  const dots = $("dots");
+  for (let i = 0; i < N; i++) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = i + 1; b.setAttribute("aria-label", `Step ${i + 1}: ${STEPS[i].title}`);
+    b.addEventListener("click", () => { stopPlay(); go(i + 1); });
+    dots.appendChild(b);
+  }
+  function go(n) {
+    step = Math.max(1, Math.min(N, n));
+    const s = STEPS[step - 1];
+    $("kicker").textContent = `Step ${step} of ${N}`;
+    $("title").textContent = s.title;
+    $("body").innerHTML = s.body.map(p => `<p>${p}</p>`).join("");
+    $("mine").hidden = !s.mine;
+    if (s.mine) showMine();
+    else { const r = draw(s.st); status(s.st, r.val, r.df); }
+    $("prev").disabled = step === 1;
+    $("next").disabled = step === N;
+    [...dots.children].forEach((b, i) => { if (i === step - 1) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current"); });
+  }
+  function stopPlay() {
+    if (playTimer) clearInterval(playTimer);
+    playTimer = null;
+    $("play").textContent = "Play";
+    $("play").setAttribute("aria-pressed", "false");
+  }
+  $("play").addEventListener("click", () => {
+    if (playTimer) { stopPlay(); return; }
+    if (step >= N) go(1);
+    $("play").textContent = "Pause";
+    $("play").setAttribute("aria-pressed", "true");
+    playTimer = setInterval(() => { if (step >= N) stopPlay(); else { go(step + 1); if (step >= N) stopPlay(); } }, 7000);
+  });
+  $("prev").addEventListener("click", () => { stopPlay(); go(step - 1); });
+  $("next").addEventListener("click", () => { stopPlay(); go(step + 1); });
+  // arrow keys only while the figure has the focus, so the book page keeps its own keys
+  root.addEventListener("keydown", ev => {
+    if (ev.target.closest(".pdm-play")) return;
+    if (ev.key === "ArrowRight") { stopPlay(); go(step + 1); ev.preventDefault(); }
+    else if (ev.key === "ArrowLeft") { stopPlay(); go(step - 1); ev.preventDefault(); }
+  });
+  go(1);
+})();
+</script>
+```
+
+Interactive walk through PODEM on the circuit of @fig-dft-sensitize and its stuck-at-0 fault at the inverter output. Step through with the buttons, or with the arrow keys once a button has the focus. Each net shows its value after the forward simulation, with $D$ and $\bar{D}$ in red. In orange, a step shows its objective and the backtrace from the objective to an unassigned input (dashed arrow), and the inputs that PODEM has decided. The gates of the D-frontier are shaded red. PODEM reaches the test (`a`, `b`, `c`, `d`) = (0, 0, 0, 1) of @fig-dft-sensitize with four decisions and no backtrack. Where both inputs of the OR gate need a 0, the backtrace takes the upper input `b` first, while a tool would take the input that is harder to control. Step 9 decides `b` = 1 on purpose to show a backtrack, and in step 10, you decide the inputs yourself. The script computes every value with the five-valued logic of @tbl-dft-dcalc and runs PODEM itself.
+:::
+:::
+
+::: {.content-visible unless-format="html"}
+::: {#fig-dft-podem}
+The interactive walk through PODEM is part of the HTML version of this book: <https://iic-jku.github.io/vlsi-design/vlsi.html#fig-dft-podem>.
+
+Interactive walk through PODEM on the circuit of @fig-dft-sensitize: objectives, backtraces, decisions on the inputs, the five values on every net after each simulation, a backtrack, and a step that lets the reader decide the inputs.
+:::
+:::
