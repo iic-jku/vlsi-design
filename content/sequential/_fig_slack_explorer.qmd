@@ -215,7 +215,7 @@ body.quarto-dark #slx-root .slx-viol { color: #f08a80; }
     const pw = `The minimum pulse width of ${fmt(tpwLow)} ns for <code>CLK</code> low limits the clock to a period of at least ${fmt(2 * tpwLow)} ns at a duty cycle of 50 %, i.e., ${(1000 / (2 * tpwLow)).toFixed(1)} MHz. `;
     const fmax = c.Tmin > 2 * tpwLow ? `${tmin}, i.e., <i>f</i><sub>max</sub> = ${(1000 / c.Tmin).toFixed(1)} MHz. `
                : (c.Tmin > 0 ? `${tmin}. ` : "With this skew, the setup check of this path holds at any clock period. ") + pw;
-    return `<table class="table table-sm">
+    return `<table class="table table-sm" data-quarto-disable-processing="true">
       <thead><tr><th>Check</th><th>Arrival time</th><th>Required time</th><th>Slack</th></tr></thead>
       <tbody>
         <tr><td>Setup</td><td>${sub("cq")} + ${sub("logic,max")} = ${fmt(c.setupArr)} ns</td>

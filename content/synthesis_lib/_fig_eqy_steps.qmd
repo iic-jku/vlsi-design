@@ -210,7 +210,7 @@ body.quarto-dark #eqy-root {
 </div>
 <p class="eqy-why" id="eqy-why"></p>
 <div class="eqy-hist-box">
-<table class="eqy-hist" id="eqy-hist">
+<table class="eqy-hist" id="eqy-hist" data-quarto-disable-processing="true">
 <thead><tr><th>cycle</th><th>push_i</th><th>full_o</th><th>rd_ptr_q</th><th>gold</th><th>gate</th></tr></thead>
 <tbody></tbody>
 </table>
