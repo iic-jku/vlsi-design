@@ -1,0 +1,234 @@
+::: {.content-hidden}
+Copyright (C) 2026 Simon Dorrer and co-authors (simon.dorrer@jku.at)
+SPDX-License-Identifier: Apache-2.0
+:::
+
+::: {.content-visible when-format="html"}
+::: {#fig-cdc-pointer-crossing}
+
+```{=html}
+<style>
+#afp-root { text-align: left; container-type: inline-size; }
+#afp-root .afp-controls { display: grid; grid-template-columns: max-content minmax(10em, 24em); gap: 0.35em 0.8em; align-items: center; margin-bottom: 0.5em; font-size: 0.9em; }
+#afp-root .afp-controls label { margin: 0; }
+#afp-root .afp-edge { display: flex; align-items: center; gap: 0.6em; }
+#afp-root .afp-edge input { flex: 1 1 8em; min-width: 6em; }
+#afp-root .afp-edge output { font-size: 0.9em; white-space: nowrap; }
+@container (max-width: 520px) {
+  #afp-root .afp-controls { grid-template-columns: 1fr; }
+  #afp-root .afp-controls label { margin-top: 0.3em; }
+}
+#afp-root svg text { font-family: Arial, Helvetica, sans-serif; }
+#afp-root .afp-diagram { overflow-x: auto; }
+#afp-root .afp-diagram svg { min-width: 560px; }
+#afp-root .afp-readout { font-size: 0.9em; margin-top: 0.5em; }
+#afp-root .afp-readout p { margin: 0 0 0.4em; }
+#afp-root .afp-ok { color: #4a7a2c; }
+#afp-root .afp-bad { color: #b85450; }
+body.quarto-dark #afp-root .afp-ok { color: #93c572; }
+body.quarto-dark #afp-root .afp-bad { color: #f08a80; }
+</style>
+<div id="afp-root">
+<div class="afp-controls">
+<label for="afp-step">Push that steps the write pointer</label>
+<select class="form-select form-select-sm" id="afp-step"></select>
+<label for="afp-order">Order in which the bits reach FF1</label>
+<select class="form-select form-select-sm" id="afp-order"></select>
+<label for="afp-edge">Read clock edge at which FF1 samples</label>
+<div class="afp-edge"><input type="range" class="form-range" id="afp-edge" min="0" max="8" step="0.5" value="2.5"><output id="afp-edge-text" for="afp-edge"></output></div>
+</div>
+<div class="afp-diagram"></div>
+<div class="afp-readout"></div>
+<p class="afp-live visually-hidden" aria-live="polite"></p>
+<noscript>This figure needs JavaScript.</noscript>
+</div>
+<script>
+(() => {
+  const root = document.getElementById("afp-root");
+  // Drawing units, not to scale: the pointer register switches TCQ after the wclk edge at 0,
+  // and its bits reach FF1 at ARR[0], ARR[1], ARR[2] in the chosen order.
+  const TCQ = 0.5, ARR = [1.75, 3.75, 5.75], TW = 8, TR = 12;
+  const ORDERS = [[2, 1, 0], [2, 0, 1], [1, 2, 0], [1, 0, 2], [0, 2, 1], [0, 1, 2]];
+  const gray = b => b ^ (b >> 1);
+  const fromGray = g => g ^ (g >> 1) ^ (g >> 2);
+  const bits = v => v.toString(2).padStart(3, "0");
+  const desc = "Timing diagram with the write clock and the read clock on top and two lanes below, one for a binary and one for a Gray write pointer. " +
+               "Each lane shows the pointer register, its three bits as they reach the first flip-flop of the synchronizer, the synchronized pointer, empty_o, and the fill level. " +
+               "A vertical line marks the read clock edge at which the first flip-flop samples, dashed lines the two read clock edges after it.";
+
+  // The FIFO is empty before the push: read pointer = old write pointer n.
+  function model(n, oi, e0) {
+    const m = (n + 1) & 7, order = ORDERS[oi];
+    const arr = [0, 1, 2].map(i => ARR[order.indexOf(i)]);
+    const sample = (o, w) => [0, 1, 2].reduce((c, i) => {
+      const ob = (o >> i) & 1, nb = (w >> i) & 1;
+      return c | ((ob !== nb && arr[i] < e0 ? nb : ob) << i);
+    }, 0);
+    const lane = (old, nw, val) => {
+      const cap = sample(old, nw), v = val(cap);
+      return {old, nw, cap, val, v, kind: v === n ? "old" : v === m ? "new" : "mix", fill: (v - n) & 7};
+    };
+    return {n, m, arr, e0, bin: lane(n, m, c => c), gray: lane(gray(n), gray(m), fromGray)};
+  }
+
+  function draw(s) {
+    const A = -4, B = 38, W = 760, X0 = 118, X1 = 748, H = 18;
+    const xs = t => X0 + (t - A) / (B - A) * (X1 - X0);
+    const BLUE = "#3c5f92", RED = "#a8403c", GRAY = "#a6a6a6";   // darker than the palette, for 4.5:1 on the lane bands
+    const e1 = s.e0 + TR, e2 = s.e0 + 2 * TR, tSync1 = e1 + TCQ, tSync2 = e2 + TCQ;
+    const pts = p => p.map(q => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" ");
+    const line = (xa, ya, xb, yb, col, dash, w) =>
+      `<line x1="${xa.toFixed(1)}" y1="${ya}" x2="${xb.toFixed(1)}" y2="${yb}" stroke="${col}" stroke-width="${w || 1}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+    // halo: a stroke in the background color keeps a label readable where a guide line crosses it
+    const text = (x, y, str, anchor, col, size, weight, halo) =>
+      `<text x="${x.toFixed(1)}" y="${y}" text-anchor="${anchor || "middle"}" fill="${col || "black"}" font-size="${size || 12}"${weight ? ` font-weight="${weight}"` : ""}` +
+      `${halo ? ` stroke="${halo}" stroke-width="3" paint-order="stroke"` : ""}>${str}</text>`;
+    const wave = p => `<polyline points="${pts(p)}" fill="none" stroke="black" stroke-width="1.2"/>`;
+
+    function clock(off, period, yt) {
+      const ph = t => (((t - off) % period) + period) % period;
+      let lvl = ph(A) < period / 2 ? yt : yt + H;
+      const p = [[xs(A), lvl]];
+      for (let k = Math.floor((A - off) / period); k * period + off < B; k++) {
+        for (const te of [k * period + off, k * period + off + period / 2]) {
+          if (te <= A || te >= B) continue;
+          const nl = ph(te + 1e-9) < period / 2 ? yt : yt + H;
+          p.push([xs(te) - 1.5, lvl], [xs(te) + 1.5, nl]);
+          lvl = nl;
+        }
+      }
+      p.push([xs(B), lvl]);
+      return wave(p);
+    }
+
+    // A one-bit row from its value at A and its changes [{t, v}].
+    function bit(yt, v0, changes) {
+      const y = v => v ? yt : yt + H;
+      const p = [[xs(A), y(v0)]];
+      let v = v0;
+      for (const c of changes) if (c.v !== v) { p.push([xs(c.t) - 1.5, y(v)], [xs(c.t) + 1.5, y(c.v)]); v = c.v; }
+      p.push([xs(B), y(v)]);
+      return wave(p);
+    }
+
+    // A bus row from its value at A and its changes [{t, v, col}], equal neighbors merged.
+    function bus(yt, v0, changes, halo) {
+      const segs = [{t0: A, v: v0.v, col: v0.col}];
+      for (const c of changes) if (c.v !== segs[segs.length - 1].v) segs.push({t0: c.t, v: c.v, col: c.col});
+      segs.forEach((g, i) => { g.t1 = i + 1 < segs.length ? segs[i + 1].t0 : B; });
+      const yb = yt + H, ym = yt + H / 2;
+      let out = "";
+      for (const g of segs) {
+        const openL = g.t0 <= A, openR = g.t1 >= B;
+        const xa = xs(g.t0), xb = xs(g.t1), r = Math.min(4, (xb - xa) / 2);
+        const top = [openL ? [xa, yt] : [xa, ym], [xa + (openL ? 0 : r), yt], [xb - (openR ? 0 : r), yt], openR ? [xb, yt] : [xb, ym]];
+        const bot = [openL ? [xa, yb] : [xa, ym], [xa + (openL ? 0 : r), yb], [xb - (openR ? 0 : r), yb], openR ? [xb, yb] : [xb, ym]];
+        out += wave(top) + wave(bot);
+        if (xb - xa > 7 * g.v.length + 10) out += text((xa + xb) / 2, ym + 4, g.v, "middle", g.col || "black", 11.5, "", halo);
+      }
+      return out;
+    }
+
+    const yW = 8, yR = 34, laneTop = [56, 264], ROW = 26;
+    const yBottom = laneTop[1] + 26 + 7 * ROW + 4;
+    const HT = yBottom + 30;
+    let out = `<rect x="0" y="0" width="${W}" height="${HT}" fill="white"/>`;
+    const lanes = [
+      {L: s.bin, title: "Binary write pointer, one synchronizer per bit (not used by async_fifo)", reg: "wbin_q", sync: "wbin_r", band: "#fbf0ef",
+       code: c => `${bits(c)} (${c})`},
+      {L: s.gray, title: "Gray write pointer, as in async_fifo", reg: "wgray_q", sync: "wgray_r", band: "#f1f7ef",
+       code: c => `${bits(c)} (${fromGray(c)})`}
+    ];
+    lanes.forEach((ln, k) => { out += `<rect x="0" y="${laneTop[k]}" width="${W}" height="${26 + 7 * ROW}" fill="${ln.band}"/>`; });
+    // edge guides: the push at 0, the sampling edge e0, and the two read clock edges after it
+    out += line(xs(0), yW - 4, xs(0), yBottom, GRAY, "2 3");
+    out += line(xs(e1), yR - 4, xs(e1), yBottom, GRAY, "4 3") + line(xs(e2), yR - 4, xs(e2), yBottom, GRAY, "4 3");
+    out += line(xs(s.e0), yR - 4, xs(s.e0), yBottom, BLUE, "", 1.6);
+    lanes.forEach((ln, k) => { out += text(8, laneTop[k] + 17, ln.title, "start", "black", 13, "bold", ln.band); });
+    out += clock(0, TW, yW) + clock(s.e0, TR, yR);
+    out += text(X0 - 10, yW + H / 2 + 4, "wclk", "end", "black", 13) + text(X0 - 10, yR + H / 2 + 4, "rclk", "end", "black", 13);
+
+    lanes.forEach((ln, k) => {
+      const L = ln.L, y0 = laneTop[k] + 26, row = i => y0 + i * ROW, halo = ln.band;
+      const capCol = L.kind === "mix" ? RED : "black";
+      out += bus(row(0), {v: ln.code(L.old)}, [{t: TCQ, v: ln.code(L.nw)}], halo);
+      for (let j = 0; j < 3; j++) {
+        const i = 2 - j, ob = (L.old >> i) & 1, nb = (L.nw >> i) & 1, yt = row(1 + j);
+        out += bit(yt, ob, [{t: s.arr[i], v: nb}]);
+        const v = (L.cap >> i) & 1;
+        out += `<circle cx="${xs(s.e0).toFixed(1)}" cy="${v ? yt : yt + H}" r="3.2" fill="${BLUE}"/>`;
+        if (ob !== nb) {   // "old" left of the edge, "new" right of it, clear of this bit's own transition
+          const isNew = s.arr[i] < s.e0;
+          out += text(xs(s.e0) + (isNew ? 6 : -6), yt + H / 2 + 4, isNew ? "new" : "old", isNew ? "start" : "end", BLUE, 11, "", halo);
+        }
+        out += text(X0 - 10, yt + H / 2 + 4, `bit ${i} at FF1`, "end", "black", 12);
+      }
+      out += bus(row(4), {v: ln.code(L.old)}, [{t: tSync1, v: ln.code(L.cap), col: capCol}, {t: tSync2, v: ln.code(L.nw)}], halo);
+      out += bit(row(5), 1, [{t: L.v === s.n ? tSync2 : tSync1, v: 0}]);
+      out += bus(row(6), {v: "0"}, [{t: tSync1, v: String(L.fill), col: L.fill > 1 ? RED : "black"}, {t: tSync2, v: "1"}], halo);
+      [ln.reg, "", "", "", ln.sync, "empty_o", "fill level"].forEach((name, i) => {
+        if (name) out += text(X0 - 10, row(i) + H / 2 + 4, name, "end", "black", 12);
+      });
+    });
+    out += text(xs(0) - 4, yBottom + 16, "push", "end", "black", 12);
+    out += text(xs(s.e0) + 4, yBottom + 16, "FF1 samples", "start", BLUE, 12, "", "white");
+    out += text(xs(e1) + 4, yBottom + 16, "1 rclk later", "start", "black", 12);
+    out += text(xs(e2) + 4, yBottom + 16, "2 rclk later", "start", "black", 12);
+    const lbl = `Step from ${s.n} to ${s.m}: FF1 samples the binary pointer as ${bits(s.bin.cap)}, i.e., ${s.bin.v}, and the Gray pointer as ${bits(s.gray.cap)}, i.e., ${s.gray.v}`;
+    return `<svg viewBox="0 0 ${W} ${HT}" role="img" aria-label="${lbl}" style="width: 100%; height: auto; max-width: ${W}px;"><desc>${desc}</desc>${out}</svg>`;
+  }
+
+  function readout(s) {
+    const B = s.bin, G = s.gray;
+    const ok = t => `<span class="afp-ok">${t}</span>`, bad = t => `<span class="afp-bad">${t}</span>`;
+    let bin = `<b>Binary:</b> FF1 samples <code>${bits(B.cap)}</code>, i.e., ${B.v}, `;
+    if (B.kind === "mix") {
+      bin += bad(`neither the old ${s.n} nor the new ${s.m}`) + `. For one read clock period, the fill level shows ${B.fill} entries instead of 0 or 1` +
+             (B.fill > 4 ? ", more than the 4 entries of the FIFO" : B.fill === 4 ? ", a full FIFO" : "") +
+             ". <code>empty_o</code> happens to be right, because the pointer moves by one entry at a time, but an output with the fill level would be wrong.";
+    } else {
+      bin += `the ${B.kind} value. ` + ((s.n ^ s.m) === 1 ? "This step changes only bit 0 in binary as well, so the binary pointer is safe here. Try the step from 3 to 4." :
+             "The changing bits all happen to arrive on the same side of this edge. Move it between two arrivals.");
+    }
+    let gr = `<b>Gray:</b> FF1 samples <code>${bits(G.cap)}</code>, i.e., ${G.v}, the ${G.kind} value. `;
+    gr += G.kind === "old" ? ok("<code>empty_o</code> stays high for one more read clock period: pessimistic, never wrong.")
+                           : ok("<code>empty_o</code> falls one read clock period after the sample, and the entry, written at the push, is read after it.");
+    return `<p>${bin}</p><p>${gr}</p>`;
+  }
+
+  const sel = id => root.querySelector("#afp-" + id);
+  sel("step").innerHTML = [...Array(8).keys()].map(n => {
+    const m = (n + 1) & 7;
+    return `<option value="${n}"${n === 3 ? " selected" : ""}>${n} to ${m}: binary ${bits(n)} to ${bits(m)}, Gray ${bits(gray(n))} to ${bits(gray(m))}</option>`;
+  }).join("");
+  sel("order").innerHTML = ORDERS.map((o, i) => `<option value="${i}">bit ${o[0]} first, then bit ${o[1]}, then bit ${o[2]}</option>`).join("");
+
+  function update() {
+    const e0 = parseFloat(sel("edge").value);
+    const s = model(parseInt(sel("step").value, 10), parseInt(sel("order").value, 10), e0);
+    const k = ARR.filter(a => a < e0).length;
+    const pos = k === 0 ? "before any bit arrives" : k === 3 ? "after all bits have arrived" : `after ${k} of 3 bit arrivals`;
+    sel("edge-text").textContent = pos;
+    sel("edge").setAttribute("aria-valuetext", pos);
+    root.querySelector(".afp-diagram").innerHTML = draw(s);
+    root.querySelector(".afp-readout").innerHTML = readout(s);
+    root.querySelector(".afp-live").textContent = root.querySelector(".afp-readout").textContent;
+  }
+  root.querySelector(".afp-controls").addEventListener("input", update);
+  root.querySelector(".afp-controls").addEventListener("change", update);
+  update();
+})();
+</script>
+```
+
+Interactive timing diagram of one step of the write pointer of @fig-cdc-async-fifo on its way into the read domain, once as a binary pointer through one synchronizer per bit (top), which `async_fifo` does not do, and once as the Gray pointer `wgray_q`, as `async_fifo` does (bottom). The FIFO is empty before the step: one push at the rising edge of `wclk` at time 0 writes an entry and advances the write pointer, while the read pointer stays at the old value. All bits of the pointer register change at the same moment, but each one reaches its first flip-flop FF1 through its own wire, with the same wire delays for both pointers. FF1 samples each bit at the read clock edge (blue line and dots): a bit that has already arrived with its new value, the others with their old one. FF2 passes the sampled value on at the next read clock edge (`wbin_r`, `wgray_r`), and one edge later, the settled new value. `empty_o` and the fill level, i.e., the synchronized write pointer minus the read pointer, are what the read domain computes from it. A binary step that changes several bits can arrive as a value that is neither the old nor the new one (red), and the fill level jumps for one read clock period. A Gray step changes one bit, so the read domain sees the old or the new value, and `empty_o` falls either one period later than it could, which is pessimistic, or as early as possible. A metastable FF1 resolves each bit to its old or its new value as well, so it leads to the same values. Clock periods and wire delays are not to scale, and the wire delays are exaggerated. Each flip-flop switches a short time after its clock edge, and the flags follow the synchronized pointer without further delay.
+:::
+:::
+
+::: {.content-visible unless-format="html"}
+::: {#fig-cdc-pointer-crossing}
+The interactive timing diagram is part of the HTML version of this book: <https://iic-jku.github.io/vlsi-design/vlsi.html#fig-cdc-pointer-crossing>.
+
+Interactive timing diagram of one step of the write pointer of @fig-cdc-async-fifo, crossing into the read domain as a binary and as a Gray pointer, with the order in which the bits arrive, the read clock edge at which the synchronizer samples, and the resulting value, `empty_o`, and fill level in the read domain.
+:::
+:::
